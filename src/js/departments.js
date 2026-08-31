@@ -8,36 +8,23 @@
 //                 component so visual consistency carries over from
 //                 the เครื่องมือ tab.
 //
-// Tools-per-dept config is the single source of truth — adding a tool
-// = one line below. The same definitions are mirrored into
-// tab-tools.html so the launcher search picks them up.
+// TOOLS LIVE IN src/data/tools.js, not here. This file holds only what is
+// specific to the ฝ่าย PAGE — title, icon, colour, and the Guidebook/Canva
+// resource cards. The tool list used to be duplicated by hand into
+// tab-tools.html; both now render from the registry (docs/DEPT-TOOLS.md §2).
 // ==============================================
 
 import { escHtml } from './utils.js';
 import { convertDriveUrl } from './uploads.js';
+import { toolsForDept } from '../data/tools.js';
+import { renderToolCards } from './tool-card.js';
 
-// Each tool is either:
-//   { kind: 'tab',      tabId: 'pills-pr-tab', icon, name, desc, color }
-//   { kind: 'external', href: 'https://...',   icon, name, desc, color }
-//   { kind: 'path',     path: '/projects-view', icon, name, desc, color }
-//
-// Color uses the same --tool-color CSS var the launcher already styles
-// from.
 const DEPT_DEFS = {
   admin: {
     eyebrow: 'Department',
     title: 'ฝ่ายบริหารองค์กร',
     icon: 'bi-shield',
     colorVar: '--dept-admin',
-    tools: [
-      { kind: 'tab', tabId: 'pills-shop-tab', icon: 'bi-bag-heart',
-        name: 'ร้านค้า SAMO', desc: 'สั่งซื้อเสื้อ ของที่ระลึก และอื่นๆ',
-        color: 'var(--brand-orange)' },
-      { kind: 'path', path: '/projects-view', icon: 'bi-folder2',
-        name: 'หนังสือโครงการ (มุมมองทั่วไป)',
-        desc: 'ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว',
-        color: 'var(--brand-primary)' },
-    ],
     // Announcement-style resource cards (cover image/video + title) that open
     // an external link in a new tab. Covers live in /public/dept-admin/.
     cards: [
@@ -61,97 +48,34 @@ const DEPT_DEFS = {
     title: 'ฝ่ายดิจิทัลและสื่อสารองค์กร',
     icon: 'bi-megaphone',
     colorVar: '--dept-digital',
-    tools: [
-      { kind: 'tab', tabId: 'pills-pr-tab', icon: 'bi-megaphone-fill',
-        name: 'PR Form', desc: 'ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ',
-        color: 'var(--pink-400)' },
-    ],
   },
   academic: {
     eyebrow: 'Department',
     title: 'ฝ่ายวิชาการ',
     icon: 'bi-book',
     colorVar: '--dept-academic',
-    tools: [
-      { kind: 'external', href: 'https://mdkkusamo-acaddatabase.notion.site/MDKKU-SAMO-Academic-Database-222c27821bb280e28e4dfed25056ec14',
-        icon: 'bi-journals',
-        name: 'SAMO Resource Database (Notion)',
-        desc: 'ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ',
-        color: 'var(--dept-academic)' },
-      { kind: 'external', href: 'https://mseb.md.kku.ac.th/main',
-        icon: 'bi-card-checklist',
-        name: 'MDKKU Self Exam Bank',
-        desc: 'คลังข้อสอบสำหรับฝึกทำด้วยตนเอง',
-        color: 'var(--dept-academic)' },
-    ],
   },
   strategy: {
     eyebrow: 'Department',
     title: 'ฝ่ายยุทธศาสตร์และพัฒนาองค์กร',
     icon: 'bi-puzzle',
     colorVar: '--dept-strategy',
-    tools: [
-      { kind: 'path', path: '/tools/golden-period', icon: 'bi-calendar-heart',
-        name: 'Golden Period',
-        desc: 'ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ',
-        color: 'var(--dept-strategy)' },
-      { kind: 'tab', tabId: 'pills-vitalsound-tab', icon: 'bi-clipboard2-pulse',
-        name: 'VitalSound', desc: 'ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร',
-        color: 'var(--vs-accent)' },
-      { kind: 'external', href: '/passport/',
-        icon: 'bi-patch-check',
-        name: 'SAMO Passport',
-        desc: 'เก็บหน่วยกิจกรรมและตรวจสอบสถานะของคุณ',
-        color: 'var(--brand-orange)' },
-    ],
   },
   media: {
     eyebrow: 'Department',
     title: 'ฝ่ายเวชนิทัศน์',
     icon: 'bi-camera',
     colorVar: '--dept-media',
-    tools: [
-      { kind: 'external', href: 'https://ge161892.my.canva.site/mdikku', icon: 'bi-globe2',
-        name: 'MDI Website', desc: 'เว็บไซต์ของฝ่ายเวชนิทัศน์',
-        color: 'var(--dept-media)' },
-    ],
   },
   rt: {
     eyebrow: 'Department',
     title: 'ฝ่ายรังสีเทคนิค',
     icon: 'bi-stars',
     colorVar: '--dept-projects',
-    tools: [
-      { kind: 'external', href: 'https://rtkkustudent.com/lander', icon: 'bi-globe2',
-        name: 'RT Website', desc: 'เว็บไซต์ของฝ่ายรังสีเทคนิค',
-        color: 'var(--dept-projects)' },
-    ],
   },
 };
 
 let activeDept = null;
-
-function renderToolCard(tool) {
-  const inner = `
-    <span class="launcher-tool-icon"><i class="bi ${escHtml(tool.icon)}"></i></span>
-    <span class="launcher-tool-body">
-      <span class="launcher-tool-name">${escHtml(tool.name)}</span>
-      <span class="launcher-tool-desc">${escHtml(tool.desc)}</span>
-    </span>
-    <i class="bi ${tool.kind === 'external' ? 'bi-box-arrow-up-right' : 'bi-arrow-right'} launcher-tool-arrow" aria-hidden="true"></i>
-  `;
-  const styleAttr = `style="--tool-color: ${escHtml(tool.color || 'var(--brand-primary)')};"`;
-  if (tool.kind === 'external') {
-    return `<a class="launcher-tool" ${styleAttr} href="${escHtml(tool.href)}" target="_blank" rel="noopener">${inner}</a>`;
-  }
-  if (tool.kind === 'path') {
-    return `<a class="launcher-tool" ${styleAttr} href="${escHtml(tool.path)}"
-              data-dept-tool-path="${escHtml(tool.path)}">${inner}</a>`;
-  }
-  // tab
-  return `<button type="button" class="launcher-tool" ${styleAttr}
-             data-dept-tool-tab="${escHtml(tool.tabId)}">${inner}</button>`;
-}
 
 // Announcement-style card (cover image OR looping muted video + title) that
 // opens an external link in a new tab. Mirrors renderNewsCard from
@@ -198,10 +122,7 @@ function showDept(deptKey) {
   const lead = document.getElementById('deptsDetailLead');
   if (lead) lead.textContent = `เครื่องมือของ${def.title}`;
 
-  const toolsRoot = document.getElementById('deptsDetailTools');
-  if (toolsRoot) {
-    toolsRoot.innerHTML = def.tools.map(renderToolCard).join('');
-  }
+  renderToolCards(document.getElementById('deptsDetailTools'), toolsForDept(deptKey));
 
   // Announcement-style resource cards (optional, per-dept).
   const cardsRoot = document.getElementById('deptsDetailCards');

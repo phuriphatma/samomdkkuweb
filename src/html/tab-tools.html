@@ -1,7 +1,8 @@
       <!-- TAB: TOOLS — searchable launcher. Designed to scale to 100+ tools.
            Each .launcher-tool carries data-name (search), data-cats (filter
-           chips), and data-roles (role-gated visibility). New tools just
-           drop in another card; no JS changes needed. -->
+           chips), and data-roles (role-gated visibility) — all emitted by the
+           shared renderer in src/js/tool-card.js. A NEW TOOL IS ONE ENTRY IN
+           src/data/tools.js; nothing is added to this file. -->
       <div class="tab-pane fade" id="pills-tools" role="tabpanel">
         <div class="container launcher-container">
 
@@ -31,8 +32,9 @@
           </header>
 
           <!-- ==========================================
-               SECTION: PUBLIC TOOLS (everyone) — currently
-               PR Form, VitalSound, Announcements archive.
+               SECTION: PUBLIC TOOLS (everyone). What is in it is decided by
+               src/data/tools.js, so this comment deliberately does not list
+               them — the list it used to carry was already wrong.
                ========================================== -->
           <section class="launcher-section" data-section="public">
             <div class="launcher-section-head">
@@ -41,156 +43,11 @@
               </h2>
               <p class="launcher-section-sub">เครื่องมือที่นักศึกษาทุกคนใช้งานได้</p>
             </div>
-            <div class="launcher-grid">
-              <button type="button" class="launcher-tool" style="--tool-color: var(--pink-400);"
-                data-name="pr form pr ฝากงาน ประชาสัมพันธ์"
-                data-cats="public pr"
-                onclick="activateTab('pills-pr-tab')">
-                <span class="launcher-tool-icon"><i class="bi bi-megaphone-fill"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">PR Form</span>
-                  <span class="launcher-tool-desc">ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ</span>
-                </span>
-                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
-              </button>
-
-              <a class="launcher-tool" style="--tool-color: var(--dept-strategy);"
-                data-name="golden period gpc ปฏิทิน ช่วงเวลา จัดกิจกรรม จัดโครงการ ว่าง"
-                data-cats="public"
-                href="/tools/golden-period"
-                onclick="navigateTo('/tools/golden-period'); return false;">
-                <span class="launcher-tool-icon"><i class="bi bi-calendar-heart"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">Golden Period</span>
-                  <span class="launcher-tool-desc">ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ</span>
-                </span>
-                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <button type="button" class="launcher-tool" style="--tool-color: var(--vs-accent);"
-                data-name="vitalsound vs ร้องเรียน ปัญหา ข้อเสนอแนะ"
-                data-cats="public vs"
-                onclick="activateTab('pills-vitalsound-tab')">
-                <span class="launcher-tool-icon"><i class="bi bi-clipboard2-pulse"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">VitalSound</span>
-                  <span class="launcher-tool-desc">ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร</span>
-                </span>
-                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
-              </button>
-
-              <button type="button" class="launcher-tool" style="--tool-color: var(--brand-orange);"
-                data-name="shop ร้านค้า สินค้า"
-                data-cats="public"
-                onclick="activateTab('pills-shop-tab')">
-                <span class="launcher-tool-icon"><i class="bi bi-bag-heart"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">ร้านค้า SAMO</span>
-                  <span class="launcher-tool-desc">สั่งซื้อเสื้อ ของที่ระลึก และอื่นๆ</span>
-                </span>
-                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
-              </button>
-
-              <!-- External: SAMO room booking (Apps Script). Opens in new tab. -->
-              <a class="launcher-tool" style="--tool-color: var(--brand-primary);"
-                data-name="ห้องสโม จองห้อง booking room reservation"
-                data-cats="public"
-                href="https://script.google.com/a/macros/kkumail.com/s/AKfycbyG28fVJFhldajKVJkVUL14m5KImWLtRK6gTNJaH_A7ONGSaJW6cqQFUV-O99PHmptF/exec"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-calendar-check"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">ระบบจองห้องสโม</span>
-                  <span class="launcher-tool-desc">จองห้องสโมสรนักศึกษาสำหรับกิจกรรม</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- External: SAMO Passport (activity points). Opens in new tab. -->
-              <a class="launcher-tool" style="--tool-color: var(--brand-orange);"
-                data-name="passport activity points หน่วยกิจกรรม กิจกรรม สะสมแต้ม"
-                data-cats="public"
-                href="/passport/"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-patch-check"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">SAMO Passport</span>
-                  <span class="launcher-tool-desc">เก็บหน่วยกิจกรรมและตรวจสอบสถานะของคุณ</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- ฝ่ายบริหารองค์กร: customer view of หนังสือโครงการ.
-                   Internal SPA route — uses window.navigateTo via the
-                   path so the in-app router activates the right tab. -->
-              <a class="launcher-tool" style="--tool-color: var(--brand-primary);"
-                data-name="หนังสือโครงการ ดู สถานะ ลูกค้า customer view projects bookkeeping"
-                data-cats="public"
-                href="/projects-view"
-                onclick="event.preventDefault(); navigateTo('/projects-view');">
-                <span class="launcher-tool-icon"><i class="bi bi-folder2"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">หนังสือโครงการ (มุมมองทั่วไป)</span>
-                  <span class="launcher-tool-desc">ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว</span>
-                </span>
-                <i class="bi bi-arrow-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- ฝ่ายวิชาการ: Notion SAMO Resource Database. -->
-              <a class="launcher-tool" style="--tool-color: var(--dept-academic);"
-                data-name="notion samo resource database ฝ่ายวิชาการ การเรียน แหล่งเรียนรู้"
-                data-cats="public"
-                href="https://mdkkusamo-acaddatabase.notion.site/MDKKU-SAMO-Academic-Database-222c27821bb280e28e4dfed25056ec14"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-journals"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">SAMO Resource Database (Notion)</span>
-                  <span class="launcher-tool-desc">ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- ฝ่ายวิชาการ: MDKKU Self Exam Bank. -->
-              <a class="launcher-tool" style="--tool-color: var(--dept-academic);"
-                data-name="mdkku self exam bank ฝ่ายวิชาการ คลังข้อสอบ ข้อสอบ ฝึกทำ"
-                data-cats="public"
-                href="https://mseb.md.kku.ac.th/main"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-card-checklist"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">MDKKU Self Exam Bank</span>
-                  <span class="launcher-tool-desc">คลังข้อสอบสำหรับฝึกทำด้วยตนเอง</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- ฝ่ายเวชนิทัศน์: MDI Website. -->
-              <a class="launcher-tool" style="--tool-color: var(--dept-media);"
-                data-name="mdi medical illustration ฝ่ายเวชนิทัศน์ media"
-                data-cats="public"
-                href="https://ge161892.my.canva.site/mdikku"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-globe2"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">MDI Website</span>
-                  <span class="launcher-tool-desc">เว็บไซต์ของฝ่ายเวชนิทัศน์</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-
-              <!-- ฝ่ายรังสีเทคนิค: RT Website. -->
-              <a class="launcher-tool" style="--tool-color: var(--dept-projects);"
-                data-name="rt rangsi รังสีเทคนิค radiology"
-                data-cats="public"
-                href="https://rtkkustudent.com/lander"
-                target="_blank" rel="noopener">
-                <span class="launcher-tool-icon"><i class="bi bi-stars"></i></span>
-                <span class="launcher-tool-body">
-                  <span class="launcher-tool-name">RT Website</span>
-                  <span class="launcher-tool-desc">เว็บไซต์ของฝ่ายรังสีเทคนิค</span>
-                </span>
-                <i class="bi bi-box-arrow-up-right launcher-tool-arrow" aria-hidden="true"></i>
-              </a>
-            </div>
+            <!-- GENERATED from src/data/tools.js by src/js/launcher.js.
+                 ⛔ Do not hand-write a card here — that is the second copy the
+                 registry exists to remove (docs/DEPT-TOOLS.md §2). Add an entry
+                 to the registry instead; it appears here and on the ฝ่าย page. -->
+            <div class="launcher-grid" id="launcherGridPublic"></div>
           </section>
 
 

@@ -31,6 +31,7 @@ import { initVsBoard, vsBoardSearch, vsBoardSetSort, vsBoardCat, vsBoardOpen, vs
 import { initVsRoute, vsSetRoute } from './vs-route.js';
 import { initShop } from './shop/index.js';
 import { initDepartments } from './departments.js';
+import { initLauncher } from './launcher.js';
 import { initOrgChart, enterOrgChart } from './org-chart.js';
 import { showMySeat, renderMySeat, clearMySeatCache, loadMySeat } from './my-seat.js';
 import { showMyHouse, renderMyHouse, clearMyHouseCache } from './house/my-house.js';
@@ -930,6 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Departments tab — grid drill-down to per-ฝ่าย tool list.
   initDepartments();
+  initLauncher();
   initOrgChart();
 
   // Public read-only mirror of /admin/'s หนังสือโครงการ (customer view).

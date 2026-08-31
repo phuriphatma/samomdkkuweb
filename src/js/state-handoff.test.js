@@ -65,8 +65,6 @@ const ABSENT_ON_PURPOSE = {
     'an ephemeral ~30-line WebKit harness; STATE.md names it as a SHAPE worth rebuilding and says so',
   'assets/admin-CPiyOZWb.js':
     'a served bundle hash from a past deploy, recorded as evidence; it has a slash only because the URL path does',
-  'src/data/tools.js':
-    'PLANNED, not written — the single ฝ่าย-tool registry designed in docs/DEPT-TOOLS.md §2, which today is three hand-maintained copies (DEPT_DEFS, tab-tools.html, PATH_ROUTES). Named here so the destination of that merge has one agreed name; DELETE this exemption in the same commit that creates the file',
 };
 
 describe('STATE.md is a handoff, not a memory', () => {

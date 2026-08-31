@@ -1,0 +1,186 @@
+// ============================================================
+// tools.js — THE ฝ่าย TOOL REGISTRY. One list, three consumers.
+//
+// Before this file existed the same tools were written down TWICE by hand:
+// `DEPT_DEFS` in src/js/departments.js rendered the per-ฝ่าย cards, and
+// src/html/tab-tools.html hand-wrote every card again for the searchable
+// launcher. Adding Golden Period on 2026-08-27 nearly made it a third copy.
+// That is `.claude/rules/mistakes.md` class 6 — one fact with many homes — and
+// `dept-tool-mirror.test.js` existed only to stop the two drifting silently.
+//
+// Now both render from here, so the drift is gone by construction rather than
+// by ratchet. Designed in docs/DEPT-TOOLS.md §2; this is its step 1. Step 2
+// (later) moves this list into a table with an editor so a ฝ่าย can add a tool
+// with no deploy at all — which is why every entry carries the fields an editor
+// would need, not just the ones the renderer reads today.
+//
+// ⚠️ ADDING A TOOL IS ONE ENTRY HERE. Do not add markup to tab-tools.html —
+// its grid is generated (src/js/launcher.js), and anything hand-written there
+// is a second copy again.
+//
+// FIELD NAMES. `name`/`desc` rather than the `title`/`desc` in the §2 sketch:
+// the card renderer has always called it `name`, and renaming it would have
+// touched every consumer for nothing. Everything else follows §2.
+//
+//   slug      stable id — the key an editor/table would store. Never reuse.
+//   dept      which ฝ่าย page it appears on, or null for launcher-only tools
+//             (ระบบจองห้องสโม belongs to no single ฝ่าย). Must be a key of
+//             DEPT_DEFS — `tools-registry.test.js` fails on a typo.
+//   kind      'tab' | 'path' | 'external'
+//   tabId     kind:'tab'      — the Bootstrap pill to activate
+//   path      kind:'path'     — an IN-APP route; MUST exist in PATH_ROUTES
+//   href      kind:'external' — opens in a new tab
+//   keywords  extra search terms for the launcher (Thai + English + acronyms).
+//             The visible name is searched too, so do not repeat it here.
+//   cats      launcher filter chips, space-separated ('public', 'pr', 'vs')
+//   launcher  set false to keep a tool off the launcher (default: shown)
+//
+// ORDER IS THE LAUNCHER ORDER. The ฝ่าย pages filter this list, so an entry's
+// position also decides where it sits on its ฝ่าย page.
+// ============================================================
+
+export const TOOLS = [
+  {
+    slug: 'pr-form',
+    dept: 'digital',
+    kind: 'tab',
+    tabId: 'pills-pr-tab',
+    name: 'PR Form',
+    desc: 'ฝากงานประชาสัมพันธ์ลง IG / FB ของคณะ',
+    icon: 'bi-megaphone-fill',
+    color: 'var(--pink-400)',
+    keywords: 'pr ฝากงาน ประชาสัมพันธ์',
+    cats: 'public pr',
+  },
+  {
+    slug: 'golden-period',
+    dept: 'strategy',
+    kind: 'path',
+    path: '/tools/golden-period',
+    name: 'Golden Period',
+    desc: 'ดูว่านักศึกษาแต่ละชั้นปีน่าจะว่างช่วงไหน ก่อนเลือกวันจัดโครงการ',
+    icon: 'bi-calendar-heart',
+    color: 'var(--dept-strategy)',
+    keywords: 'gpc ปฏิทิน ช่วงเวลา จัดกิจกรรม จัดโครงการ ว่าง',
+    cats: 'public',
+  },
+  {
+    slug: 'vitalsound',
+    dept: 'strategy',
+    kind: 'tab',
+    tabId: 'pills-vitalsound-tab',
+    name: 'VitalSound',
+    desc: 'ส่งคำร้องเรียน / ข้อเสนอแนะให้สโมสร',
+    icon: 'bi-clipboard2-pulse',
+    color: 'var(--vs-accent)',
+    keywords: 'vs ร้องเรียน ปัญหา ข้อเสนอแนะ',
+    cats: 'public vs',
+  },
+  {
+    slug: 'shop',
+    dept: 'admin',
+    kind: 'tab',
+    tabId: 'pills-shop-tab',
+    name: 'ร้านค้า SAMO',
+    desc: 'สั่งซื้อเสื้อ ของที่ระลึก และอื่นๆ',
+    icon: 'bi-bag-heart',
+    color: 'var(--brand-orange)',
+    keywords: 'shop สินค้า',
+    cats: 'public',
+  },
+  {
+    // Belongs to no single ฝ่าย, so it appears in the launcher only.
+    slug: 'room-booking',
+    dept: null,
+    kind: 'external',
+    href: 'https://script.google.com/a/macros/kkumail.com/s/AKfycbyG28fVJFhldajKVJkVUL14m5KImWLtRK6gTNJaH_A7ONGSaJW6cqQFUV-O99PHmptF/exec',
+    name: 'ระบบจองห้องสโม',
+    desc: 'จองห้องสโมสรนักศึกษาสำหรับกิจกรรม',
+    icon: 'bi-calendar-check',
+    color: 'var(--brand-primary)',
+    keywords: 'ห้องสโม จองห้อง booking room reservation',
+    cats: 'public',
+  },
+  {
+    // A SEPARATE app at its own base — a full page load here is correct.
+    slug: 'passport',
+    dept: 'strategy',
+    kind: 'external',
+    href: '/passport/',
+    name: 'SAMO Passport',
+    desc: 'เก็บหน่วยกิจกรรมและตรวจสอบสถานะของคุณ',
+    icon: 'bi-patch-check',
+    color: 'var(--brand-orange)',
+    keywords: 'passport activity points หน่วยกิจกรรม กิจกรรม สะสมแต้ม',
+    cats: 'public',
+  },
+  {
+    slug: 'projects-view',
+    dept: 'admin',
+    kind: 'path',
+    path: '/projects-view',
+    name: 'หนังสือโครงการ (มุมมองทั่วไป)',
+    desc: 'ดูสถานะหนังสือโครงการที่ SAMO ส่งให้เจ้าหน้าที่ — อ่านอย่างเดียว',
+    icon: 'bi-folder2',
+    color: 'var(--brand-primary)',
+    keywords: 'ดู สถานะ ลูกค้า customer view projects bookkeeping',
+    cats: 'public',
+  },
+  {
+    slug: 'acad-notion',
+    dept: 'academic',
+    kind: 'external',
+    href: 'https://mdkkusamo-acaddatabase.notion.site/MDKKU-SAMO-Academic-Database-222c27821bb280e28e4dfed25056ec14',
+    name: 'SAMO Resource Database (Notion)',
+    desc: 'ฐานข้อมูลทรัพยากรการเรียนรู้ของฝ่ายวิชาการ',
+    icon: 'bi-journals',
+    color: 'var(--dept-academic)',
+    keywords: 'ฝ่ายวิชาการ การเรียน แหล่งเรียนรู้',
+    cats: 'public',
+  },
+  {
+    slug: 'self-exam-bank',
+    dept: 'academic',
+    kind: 'external',
+    href: 'https://mseb.md.kku.ac.th/main',
+    name: 'MDKKU Self Exam Bank',
+    desc: 'คลังข้อสอบสำหรับฝึกทำด้วยตนเอง',
+    icon: 'bi-card-checklist',
+    color: 'var(--dept-academic)',
+    keywords: 'ฝ่ายวิชาการ คลังข้อสอบ ข้อสอบ ฝึกทำ',
+    cats: 'public',
+  },
+  {
+    slug: 'mdi-website',
+    dept: 'media',
+    kind: 'external',
+    href: 'https://ge161892.my.canva.site/mdikku',
+    name: 'MDI Website',
+    desc: 'เว็บไซต์ของฝ่ายเวชนิทัศน์',
+    icon: 'bi-globe2',
+    color: 'var(--dept-media)',
+    keywords: 'mdi medical illustration ฝ่ายเวชนิทัศน์ media',
+    cats: 'public',
+  },
+  {
+    slug: 'rt-website',
+    dept: 'rt',
+    kind: 'external',
+    href: 'https://rtkkustudent.com/lander',
+    name: 'RT Website',
+    desc: 'เว็บไซต์ของฝ่ายรังสีเทคนิค',
+    icon: 'bi-stars',
+    color: 'var(--dept-projects)',
+    keywords: 'rt rangsi รังสีเทคนิค radiology',
+    cats: 'public',
+  },
+];
+
+/** The tools shown on one ฝ่าย's detail page, in registry order. */
+export const toolsForDept = (dept) => TOOLS.filter((t) => t.dept === dept);
+
+/** The tools the searchable launcher renders, in registry order. */
+export const launcherTools = () => TOOLS.filter((t) => t.launcher !== false);
+
+/** Where a tool navigates to — the one place that knows which key holds it. */
+export const toolTarget = (t) => t.tabId || t.path || t.href || '';
