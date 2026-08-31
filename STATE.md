@@ -29,8 +29,7 @@ because it held three lifetimes at once. It now holds one: **status**.
     deny 42 of the 45 holders.
 
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
-    signup; FIXED by 0175, zero students affected.** Found by proof #27
-    (`tools/passport-link-on-signup.sql`). `docs/mistakes/postgres-schema.md`.
+    signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
 01. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** — a doc
     denied it for weeks; guard `preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md`
@@ -49,9 +48,14 @@ because it held three lifetimes at once. It now holds one: **status**.
     `systemctl reload nginx` — the install line at the top of that file. A
     deploy alone leaves the redirects missing.
     Shape: `docs/start/` (prerequisites → install → first-change →
-    dependent-work → troubleshooting) then `docs/contributing.md`; Claude-facing
-    material is collapsed under **บันทึกวิศวกรรม**. The old CONTRIBUTE and
+    dependent-work → troubleshooting) then `docs/contributing.md`; maintainer
+    and agent material is collapsed at the bottom. The old CONTRIBUTE and
     STEP-BY-STEP pages were MERGED AWAY — do not recreate them.
+    📌 **The contributor docs are ENGLISH now** (owner: *"thai seem weird"*),
+    in plain instructional prose. Thai stays only for things this organisation
+    actually calls by a Thai name (ฝ่าย, the app's own UI labels) — translating
+    those would stop them matching what a person sees on screen. `STATE.md`,
+    `docs/mistakes/` and the archive are unaffected.
     **Why any of it is shaped this way, and three traps found doing it:
     `docs/state-archive/2026-08-31-docs-site-restructure.md`. Read it before
     reopening the URL question or the site's structure.**
