@@ -1,6 +1,6 @@
-# โครงสร้างระบบ
+# Architecture
 
-> แผนผังสถาปัตยกรรม โครงสร้างฐานข้อมูล สิทธิ์การเข้าถึง และการ deploy
+> The system map, database schema, access rules and how deploys work
 
 Read this when editing:
 - Anything in `supabase/migrations/`

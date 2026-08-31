@@ -1,140 +1,140 @@
-# ส่งการแก้ครั้งแรก
+# Your first change
 
-จากแก้ไฟล์บนเครื่อง จนการแก้ของคุณถูกรวมเข้าโปรเจกต์
+From editing a file on your machine to having it merged.
 
-![การแก้เดินทางจากเครื่องคุณ ไป branch ไป pull request ไป main แล้วผู้ดูแลจึงสั่ง deploy](../diagrams/journey.svg)
+![Your change travels from your machine to a branch, to a pull request, into main, and only then does a maintainer deploy it](../diagrams/journey.svg)
 
-## 1. ดึงของล่าสุดก่อน
+## 1. Get the latest code first
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
-ใช้เวลา 3 วินาที และกันไม่ให้งานคุณไปชนกับงานคนอื่นตอนส่ง
+This takes a few seconds and prevents merge conflicts later.
 
-## 2. สร้าง branch
+## 2. Create a branch
 
 ```bash
 git checkout -b ui/news-card-spacing
 ```
 
-::: warning ต้องสร้าง branch เสมอ
-`main` ถูกล็อกไว้ — push ตรงเข้าไปไม่ได้ ระบบจะปฏิเสธ ไม่ใช่แค่ไม่แนะนำ
+::: warning A branch is required
+`main` is protected. Pushing to it directly is refused — this is a rule the system enforces, not just a convention.
 :::
 
-![main เป็นเส้นเดียวยาวตลอด แต่ละ branch แตกออกไปทำเรื่องเดียวแล้วรวมกลับเข้า main](../diagrams/branches.svg)
+![main is one long line; each branch splits off for a single job and merges back](../diagrams/branches.svg)
 
-ตั้งชื่อเป็น `<ประเภท>/<เรื่องสั้น ๆ>` ภาษาอังกฤษ ตัวเล็ก ขีดกลางคั่น
+Name it `<type>/<short-topic>` in lowercase, with hyphens.
 
-| ขึ้นต้นด้วย | ใช้เมื่อ | ตัวอย่าง |
+| Prefix | Use it for | Example |
 |---|---|---|
-| `feat/` | เพิ่มของใหม่ | `feat/golden-period-page` |
-| `fix/` | แก้บั๊ก | `fix/vs-form-double-submit` |
-| `ui/` | หน้าตา สี ระยะห่าง | `ui/news-card-spacing` |
-| `docs/` | เอกสารอย่างเดียว | `docs/install-guide` |
+| `feat/` | Something new | `feat/golden-period-page` |
+| `fix/` | A bug | `fix/vs-form-double-submit` |
+| `ui/` | Colours, spacing, layout | `ui/news-card-spacing` |
+| `docs/` | Documentation only | `docs/install-guide` |
 
-**ชื่อ branch กลายเป็นที่อยู่เว็บทดลองของคุณ** — `ui/news-card-spacing` จะได้ `https://ui-news-card-spacing.samomdkkuweb.pages.dev` ตั้งชื่อสั้นแล้วอ่านง่ายไปด้วยกัน
+**The branch name becomes your preview address.** `ui/news-card-spacing` becomes `https://ui-news-card-spacing.samomdkkuweb.pages.dev`. Keep names short so the address stays readable.
 
-**หนึ่ง branch ทำเรื่องเดียว** อยากแก้สองเรื่องที่ไม่เกี่ยวกัน ให้แยกสอง branch — รีวิวเร็วกว่า และเรื่องหนึ่งติดปัญหา อีกเรื่องไม่ต้องรอ
+**Use one branch per change.** If you want to change two unrelated things, create two branches. Smaller pull requests are reviewed faster, and a problem with one does not block the other.
 
-## 3. แก้ แล้วดูผล
+## 3. Make the change and watch it
 
-เปิด Terminal อีกหน้าต่างทิ้งไว้
+Leave a second terminal window running:
 
 ```bash
 npm run dev
 ```
 
-แก้ไฟล์ หน้าเว็บรีเฟรชเอง ก่อนไปขั้นต่อไป ให้สองคำสั่งนี้เขียวก่อน
+The page reloads as you edit. Before continuing, confirm both of these pass:
 
 ```bash
 npm test
 npm run build
 ```
 
-## 4. บันทึกงาน
+## 4. Save your work
 
 ```bash
-git status                       # ดูก่อนว่ามีอะไรเปลี่ยนบ้าง
-git add src/css/news.css         # เลือกเฉพาะไฟล์ที่ตั้งใจ
-git commit -m "ui(news): ลดระยะห่างการ์ดข่าวบนมือถือ"
+git status                       # see what changed before you stage anything
+git add src/css/news.css         # stage only the files you meant to
+git commit -m "ui(news): tighten news card spacing on mobile"
 git push -u origin ui/news-card-spacing
 ```
 
-`-u origin <branch>` ใส่แค่ครั้งแรกของ branch นั้น หลังจากนั้น `git push` เปล่า ๆ พอ
+You only need `-u origin <branch>` the first time you push a branch. After that, `git push` is enough.
 
-::: danger ทำไมต้อง git status ก่อน git add .
-`git add .` แปลว่า "ทุกอย่างที่เปลี่ยน" — รวมภาพหน้าจอที่เผลอเซฟไว้ในโฟลเดอร์ และไฟล์ทดลองที่ลืมลบ
+::: danger Why `git status` before `git add .`
+`git add .` stages *everything that changed*, including files you did not mean to add — a screenshot saved into the project folder, or a temporary file you forgot to delete.
 
-โปรเจกต์นี้เปิดสาธารณะ และ**ประวัติ git ลบไม่ได้จริง** ลบไฟล์พรุ่งนี้ ก็ยังย้อนดู commit วันนี้ได้ ชื่อ รหัสนักศึกษา อีเมล รูปถ่ายที่หลุดเข้าไปครั้งเดียว อยู่ตลอดไป
+This repository is public, and **git history cannot be reliably deleted**. Deleting a file tomorrow does not remove it from today's commit. Once a name, student ID, email address or photo is committed, it stays in the history permanently.
 :::
 
-## 5. เปิด Pull Request
+## 5. Open a pull request
 
 ```bash
 gh pr create --fill --web
 ```
 
-หรือเปิด GitHub ในเว็บ จะมีแถบ *Compare & pull request* ขึ้นให้กด
+Or open GitHub in a browser — a *Compare & pull request* banner appears after you push.
 
-เขียนสามอย่าง ไม่ต้องยาว
+Include three things. None of them need to be long.
 
-1. **แก้อะไร** — หนึ่งประโยค
-2. **ทำไม** — เดิมเป็นยังไง
-3. **ทดสอบยังไง** — จอกว้างเท่าไรบ้าง ปกติเช็ก 390 / 820 / 1280 px
+1. **What changed** — one sentence
+2. **Why** — what it was like before
+3. **How you tested it** — which screen widths you checked; 390 / 820 / 1280 px is the usual set
 
-::: tip ยังไม่เสร็จก็เปิดได้
-กด *Create draft pull request* — คนอื่นเห็นว่าคุณทำเรื่องนี้อยู่ จะได้ไม่ทำซ้ำ และคุณได้เว็บทดลองมาใช้ตั้งแต่ยังไม่เสร็จ ติดตรงไหนใส่ `[help]` ไว้ในหัวข้อ
+::: tip Open it before you are finished
+Use *Create draft pull request*. Others can see what you are working on, so nobody duplicates it, and you get CI and a preview site while you are still working. Put `[help]` in the title if you are stuck.
 :::
 
-## 6. เปิดเว็บทดลองดูของจริง
+## 6. Check the preview site
 
-ทุก branch ได้เว็บของตัวเองอัตโนมัติ ลิงก์โผล่ในหน้า pull request ภายในไม่กี่นาที หรือถามจาก Terminal
+Every branch gets its own live site automatically. The link appears in the pull request within a few minutes, or ask for it directly:
 
 ```bash
 npm run preview:url
 ```
 
-![สามสภาพแวดล้อม: เครื่องคุณและเว็บทดลองต่อฐานข้อมูลสำเนา ส่วนเว็บจริงต่อฐานข้อมูลจริง](../diagrams/environments.svg)
+![Your machine and the preview site both use a copy of the database; only the live site uses the real one](../diagrams/environments.svg)
 
-**เว็บทดลองต่อกับฐานข้อมูลสำเนา ไม่ใช่ของจริง** กดปุ่ม ส่งฟอร์ม สร้างของทิ้งได้เต็มที่ นี่คือที่ที่ควรทดสอบจริง ๆ ไม่ใช่แค่ดูบนเครื่องตัวเอง
+**The preview site is connected to `samo-dev`, a copy of the database — not the real one.** You can click buttons, submit forms and create test records without affecting anyone. Test here, not only on your own machine.
 
-ที่อยู่นี้คงที่ตลอดอายุ branch — bookmark ไว้ครั้งเดียว push ทีไรมันอัปเดตเอง ส่งให้เพื่อนในฝ่ายช่วยดูได้ เขาไม่ต้องลงอะไรเลย
+The address stays the same for the life of the branch, so you can bookmark it once and it will update on every push. You can send it to someone in your ฝ่าย for a second opinion; they do not need to install anything.
 
-## 7. รอ CI กับคนรีวิว
+## 7. Wait for CI and review
 
-| ตรวจอะไร | ใช้เวลา | ถ้าแดง |
+| Check | Takes | If it is red |
 |---|---|---|
-| **build** — `npm test` + `npm run build` | ~2 นาที | กด *Details* อ่านบรรทัดแรกที่แดง |
-| **Cloudflare Pages** — สร้างเว็บทดลอง | ~2 นาที | มักแปลว่า build พังเหมือนกัน |
-| **smoke** — เปิดเว็บทดลองด้วย browser จริง | ~1 นาที | หน้าโหลดขึ้นแต่ปุ่มไม่ทำงาน |
+| **build** — `npm test` and `npm run build` | ~2 min | Click *Details* and read the first red line |
+| **Cloudflare Pages** — builds the preview | ~2 min | Usually means the build failed too |
+| **smoke** — loads the preview in a real browser | ~1 min | The page loads but nothing responds |
 
-แก้แล้ว **ไม่ต้องเปิด pull request ใหม่** — commit เพิ่มแล้ว `git push` ทับ ทุกอย่างรันใหม่ให้เอง
+To fix something, **do not open a new pull request.** Commit and push again. The existing pull request updates automatically and all checks re-run.
 
-ใครอนุมัติ ขึ้นกับว่าคุณแตะไฟล์ไหน — ดู [แก้อะไรได้บ้าง](/contributing)
+Who has to approve depends on which files you touched — see [What you can change](/contributing).
 
-## 8. ถูกรวมแล้ว แต่ยังไม่ขึ้นเว็บจริง
+## 8. Merged is not published
 
-การรวมเข้า `main` ไม่ได้ทำให้ขึ้นเว็บจริง ผู้ดูแลต้องต่อ VPN ของ มข. แล้วสั่ง deploy อีกครั้ง ปกติรวบหลาย pull request แล้ว deploy ทีเดียว
+Merging into `main` does not put your change on the live site. A maintainer has to connect to the KKU VPN and deploy, usually batching several pull requests together.
 
-ตั้งใจให้เป็นแบบนี้ — **การกดรับ pull request จึงเป็นเรื่องถูกและถอยกลับได้** จุดตรวจที่จริงจังอยู่ที่ deploy จุดเดียว ไม่ใช่กระจายไปขวางทุกคนตอนรีวิว
+This is intentional. Approving a pull request is low-risk and easy to undo, which keeps review fast. The careful check happens once, at deploy time.
 
-## ทุกคำสั่งในที่เดียว
+## Every command in one place
 
 ```bash
-# เริ่มงานใหม่
+# starting a new piece of work
 git checkout main && git pull origin main
 git checkout -b ui/my-topic
 npm run dev
 
-# บันทึกงาน
+# saving your work
 git status
-git add <ไฟล์>
-git commit -m "ui(scope): อธิบายสั้น ๆ"
+git add <files>
+git commit -m "ui(scope): short description"
 git push -u origin ui/my-topic
 
-# ส่ง
+# sending it
 npm test && npm run build
 gh pr create --fill --web
 npm run preview:url

@@ -1,6 +1,6 @@
-# เวอร์ชันและการปล่อยรุ่น
+# Versioning and releases
 
-> เลขเวอร์ชันทำงานยังไง และปล่อยรุ่นใหม่ยังไง
+> How version numbers work, and how to publish a release
 
 How this project numbers its releases, why it numbers them that way, and the
 exact steps to cut one.

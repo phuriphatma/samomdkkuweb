@@ -1,40 +1,40 @@
-# สิ่งที่ต้องมีก่อน
+# Prerequisites
 
-ก่อนรันโปรเจกต์บนเครื่องตัวเอง ต้องมีสามอย่างนี้
+You need three things before you can run the project locally.
 
-## ความต้องการ
+## Requirements
 
-- **Node.js เวอร์ชัน 22 ขึ้นไป** — ดาวน์โหลดตัว LTS จาก [nodejs.org](https://nodejs.org)
-- **Git** — มากับ macOS อยู่แล้ว บน Windows ลงจาก [git-scm.com](https://git-scm.com)
-- **บัญชี GitHub** — สมัครฟรีที่ [github.com](https://github.com)
-- **GitHub CLI** (`gh`) — ไม่บังคับ แต่ทำให้ทุกขั้นสั้นลงมาก ([cli.github.com](https://cli.github.com))
+- **Node.js 22 or newer** — download the LTS build from [nodejs.org](https://nodejs.org)
+- **Git** — already installed on macOS; on Windows get it from [git-scm.com](https://git-scm.com)
+- **A GitHub account** — free at [github.com](https://github.com)
+- **GitHub CLI** (`gh`) — optional, but it makes every step shorter ([cli.github.com](https://cli.github.com))
 
-::: warning Node 20 ใช้ไม่ได้
-`npm test` จะพังทันทีบน Node 20 เพราะไลบรารีฐานข้อมูลต้องการ WebSocket ที่ Node 20 ไม่มี ตรวจด้วย `node -v` ก่อนเสมอ
+::: warning Node 20 will not work
+`npm test` fails immediately on Node 20, because the database library needs a WebSocket that Node 20 does not have. Always check with `node -v` first.
 :::
 
-## ตรวจว่าครบแล้ว
+## Check what you have
 
-เปิด Terminal แล้วพิมพ์
+Open a terminal and run:
 
 ```bash
-node -v        # ต้องขึ้น v22 หรือสูงกว่า
+node -v        # must print v22 or higher
 git --version
-gh --version   # ถ้าไม่ได้ลง ข้ามได้
+gh --version   # skip if you did not install it
 ```
 
-::: tip เปิด Terminal ยังไง
-**macOS** — กด `⌘ + Space` พิมพ์ `Terminal` แล้ว Enter
-**Windows** — กดปุ่ม Windows พิมพ์ `Terminal` แล้ว Enter
-**VS Code** — เมนู `Terminal` → `New Terminal`
+::: tip Opening a terminal
+**macOS** — press `⌘ + Space`, type `Terminal`, press Enter
+**Windows** — press the Windows key, type `Terminal`, press Enter
+**VS Code** — menu `Terminal` → `New Terminal`
 :::
 
-ในคู่มือนี้ บรรทัดคำสั่งจะขึ้นต้นด้วย `$` — **นั่นคือสัญลักษณ์ของ Terminal ไม่ต้องพิมพ์ตาม** พิมพ์เฉพาะข้อความหลังจากนั้น
+Command lines in this guide start with `$`. **That is the terminal's own prompt — do not type it.** Type only what follows.
 
-## คุณไม่ต้องขอสิทธิ์อะไร
+## You do not need permission to contribute
 
-ใครก็ตามที่มีบัญชี GitHub เสนอการแก้ไขได้ทันที ไม่ต้องรอให้ใครเพิ่มเข้าโปรเจกต์ก่อน
+Anyone with a GitHub account can propose a change immediately. Nobody has to add you to the project first.
 
-ระบบจะสร้างสำเนาของโปรเจกต์ไว้ใต้ชื่อคุณ คุณแก้ในสำเนานั้น แล้วส่งกลับมาให้ทีมตรวจ **เว็บจริงไม่เปลี่ยนจนกว่าจะมีคนกดรับ** จึงไม่มีทางทำเว็บพังโดยไม่ตั้งใจ
+GitHub creates your own copy of the project. You edit that copy and submit it for review. **The live site does not change until someone approves and deploys it**, so you cannot break it by accident.
 
-ขั้นต่อไป — [ติดตั้งและรัน](/start/install)
+Next — [Install and run](/start/install)

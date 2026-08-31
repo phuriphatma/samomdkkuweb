@@ -2,45 +2,45 @@
 layout: home
 hero:
   name: SAMO MDKKU
-  text: คู่มือนักพัฒนา
-  tagline: เว็บสโมสรนักศึกษาแพทย์ ม.ขอนแก่น — วิธีรันบนเครื่องตัวเอง วิธีส่งงาน และระบบทำงานยังไง
+  text: Developer documentation
+  tagline: The student portal for the Faculty of Medicine, Khon Kaen University — how to run it, how to contribute, and how it works.
   actions:
     - theme: brand
-      text: เริ่มต้นที่นี่
+      text: Get started
       link: /start/prerequisites
     - theme: alt
-      text: ร่วมพัฒนา
+      text: What you can change
       link: /contributing
 features:
-  - title: รันบนเครื่องตัวเอง
-    details: ต้องลงอะไรบ้าง ดึงโปรเจกต์ยังไง แล้วเปิดเว็บที่ localhost:5174 ประมาณ 10 นาที
+  - title: Run it locally
+    details: What to install, how to get the project, and how to open it at localhost:5174. About ten minutes.
     link: /start/install
-  - title: ส่งการแก้ครั้งแรก
-    details: สร้าง branch แก้ไฟล์ เปิด pull request แล้วดูของจริงในเว็บทดลอง ทีละคำสั่ง พร้อมรูป
+  - title: Your first change
+    details: Branch, edit, commit, open a pull request, and see it live on a preview site. Command by command, with diagrams.
     link: /start/first-change
-  - title: เครื่องมือของฝ่าย
-    details: ฝ่ายทำหน้าเครื่องมือของตัวเองได้ ใช้ขั้นตอนเดียวกับทีมพัฒนา ไม่ต้องรอ IT เขียนให้
+  - title: Department tools
+    details: A ฝ่าย can ship its own tool page using the same process as the dev team, without waiting for IT to write it.
     link: /DEPT-TOOLS
-  - title: ระบบทำงานยังไง
-    details: โครงสร้างเว็บ ฐานข้อมูล สิทธิ์การเข้าถึง และกฎที่ห้ามผิดไม่ว่าจะผ่านไปกี่ปี
+  - title: How the system works
+    details: Architecture, the database, access rules, and the invariants that must still hold next year.
     link: /CONTEXT
 ---
 
-## ใครควรอ่านหน้าไหน
+## Where to start
 
-| คุณคือ | เริ่มที่ |
+| You are | Start at |
 |---|---|
-| อยากแก้คำผิดหรือข้อความ ไม่เคยเขียนโปรแกรม | [ร่วมพัฒนา](/contributing) — แก้ได้ในเว็บ GitHub ไม่ต้องลงอะไร |
-| อยากรันเว็บบนเครื่องตัวเอง | [สิ่งที่ต้องมีก่อน](/start/prerequisites) |
-| อยู่ฝ่ายและอยากมีหน้าเครื่องมือของตัวเอง | [เครื่องมือของฝ่าย](/DEPT-TOOLS) |
-| ดูแลระบบ หรือกำลังรับช่วงต่อ | [ระบบทำงานยังไง](/CONTEXT) แล้วต่อด้วย [กฎที่ห้ามผิด](/INVARIANTS) |
+| Fixing a typo, and you have never written code | [What you can change](/contributing) — you can edit it on GitHub, with nothing installed |
+| Wanting to run the site on your own machine | [Prerequisites](/start/prerequisites) |
+| In a ฝ่าย and want your own tool page | [Department tools](/DEPT-TOOLS) |
+| Maintaining the system, or taking it over | [How the system works](/CONTEXT), then [Invariants](/INVARIANTS) |
 
-## เกี่ยวกับเว็บนี้
+## About this site
 
-เว็บนี้คือโฟลเดอร์ `docs/` ของโปรเจกต์ แสดงผลเป็นหน้าเว็บ แก้เอกสารหน้าไหนก็แก้ไฟล์ในโฟลเดอร์นั้น แล้วเปิด pull request ตามปกติ
+This is the `docs/` folder of the project, rendered as a website. To change a page, edit the file in that folder and open a pull request like any other change.
 
-หมวด **บันทึกวิศวกรรม · Maintainer & agent notes** และหมวดที่อยู่ใต้ลงไป เขียนไว้สำหรับผู้ดูแลระบบและเครื่องมือ AI ที่ช่วยพัฒนา — เป็นบันทึกการทำงาน ไม่ใช่คู่มือ ข้ามได้ถ้าคุณมาเพื่อส่งงาน
+**Maintainer & agent notes** and the sections below it are working notes for maintainers and for the AI tools that help develop this project. They are records, not guides — skip them if you are here to contribute.
 
-::: warning สถานะปัจจุบันไม่ได้อยู่ที่นี่
-อะไรกำลังทำอยู่ อะไรค้าง อะไรพัง — อยู่ในไฟล์ `STATE.md` ที่โฟลเดอร์บนสุดของโปรเจกต์ ตั้งใจแยกไว้เพราะมันเปลี่ยนแทบทุกวัน และสำเนาที่นี่จะเก่าทันที
+::: warning Current status is not here
+What is in progress, what is blocked, what is broken — that lives in `STATE.md` at the top of the repository. It is kept separate on purpose, because it changes almost daily and a copy here would be stale immediately.
 :::

@@ -1,6 +1,6 @@
-# ทะเบียนคน
+# Person registry
 
-> หนึ่งคนหนึ่งรายการ ใช้ร่วมกันระหว่างระบบบ้านและทีม SAMO
+> One record per person, shared by the house system and ทีม SAMO
 
 Status: **EXPAND + bidirectional sync shipped (0132, 0133).** `people` is live — 304 rows, every
 `students` and `team_members` row linked, no duplicate humans by address, and

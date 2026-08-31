@@ -1,79 +1,79 @@
-# แก้อะไรได้บ้าง
+# What you can change
 
-## ตามความยาก
+## By difficulty
 
-| อยากทำ | ต้องใช้อะไร |
+| You want to | You need |
 |---|---|
-| แก้คำผิด แก้ข้อความ | พิมพ์แก้ในเว็บ GitHub ได้เลย ไม่ต้องลงโปรแกรม |
-| แก้สี ระยะห่าง หน้าตา | แก้ CSS — [ติดตั้งก่อน](/start/prerequisites) |
-| เพิ่มหน้าเครื่องมือของฝ่ายตัวเอง | แก้ HTML — ดู [เครื่องมือของฝ่าย](/DEPT-TOOLS) |
-| แก้ระบบล็อกอิน ฐานข้อมูล การแจ้งเตือน | ถามทีมก่อน — ดูตารางข้างล่าง |
+| Fix a typo or reword something | Nothing — edit it on the GitHub website |
+| Change colours, spacing, layout | To edit CSS — [install it first](/start/prerequisites) |
+| Add a tool page for your ฝ่าย | To edit HTML — see [Department tools](/DEPT-TOOLS) |
+| Change sign-in, the database, notifications | To ask the team first — see below |
 
-## แก้คำผิดโดยไม่ต้องลงอะไร
+## Fixing text without installing anything
 
-1. เปิดหน้าที่อยากแก้บน GitHub กดรูปดินสอ ✏️
-2. แก้ข้อความ — GitHub สร้างสำเนาของคุณให้อัตโนมัติ
-3. กด **Propose changes** เขียนสั้น ๆ ว่าแก้อะไร ทำไม
-4. กด **Create pull request**
+1. Open the file on GitHub and click the pencil ✏️
+2. Edit the text — GitHub makes you your own copy automatically
+3. Click **Propose changes** and write one line about what and why
+4. Click **Create pull request**
 
-จบ ไม่ต้องลง Node ไม่ต้องเปิด Terminal
+That is the whole process. You do not need Node or a terminal.
 
-## กฎที่ห้ามพลาด
+## The rule that matters most
 
-::: danger ห้ามใส่ข้อมูลจริงของนักศึกษาลงในโค้ด
-ชื่อ · รหัสนักศึกษา · อีเมล · รูปถ่าย — ทั้งในไฟล์ ในข้อความ commit และในภาพหน้าจอ
+::: danger Never put real student data in the code
+Names · student IDs · email addresses · photos — not in files, not in commit messages, and not in screenshots.
 
-โปรเจกต์นี้เปิดสาธารณะ และประวัติ git ลบไม่ได้จริง ลบวันนี้ พรุ่งนี้ก็ยังย้อนดูได้ ถ้าต้องใช้ตัวอย่าง ให้สมมติชื่อขึ้นมา
+This repository is public, and git history cannot truly be deleted. Removing something tomorrow does not remove today's commit. If you need an example, invent one.
 
-กฎเดียวกันใช้กับฐานข้อมูล `samo-dev` ด้วย มันเป็นสำเนาข้อมูลจริง ไม่ใช่ข้อมูลปลอม
+The same applies to the `samo-dev` database. It is a copy of real data, not fake data.
 :::
 
-## ไฟล์ที่ต้องถามก่อนแก้
+## Files to ask about before changing
 
-แก้ HTML, CSS, ข้อความ และฟอร์มแต่ละอัน ได้เลยไม่ต้องถาม ส่วนไฟล์ในตารางนี้ **ให้เขียนย่อหน้าเดียวใน pull request ว่าจะทำอะไร ก่อนเขียนโค้ด** เพราะความผิดพลาดตรงนี้มองไม่เห็นตอนรีวิว
+HTML, CSS, wording and individual form modules need no permission. For the files below, **write one paragraph in the pull request describing your plan before writing code** — mistakes in these are not visible during review.
 
-| ไฟล์ | ทำไม |
+| File | Why |
 |---|---|
-| `src/js/auth.js` | ระบบล็อกอิน มีกับดักที่เคยทำพังมาแล้ว |
-| `src/js/db.js` | การเชื่อมฐานข้อมูล ทุกหน้าใช้ร่วมกัน |
-| `src/js/notify.js` | การแจ้งเตือนดิสคอร์ด ผิดตรงนี้เงียบ ไม่มีใครรู้ |
-| `src/js/uploads.js` | การอัปโหลดไฟล์ขึ้น Drive |
-| `supabase/migrations/*.sql` | โครงสร้างฐานข้อมูลจริง |
-| `appscript/*.gs` | เชื่อมกับบริการภายนอก แก้แล้วมีผลกับของจริงทันที |
+| `src/js/auth.js` | Sign-in. Mistakes here have caused real outages |
+| `src/js/db.js` | The database connection every page shares |
+| `src/js/notify.js` | Discord notifications. Breaking this fails silently |
+| `src/js/uploads.js` | File uploads to Google Drive |
+| `supabase/migrations/*.sql` | The real database structure |
+| `appscript/*.gs` | Connects to external services. A change reaches production immediately |
 
-ระบบจะขอรีวิวจากเจ้าของโปรเจกต์ให้เอง คุณไม่ต้องไปตามใคร ไฟล์นอกรายการนี้ใช้คนอนุมัติคนไหนก็ได้หนึ่งคน
+GitHub requests the right reviewer automatically, so you do not need to contact anyone. Files not on this list need one approval from any collaborator.
 
-## เขียนโค้ดใหม่ให้ระวังสองอย่าง
+## Two things to watch when writing new code
 
-- **ข้อความจากผู้ใช้ที่เอาไปใส่ใน `innerHTML`** ต้องผ่าน `escHtml()` ก่อน ไม่งั้นเปิดช่องให้ฝังสคริปต์
-- **การเขียนฐานข้อมูล** (`update` / `delete` / `insert`) ให้ใช้ `dbRest()` พร้อม `prefer:'return=representation'` แล้วเช็กว่ามีแถวกลับมาจริง — เมื่อสิทธิ์ไม่พอ ฐานข้อมูลตอบว่า "สำเร็จ 0 แถว" ไม่ได้ตอบว่า error
+- **User text going into `innerHTML`** must pass through `escHtml()` first. Otherwise you create a cross-site scripting (XSS) vulnerability
+- **Database writes** (`update` / `delete` / `insert`) should use `dbRest()` with `prefer:'return=representation'`, then check that rows were actually returned. When permissions are insufficient, the database reports success with zero rows rather than an error
 
-## ก่อนบอกว่าเสร็จ
+## Before you call it done
 
-- [ ] `npm test` และ `npm run build` เขียวบนเครื่อง
-- [ ] เปิดเว็บทดลองแล้วกดใช้จริง ไม่ใช่แค่ดูรูป
-- [ ] เขียนใน pull request ว่าเช็กจอกว้างเท่าไรบ้าง (390 / 820 / 1280)
-- [ ] **ถ้าแก้บั๊ก** — เขียนบันทึกลง `docs/mistakes/` ไฟล์ที่ตรงเรื่อง รูปแบบ *อาการ → สาเหตุ → วิธีแก้ → กฎทั่วไป* ขึ้นต้นด้วยอาการอย่างที่คนรายงานพูด เพราะนั่นคือคำที่คนถัดไปจะค้นหา แล้วรัน `npm run mistakes:index`
-- [ ] **ถ้ามีคนสังเกตเห็นความเปลี่ยนแปลง** — เพิ่มบรรทัดภาษาไทยง่าย ๆ ใน `PENDING` ที่ `src/data/changelog.js` ใน commit เดียวกัน
-- [ ] **ถ้าแก้โครงสร้างฐานข้อมูล** — อ่าน `skills/ship-a-migration.md` ก่อน ลำดับมีผลจริงและเคยทำเว็บล่มมาแล้ว 20 นาที
+- [ ] `npm test` and `npm run build` both pass locally
+- [ ] You opened the preview site and actually used it, not just looked at a screenshot
+- [ ] The pull request says which screen widths you checked (390 / 820 / 1280)
+- [ ] **If you fixed a bug**, write it up in the matching file under `docs/mistakes/` as *symptom → cause → fix → the general rule*. Lead with the symptom **as it was reported** — that is what the next person will search for. Then run `npm run mistakes:index`
+- [ ] **If a person would notice the change**, add a plain-Thai line to `PENDING` in `src/data/changelog.js`, in the same commit
+- [ ] **If you changed the database structure**, read `skills/ship-a-migration.md` first. The order matters and has taken the site down for 20 minutes before
 
-## เครื่องมือของฝ่าย
+## Department tools
 
-ฝ่ายทำหน้าเครื่องมือของตัวเองได้ ใช้ขั้นตอนเดียวกับทีมพัฒนาทุกอย่าง ต่างกันแค่ว่าใครอนุมัติ
+A ฝ่าย can build its own tool page using the same process as the development team. The only difference is who approves it.
 
-| ที่เก็บ | ใครอนุมัติ |
+| Location | Approval needed |
 |---|---|
-| `public/embed/` — หน้าที่รันในกรอบแยก | ใครก็ได้หนึ่งคน |
-| `src/data/tools.js` · `src/tools/` | เจ้าของโปรเจกต์ |
+| `public/embed/` — a page that runs in an isolated frame | Any collaborator |
+| `src/data/tools.js` · `src/tools/` | The project owner |
 
-รายละเอียดและตัวอย่าง — [เครื่องมือของฝ่าย](/DEPT-TOOLS)
+Details and examples — [Department tools](/DEPT-TOOLS).
 
-## การทดสอบที่ต้องรันเอง
+## Tests you have to run yourself
 
-กฎบางข้อมีอยู่ในฐานข้อมูลเท่านั้น เช่นสิทธิ์การเข้าถึงข้อมูล ตรวจด้วย
+Some rules only exist inside the database, such as who is allowed to read what. Those are checked by:
 
 ```bash
 npm run proofs
 ```
 
-**รันถ้าคุณแก้โครงสร้างฐานข้อมูลหรือสิทธิ์** ต้องใช้กุญแจของผู้ดูแล CI จึงไม่รันให้ — ผู้ดูแลรันก่อน deploy
+**Run it if you changed the database structure or any permission.** It needs a maintainer's key, so CI cannot run it — a maintainer runs it before deploying.

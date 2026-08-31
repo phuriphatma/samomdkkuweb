@@ -1,6 +1,6 @@
-# ระบบบ้าน
+# House system
 
-> House system และทะเบียนนักศึกษา — เอกสารออกแบบ
+> Houses and the student directory — design document
 
 **Status: SHIPPED** (migrations 0116–0118 applied; admin + student UI live).
 Handover spec for the Data Analytics dept: `docs/house-data-spec-th.md`.

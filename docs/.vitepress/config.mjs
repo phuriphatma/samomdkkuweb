@@ -94,7 +94,7 @@ export function titleOf(rel) {
  */
 export const SIDEBAR = [
   {
-    text: 'เริ่มต้นที่นี่',
+    text: 'Getting started',
     dir: 'start',
     // A TUTORIAL HAS AN ORDER AND THE DISK DOES NOT. Left to `collect()` these
     // sort alphabetically — dependent-work, first-change, install,
@@ -104,22 +104,22 @@ export const SIDEBAR = [
     order: ['prerequisites.md', 'install.md', 'first-change.md', 'dependent-work.md', 'troubleshooting.md'],
   },
   {
-    text: 'ร่วมพัฒนา',
+    text: 'Contributing',
     files: ['contributing.md', 'DEPT-TOOLS.md'],
   },
   {
-    text: 'ระบบทำงานยังไง',
+    text: 'How the system works',
     files: [
       'CONTEXT.md', 'INVARIANTS.md', 'PERSON-REGISTRY.md', 'EMAIL.md',
       'HOUSE-SYSTEM.md', 'house-data-spec-th.md', 'TEAM-ROLES-AND-PHOTOS.md',
     ],
   },
   {
-    text: 'อ้างอิง',
+    text: 'Reference',
     files: ['VERSIONING.md', 'MERGE-CHECKLIST.md', 'SELF-HOST.md', 'SUCCESSION.md'],
   },
   {
-    text: 'บันทึกวิศวกรรม · Maintainer & agent notes',
+    text: 'Maintainer & agent notes',
     collapsed: true,
     files: [
       'TEAM-WORKFLOW.md', 'NEXT.md', 'PROJECT-ARCHITECTURE.md',
@@ -127,9 +127,9 @@ export const SIDEBAR = [
       'SUPABASE-MIGRATION.md', 'PASSPORT-MERGE.md',
     ],
   },
-  { text: 'บั๊กที่เคยเจอ · Bug write-ups', dir: 'mistakes', collapsed: true },
-  { text: 'บันทึกระหว่างทำงาน · Session notes', dir: 'state', collapsed: true },
-  { text: 'คลังเก่า · Archive', dir: 'state-archive', collapsed: true },
+  { text: 'Bug write-ups', dir: 'mistakes', collapsed: true },
+  { text: 'Session notes', dir: 'state', collapsed: true },
+  { text: 'Archive — why it was done that way', dir: 'state-archive', collapsed: true },
   { text: 'Design references', dir: 'design-refs', collapsed: true },
 ];
 
@@ -252,9 +252,9 @@ export default defineConfig({
   themeConfig: {
     outline: { level: [2, 3], label: 'ในหน้านี้ · On this page' },
     nav: [
-      { text: 'เริ่มต้นที่นี่', link: '/start/prerequisites' },
-      { text: 'ร่วมพัฒนา', link: '/contributing' },
-      { text: 'ระบบทำงานยังไง', link: '/CONTEXT' },
+      { text: 'Getting started', link: '/start/prerequisites' },
+      { text: 'Contributing', link: '/contributing' },
+      { text: 'How the system works', link: '/CONTEXT' },
       {
         text: 'Repo',
         items: [

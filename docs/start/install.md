@@ -1,72 +1,72 @@
-# ติดตั้งและรัน
+# Install and run
 
-ทำครั้งเดียว ใช้เวลาประมาณ 10 นาที
+One-time setup, about 10 minutes.
 
-## 1. ล็อกอิน GitHub
+## 1. Sign in to GitHub
 
 ```bash
-gh auth login      # เลือก GitHub.com → HTTPS → Login with a web browser
+gh auth login      # choose GitHub.com → HTTPS → Login with a web browser
 ```
 
-## 2. ดึงโปรเจกต์ลงเครื่อง
+## 2. Get the project
 
-เลือกทางเดียว ตามว่าคุณถูกเชิญเข้าโปรเจกต์แล้วหรือยัง
+Pick one, depending on whether you have been invited to the project.
 
 ```bash
-# ทาง A — คุณเป็น collaborator แล้ว
+# Option A — you are already a collaborator
 gh repo clone phuriphatma/samomdkkuweb
 
-# ทาง B — ยังไม่ใช่ (ทางนี้คือค่าเริ่มต้น ไม่ต้องขอใคร)
+# Option B — you are not (this is the default, and needs nobody's permission)
 gh repo fork phuriphatma/samomdkkuweb --clone
 ```
 
-ทั้งสองทางเปิด pull request กลับมาที่โปรเจกต์นี้ได้เหมือนกัน **ต่างกันข้อเดียว: ทาง B ไม่ได้เว็บทดลองอัตโนมัติ** เพราะ GitHub ไม่ให้สำเนาของคนนอกอ่านค่าลับของโปรเจกต์ ถ้าจะแก้บ่อย ๆ ขอให้ผู้ดูแลเชิญเป็น collaborator แล้วย้ายมาทาง A
+Both options let you open pull requests here. There is one difference: **option B does not get an automatic preview site**, because GitHub does not give forks access to the project's secrets. If you expect to contribute often, ask a maintainer to invite you as a collaborator and use option A.
 
-## 3. ลง dependency
+## 3. Install dependencies
 
 ```bash
 cd samomdkkuweb
 npm ci
 ```
 
-`npm ci` ลงตามที่ล็อกไว้เป๊ะ ๆ ช้ากว่า `npm install` เล็กน้อยแต่ได้ของชุดเดียวกับที่ CI ใช้
+`npm ci` installs the exact versions recorded in `package-lock.json`. It is slightly slower than `npm install`, and it gives you the same packages that CI uses.
 
-## 4. ใส่ค่าเชื่อมฐานข้อมูล
+## 4. Add the database credentials
 
-ขอบล็อก `SUPABASE_DEV_*` จากผู้ดูแล แล้วสร้างไฟล์ `.env.local` ที่โฟลเดอร์บนสุดของโปรเจกต์
+Ask a maintainer for the `SUPABASE_DEV_*` block, then create a `.env.local` file in the top folder of the project.
 
-::: danger ห้ามพลาด
-`.env.local` อยู่ใน `.gitignore` อยู่แล้ว **อย่าแก้ให้มันขึ้น git**
+::: danger Two rules that matter
+`.env.local` is already in `.gitignore`. **Do not change that.**
 
-และ `samo-dev` เป็น**สำเนาข้อมูลจริงของนักศึกษา** ไม่ใช่ข้อมูลปลอม กดปุ่มลองได้เต็มที่ แต่ห้ามเผยแพร่ URL และห้ามคัดลอกข้อมูลออกมา
+`samo-dev` is a **copy of real student data**, not fake data. Click and submit freely, but never publish its URL and never copy data out of it.
 :::
 
-## 5. รัน
+## 5. Run it
 
 ```bash
 npm run dev
 ```
 
-เปิด `http://localhost:5174` ในเบราว์เซอร์ — **ถ้าเห็นเว็บสโมฯ ขึ้นมา ติดตั้งเสร็จแล้ว**
+Open `http://localhost:5174` in a browser. **If the SAMO site loads, you are done.**
 
-แก้ไฟล์แล้วหน้าเว็บจะรีเฟรชเองทันที ไม่ต้องกดอะไร กด `Ctrl + C` ใน Terminal เพื่อหยุด
+The page reloads automatically when you edit a file. Press `Ctrl + C` in the terminal to stop the server.
 
-## คำสั่งที่ใช้บ่อย
+## Commands you will use
 
-| คำสั่ง | ทำอะไร |
+| Command | What it does |
 |---|---|
-| `npm run dev` | รันเว็บบนเครื่อง ที่ `localhost:5174` |
-| `npm test` | รันชุดทดสอบ (CI รันชุดเดียวกันนี้ทุก pull request) |
-| `npm run build` | สร้างไฟล์สำหรับขึ้นจริง ใช้เช็กว่าโค้ดไม่พัง |
-| `npm run preview:url` | บอกที่อยู่เว็บทดลองของ branch ที่คุณอยู่ |
+| `npm run dev` | Runs the site locally at `localhost:5174` |
+| `npm test` | Runs the test suite — CI runs the same one on every pull request |
+| `npm run build` | Produces the production files; use it to check nothing is broken |
+| `npm run preview:url` | Prints the preview address for the branch you are on |
 
-## ไฟล์อยู่ตรงไหน
+## Where things live
 
-| อยากแก้ | ไปที่ |
+| To change | Edit |
 |---|---|
-| หน้าเว็บ แท็บ กล่องข้อความ | `src/html/` |
-| สี ระยะห่าง หน้าตา | `src/css/` |
-| การทำงาน ปุ่ม ฟอร์ม | `src/js/` |
-| หน้าเครื่องมือของฝ่าย | `public/embed/` |
+| Pages, tabs, dialogs | `src/html/` |
+| Colours, spacing, layout | `src/css/` |
+| Behaviour, buttons, forms | `src/js/` |
+| A ฝ่าย's own tool page | `public/embed/` |
 
-ขั้นต่อไป — [ส่งการแก้ครั้งแรก](/start/first-change)
+Next — [Your first change](/start/first-change)

@@ -1,31 +1,31 @@
-# เมื่องานคุณต้องรออีกงาน
+# When your work depends on other work
 
-คำถามที่ถามกันบ่อยที่สุด: *งาน B ต้องใช้งาน A ที่ยังรอรีวิวอยู่ ต้องรอไหม*
+The most common question: *my change needs another change that is still under review — do I have to wait?*
 
-**ไม่ต้องรอ** มีสองทาง เลือกตามสถานการณ์
+**No.** There are two ways round it.
 
-![สองทางเลือก: แตก branch ซ้อนแล้ว rebase หรือรวม A เข้า main แบบยังเข้าไม่ถึง](../diagrams/dependent-features.svg)
+![Two options: branch off the pending branch and rebase, or merge the first one early but unreachable](../diagrams/dependent-features.svg)
 
-## ทาง 1 — รวม A เข้า main ก่อน แต่ยังเข้าไม่ถึง
+## Option 1 — merge A first, but leave it unreachable
 
-**ลองทางนี้ก่อนเสมอ** ง่ายกว่ามาก
+**Try this first.** It is much simpler.
 
-รวม A เข้า `main` ได้เลย แค่ทำให้มันยัง**เข้าไม่ถึง** — ไม่ใส่ลิงก์ในเมนู หรือซ่อนหลังสิทธิ์ที่ยังไม่มีใครถือ แล้ว B ก็แตกจาก `main` ตามปกติ ไม่มีอะไรซ้อน ไม่มีอะไรต้องตามแก้
+Merge A into `main` immediately, but keep it **unreachable**: no link in the menu, or hidden behind a permission nobody has yet. B then branches off `main` as usual. Nothing is stacked, and nothing has to be rewritten later.
 
-ทางนี้ปลอดภัยเพราะ **รวมเข้า `main` ไม่ได้แปลว่าขึ้นเว็บจริง** งานที่อยู่ใน `main` ยังไม่ถึงมือนักศึกษาจนกว่าผู้ดูแลจะสั่ง deploy
+This is safe because **merging into `main` does not publish anything.** Work sitting in `main` does not reach students until a maintainer deploys.
 
-## ทาง 2 — แตก branch ซ้อน (stacked branch)
+## Option 2 — stack the branches
 
-ใช้เมื่อ A **ยังไม่ควรถูกรวม** เพราะยังไม่ผ่านรีวิว หรือยังไม่สมบูรณ์
+Use this when A genuinely **should not be merged yet**, because it has not been reviewed or is not finished.
 
 ```bash
-git checkout feat/a          # ยืนบน branch ที่ยังรออยู่
-git checkout -b feat/b       # แตก B ออกจาก A ไม่ใช่จาก main
+git checkout feat/a          # stand on the branch that is waiting
+git checkout -b feat/b       # branch off A, not off main
 ```
 
-ตอนเปิด pull request ของ B ให้**เปลี่ยน base branch เป็น `feat/a`** — บนหน้า GitHub มีปุ่ม *Edit* ข้างหัวข้อ ถ้าไม่เปลี่ยน คนรีวิวจะเห็นงานสองอันปนกันและอ่านไม่ออก
+When you open the pull request for B, **change its base branch to `feat/a`**. There is an *Edit* button next to the title on GitHub. Without this, reviewers see both changes mixed together and cannot review either one.
 
-พอ A ถูกรวมเข้า `main` แล้ว ย้าย B มาต่อกับ `main`
+Once A is merged into `main`, move B across:
 
 ```bash
 git checkout main && git pull origin main
@@ -34,12 +34,12 @@ git rebase --onto main feat/a feat/b
 git push --force-with-lease
 ```
 
-::: warning --force-with-lease ไม่ใช่ --force
-`--force-with-lease` จะปฏิเสธถ้ามีคนอื่น push เข้า branch นี้ระหว่างนั้น **ใช้ได้เฉพาะ branch ของคุณเอง ห้ามทำกับ `main`**
+::: warning `--force-with-lease`, not `--force`
+`--force-with-lease` refuses if someone else pushed to the branch in the meantime. **Only ever use it on your own branch — never on `main`.**
 :::
 
-จากนั้นเปลี่ยน base ของ pull request กลับเป็น `main` (GitHub มักเปลี่ยนให้เองเมื่อ A ถูกรวม)
+Then set the pull request's base back to `main`. GitHub usually does this for you once A is merged.
 
-## สิ่งที่ไม่ควรทำ
+## What not to do
 
-**อย่ากอง commit ไว้ใน branch เดียวเพราะ "รอ A ก่อน"** เป็นทางที่แพงที่สุด — branch ยิ่งอยู่นาน ยิ่งชนกับงานคนอื่น และ pull request ที่ใหญ่จนอ่านไม่ไหว คือ pull request ที่ไม่มีใครรีวิว
+**Do not collect commits in one branch while waiting for A.** This is the slowest option. The longer a branch lives, the more conflicts it accumulates, and a pull request that is too large to read does not get reviewed.

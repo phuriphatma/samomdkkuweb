@@ -1,6 +1,6 @@
-# งานที่ยังไม่เริ่ม
+# Backlog
 
-> รายการงานค้าง อ่านคู่กับ `STATE.md`
+> Work not yet started. Read alongside `STATE.md`
 
 Moved out of `STATE.md` on 2026-08-04 so that file can stay under the ~200-line
 cold-start budget CLAUDE.md sets. **Nothing here is in flight.** Everything is

@@ -120,8 +120,12 @@ describe('the contributor guide agrees with the preview pipeline', () => {
     // The reason a preview is safe to submit forms on. A contributor who does
     // not know this either avoids testing writes at all, or assumes the same of
     // production. Both are worse than knowing.
+    // Matches the CLAIM, not one spelling of it. The first version accepted only
+    // `samo-dev` or `สำเนา`, so translating the guide into English — while still
+    // saying exactly this — turned it red. A guard anchored to vocabulary
+    // reports on the vocabulary, not on the property it was written for.
     const text = read(THE_GUIDE);
-    expect(text, 'the guide does not say a preview points at the dev database')
-      .toMatch(/(preview|ทดลอง)[\s\S]{0,600}(samo-dev|สำเนา)/i);
+    expect(text, 'the guide does not say a preview points at the dev database, not production')
+      .toMatch(/(preview|ทดลอง)[\s\S]{0,600}(samo-dev|สำเนา|copy of the database)/i);
   });
 });

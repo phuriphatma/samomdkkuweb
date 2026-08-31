@@ -1,6 +1,6 @@
-# ขอข้อมูลนักศึกษา
+# Student data request
 
-> สเปกข้อมูลที่ส่งให้ฝ่าย Data Analytics
+> The data specification sent to ฝ่าย Data Analytics
 
 เอกสารนี้ **ส่งต่อได้ทั้งฉบับ** ไม่ต้องแก้
 (ฝั่งเทคนิคอ่าน `docs/HOUSE-SYSTEM.md` แทน)

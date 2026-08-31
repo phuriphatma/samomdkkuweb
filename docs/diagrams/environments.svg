@@ -1,36 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" font-family="system-ui, -apple-system, 'Noto Sans Thai', 'Segoe UI', sans-serif">
-  <title>สามสภาพแวดล้อม เครื่องคุณและเว็บทดลองต่อฐานข้อมูล samo-dev ส่วนเว็บจริงต่อฐานข้อมูลจริง</title>
+  <title>Your machine and the preview site both use a copy of the database; only the live site uses the real one</title>
   <rect x="0" y="0" width="900" height="300" rx="14" fill="#ffffff" stroke="#d0d4d9"/>
 
   <rect x="24" y="26" width="264" height="112" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
-  <text x="156" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">เครื่องคุณ</text>
+  <text x="156" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">Your machine</text>
   <text x="156" y="78" text-anchor="middle" font-size="12" fill="#5c6773">localhost:5174</text>
   <text x="156" y="99" text-anchor="middle" font-size="12" fill="#5c6773">npm run dev</text>
-  <text x="156" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">เห็นคนเดียว</text>
+  <text x="156" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">only you see it</text>
 
   <rect x="318" y="26" width="264" height="112" rx="10" fill="#f6f7f8" stroke="#105922" stroke-width="2.5"/>
-  <text x="450" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#105922">เว็บทดลอง · preview</text>
+  <text x="450" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#105922">Preview site</text>
   <text x="450" y="78" text-anchor="middle" font-size="10.5" fill="#5c6773">&lt;branch&gt;.samomdkkuweb.pages.dev</text>
-  <text x="450" y="99" text-anchor="middle" font-size="12" fill="#5c6773">สร้างเองทุกครั้งที่ push</text>
-  <text x="450" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">ส่งลิงก์ให้เพื่อนช่วยดูได้</text>
+  <text x="450" y="99" text-anchor="middle" font-size="12" fill="#5c6773">rebuilt on every push</text>
+  <text x="450" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">shareable with anyone</text>
 
   <rect x="612" y="26" width="264" height="112" rx="10" fill="#f6f7f8" stroke="#b8272c" stroke-width="2.5"/>
-  <text x="744" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#b8272c">เว็บจริง · production</text>
+  <text x="744" y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#b8272c">Live site</text>
   <text x="744" y="78" text-anchor="middle" font-size="12" fill="#5c6773">samo.md.kku.ac.th</text>
-  <text x="744" y="99" text-anchor="middle" font-size="12" fill="#5c6773">ผู้ดูแลสั่ง deploy เท่านั้น</text>
-  <text x="744" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">นักศึกษาทั้งคณะใช้อยู่</text>
+  <text x="744" y="99" text-anchor="middle" font-size="12" fill="#5c6773">maintainer deploys only</text>
+  <text x="744" y="122" text-anchor="middle" font-size="11.5" fill="#5c6773">used by the whole faculty</text>
 
   <line x1="156" y1="140" x2="156" y2="200" stroke="#8a929b" stroke-width="2"/>
   <line x1="450" y1="140" x2="450" y2="200" stroke="#8a929b" stroke-width="2"/>
   <line x1="744" y1="140" x2="744" y2="200" stroke="#b8272c" stroke-width="2"/>
 
   <rect x="70" y="202" width="466" height="58" rx="9" fill="#f6f7f8" stroke="#8a929b" stroke-width="2" stroke-dasharray="6 4"/>
-  <text x="303" y="227" text-anchor="middle" font-size="14" font-weight="600" fill="#1f2933">ฐานข้อมูล samo-dev (สำเนา)</text>
-  <text x="303" y="248" text-anchor="middle" font-size="12" fill="#5c6773">กดปุ่ม ส่งฟอร์ม ลบทิ้ง ได้เต็มที่ ไม่กระทบใคร</text>
+  <text x="303" y="227" text-anchor="middle" font-size="14" font-weight="600" fill="#1f2933">samo-dev database (a copy)</text>
+  <text x="303" y="248" text-anchor="middle" font-size="12" fill="#5c6773">click, submit, delete freely — it affects nobody</text>
 
   <rect x="612" y="202" width="264" height="58" rx="9" fill="#fff5f5" stroke="#b8272c" stroke-width="2"/>
-  <text x="744" y="227" text-anchor="middle" font-size="14" font-weight="600" fill="#b8272c">ฐานข้อมูลจริง</text>
-  <text x="744" y="248" text-anchor="middle" font-size="12" fill="#5c6773">ของนักศึกษาจริง</text>
+  <text x="744" y="227" text-anchor="middle" font-size="14" font-weight="600" fill="#b8272c">Real database</text>
+  <text x="744" y="248" text-anchor="middle" font-size="12" fill="#5c6773">real students' data</text>
 
-  <text x="24" y="286" font-size="12" fill="#5c6773">⚠️ samo-dev เป็นสำเนาของข้อมูลจริง — ปลอดภัยที่จะ "กด" แต่ไม่ใช่ข้อมูลปลอม กฎห้ามเปิดเผยข้อมูลใช้เต็ม ๆ</text>
+  <text x="24" y="286" font-size="12" fill="#5c6773">⚠️ samo-dev is a COPY of real data — safe to click, but not fake. The rule against exposing student data applies in full</text>
 </svg>

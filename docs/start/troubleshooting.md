@@ -1,64 +1,64 @@
-# เจอปัญหาแบบนี้ทำยังไง
+# Troubleshooting
 
-## เผลอ commit บน main
+## I committed on main by accident
 
-ยังไม่ได้ push — ย้าย commit ไป branch ใหม่ได้ครบ
+If you have not pushed yet, your work moves to a new branch intact:
 
 ```bash
-git branch fix/my-work          # ทำเครื่องหมายไว้ตรงที่ยืนอยู่
-git reset --hard origin/main    # ถอย main กลับ งานไม่หาย อยู่ใน branch แล้ว
+git branch fix/my-work          # bookmark where you are
+git reset --hard origin/main    # rewind main; the work is safe on the branch
 git checkout fix/my-work
 ```
 
 ::: warning
-`reset --hard` ลบสิ่งที่ยังไม่ commit ทิ้ง ให้ `git status` ว่างก่อนพิมพ์บรรทัดนั้น
+`reset --hard` throws away anything not yet committed. Make sure `git status` is empty before you run it.
 :::
 
-## PR ขึ้นว่า "This branch is out-of-date"
+## "This branch is out-of-date"
 
-มีคนรวมงานเข้า `main` หลังคุณแตก branch
+Someone merged into `main` after you branched.
 
 ```bash
 git checkout main && git pull origin main
-git checkout <branch ของคุณ>
-git merge main                  # แก้ conflict ถ้ามี แล้ว commit
+git checkout <your branch>
+git merge main                  # resolve conflicts if any, then commit
 git push
 ```
 
 ## Merge conflict
 
-git จะเขียนเครื่องหมายไว้ในไฟล์แบบนี้
+Git marks the disagreement inside the file:
 
 ```
 <<<<<<< HEAD
-บรรทัดที่มีอยู่ใน main
+the line that is in main
 =======
-บรรทัดที่คุณเขียน
+the line you wrote
 >>>>>>> ui/news-card-spacing
 ```
 
-เปิดไฟล์ ตัดสินใจว่าจะเอาแบบไหน (หรือผสม) **ลบทั้งสามบรรทัดเครื่องหมายออกให้หมด** แล้ว `git add <ไฟล์>` และ `git commit`
+Open the file, decide which version you want (or combine them), and **delete all three marker lines**. Then `git add <file>` and `git commit`.
 
-`git status` จะบอกว่าเหลือไฟล์ไหนยังไม่แก้
+`git status` lists the files still left to resolve.
 
-## CI แดง แต่บนเครื่องเขียว
+## CI is red but it passes on my machine
 
-เกือบทุกครั้งคือสองอย่างนี้
+Almost always one of two things:
 
-- **Node คนละรุ่น** — `node -v` ต้องเป็น 22 ขึ้นไป
-- **ลืม `git add` ไฟล์ใหม่** — `git status` แล้วดูใต้หัวข้อ *Untracked files*
+- **A different Node version** — `node -v` must be 22 or higher
+- **A new file you forgot to stage** — run `git status` and look under *Untracked files*
 
-## เว็บทดลองไม่ขึ้น
+## The preview site is not there
 
-- ยังสร้างไม่เสร็จ — รออีกสองสามนาที
-- คุณใช้ fork — fork ไม่ได้เว็บทดลอง ตามการออกแบบของ GitHub ให้แนบภาพหน้าจอใน pull request แทน
-- build พัง — ดูที่ check ชื่อ *build* ในหน้า pull request
+- It is still building — wait a couple of minutes
+- You are working from a fork. Forks do not receive a preview site, by GitHub's design — attach screenshots to the pull request instead
+- The build failed — check the *build* check on the pull request
 
-## หน้าเว็บโหลดขึ้นแต่ปุ่มไม่ทำงาน
+## The page loads but nothing works
 
-เมนูเปิดได้ หน้าตาปกติ แต่กดอะไรก็ไม่มีอะไรเกิดขึ้น — อาการนี้แปลว่าไฟล์ JavaScript หลักโหลดไม่สำเร็จ เปิด Console ใน browser (`F12`) แล้วดูบรรทัดสีแดง
+Menus open, the layout looks fine, but clicking does nothing. That means the main JavaScript file failed to load. Open the browser console (`F12`) and look for red lines.
 
-## ยังติดอยู่
+## Still stuck
 
-- ทักในดิสคอร์ด หรือเปิด **draft pull request** แล้วใส่ `[help]` ในหัวข้อ
-- ถ้างานแตะไฟล์ในรายการ "ต้องถามก่อน" ([แก้อะไรได้บ้าง](/contributing)) ให้เขียนย่อหน้าเดียวใน pull request ว่าจะทำอะไรและทำไม **ก่อน** เขียนโค้ด เร็วกว่าเขียนเสร็จแล้วมารื้อ
+- Ask in Discord, or open a **draft pull request** with `[help]` in the title
+- If your change touches anything in the "ask first" list ([What you can change](/contributing)), write one paragraph in the pull request describing what you want to do and why **before** writing code. It is much faster than writing it twice

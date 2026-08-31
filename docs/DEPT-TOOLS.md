@@ -1,6 +1,6 @@
-# เครื่องมือของฝ่าย
+# Department tools
 
-*ฝ่ายทำหน้าเครื่องมือของตัวเองได้ ไม่ต้องรอ IT เขียนให้*
+*How a ฝ่าย ships its own tool page without waiting for IT*
 
 > ## ⚠️ STATUS: the WORKFLOW is built. The TOOLS are not. Written 2026-08-27.
 >

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" font-family="system-ui, -apple-system, 'Noto Sans Thai', 'Segoe UI', sans-serif">
-  <title>การแก้ของคุณเดินทางจากเครื่องคุณ ไป branch ไป pull request ไป main แล้วผู้ดูแลจึงสั่ง deploy ขึ้นเว็บจริง</title>
+  <title>Your change travels from your machine to a branch, to a pull request, into main, and only then does a maintainer deploy it</title>
   <defs>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M0,0 L10,5 L0,10 z" fill="#8a929b"/>
@@ -8,30 +8,30 @@
   <rect x="0" y="0" width="900" height="320" rx="14" fill="#ffffff" stroke="#d0d4d9"/>
 
   <rect x="20" y="56" width="146" height="76" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
-  <text x="93" y="84" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">1. เครื่องคุณ</text>
+  <text x="93" y="84" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">1. Your machine</text>
   <text x="93" y="106" text-anchor="middle" font-size="12" fill="#5c6773">localhost:5174</text>
   <text x="93" y="124" text-anchor="middle" font-size="12" fill="#5c6773">npm run dev</text>
 
   <rect x="196" y="56" width="146" height="76" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
-  <text x="269" y="84" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">2. branch ของคุณ</text>
+  <text x="269" y="84" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">2. Your branch</text>
   <text x="269" y="106" text-anchor="middle" font-size="12" fill="#5c6773">git push</text>
-  <text x="269" y="124" text-anchor="middle" font-size="12" fill="#5c6773">บน GitHub</text>
+  <text x="269" y="124" text-anchor="middle" font-size="12" fill="#5c6773">on GitHub</text>
 
   <rect x="372" y="44" width="176" height="100" rx="10" fill="#f6f7f8" stroke="#105922" stroke-width="2.5"/>
   <text x="460" y="72" text-anchor="middle" font-size="15" font-weight="600" fill="#105922">3. Pull Request</text>
-  <text x="460" y="94" text-anchor="middle" font-size="12" fill="#5c6773">CI ตรวจ + คนรีวิว</text>
-  <text x="460" y="112" text-anchor="middle" font-size="12" fill="#5c6773">+ เว็บทดลอง (preview)</text>
-  <text x="460" y="132" text-anchor="middle" font-size="12" fill="#FF6F30">← ทดสอบจริงตรงนี้</text>
+  <text x="460" y="94" text-anchor="middle" font-size="12" fill="#5c6773">CI checks + review</text>
+  <text x="460" y="112" text-anchor="middle" font-size="12" fill="#5c6773">+ preview site</text>
+  <text x="460" y="132" text-anchor="middle" font-size="12" fill="#FF6F30">← test it here</text>
 
   <rect x="578" y="56" width="146" height="76" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
   <text x="651" y="84" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2933">4. main</text>
-  <text x="651" y="106" text-anchor="middle" font-size="12" fill="#5c6773">ถูกรวมแล้ว</text>
-  <text x="651" y="124" text-anchor="middle" font-size="12" fill="#5c6773">ยังไม่มีใครเห็น</text>
+  <text x="651" y="106" text-anchor="middle" font-size="12" fill="#5c6773">merged</text>
+  <text x="651" y="124" text-anchor="middle" font-size="12" fill="#5c6773">nobody sees it yet</text>
 
   <rect x="754" y="56" width="126" height="76" rx="10" fill="#f6f7f8" stroke="#b8272c" stroke-width="2.5"/>
-  <text x="817" y="80" text-anchor="middle" font-size="15" font-weight="600" fill="#b8272c">5. เว็บจริง</text>
+  <text x="817" y="80" text-anchor="middle" font-size="15" font-weight="600" fill="#b8272c">5. Live site</text>
   <text x="817" y="101" text-anchor="middle" font-size="10.5" fill="#5c6773">samo.md.kku.ac.th</text>
-  <text x="817" y="121" text-anchor="middle" font-size="11" fill="#5c6773">ผู้ดูแลสั่ง deploy</text>
+  <text x="817" y="121" text-anchor="middle" font-size="11" fill="#5c6773">a maintainer deploys</text>
 
   <line x1="168" y1="94" x2="192" y2="94" stroke="#8a929b" stroke-width="2" marker-end="url(#ar)"/>
   <line x1="344" y1="94" x2="368" y2="94" stroke="#8a929b" stroke-width="2" marker-end="url(#ar)"/>
@@ -39,10 +39,10 @@
   <line x1="726" y1="94" x2="750" y2="94" stroke="#8a929b" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar)"/>
 
   <rect x="560" y="176" width="320" height="62" rx="9" fill="#fffaf0" stroke="#b45309" stroke-width="2" stroke-dasharray="6 4"/>
-  <text x="720" y="201" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1f2933">รวมเข้า main แล้ว ≠ ขึ้นเว็บจริง</text>
-  <text x="720" y="223" text-anchor="middle" font-size="12" fill="#5c6773">ต้องมีคนต่อ VPN แล้วสั่ง deploy อีกครั้ง</text>
+  <text x="720" y="201" text-anchor="middle" font-size="13.5" font-weight="600" fill="#1f2933">Merged into main ≠ published</text>
+  <text x="720" y="223" text-anchor="middle" font-size="12" fill="#5c6773">someone must connect to the VPN and deploy</text>
   <line x1="672" y1="136" x2="690" y2="172" stroke="#b45309" stroke-width="1.5"/>
 
-  <text x="24" y="272" font-size="13" fill="#5c6773">ขั้น 1–3 คุณทำเองได้ทั้งหมด  ·  ขั้น 4 ต้องมีคนกดรับ  ·  ขั้น 5 เฉพาะผู้ดูแลที่ต่อ VPN ของ มข.</text>
-  <text x="24" y="296" font-size="13" fill="#5c6773">ไม่มีจุดไหนระหว่างทางที่คุณทำเว็บจริงพังได้ — ของจริงไม่ขยับจนถึงขั้น 5</text>
+  <text x="24" y="272" font-size="13" fill="#5c6773">Steps 1–3 are entirely yours  ·  step 4 needs one approval  ·  step 5 needs a maintainer on the KKU VPN</text>
+  <text x="24" y="296" font-size="13" fill="#5c6773">Nothing along the way can break the live site — it does not move until step 5</text>
 </svg>

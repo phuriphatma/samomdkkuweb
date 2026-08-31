@@ -1,6 +1,6 @@
-# ตำแหน่งและรูปทีม
+# Team roles and photos
 
-> จัดการตำแหน่ง สิทธิ์ และรูปหน้าในหน้าเกี่ยวกับเรา
+> Managing roles, permissions, and the faces on the About page
 
 Status (corrected 2026-08-12): **PART A is still unbuilt; most of PART B
 SHIPPED.** Written 2026-08-04 against the live DB, and half of it has since been

@@ -1,6 +1,6 @@
-# การทำงานหลายคน
+# Working as a team
 
-*แผนสำหรับทีมหลายคน — ฐานข้อมูลสำหรับพัฒนา เว็บทดลอง และการรีวิว*
+*The plan for several developers — dev database, previews, review flow*
 
 > ## ⚠️ STATUS: phases 0 and 1 are BUILT. Designed 2026-08-26, half-built 2026-08-27.
 >
