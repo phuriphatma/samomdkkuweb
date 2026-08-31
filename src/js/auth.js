@@ -11,6 +11,7 @@
 
 import { db, dbRest } from './db.js';
 import { decodeJwtResponse } from './utils.js';
+import { PREVIEW_SCOPE_NOTE } from './env-ribbon.js';
 import { ribbonLabel } from './env-ribbon.js';
 
 // ============================================================
@@ -448,8 +449,11 @@ async function googleSignInAvailable() {
 
 export async function signInWithGoogle(opts = {}) {
   if (!(await googleSignInAvailable())) {
+    // The parenthetical said the DATA is not real. It is — samo-dev is an
+    // unmasked copy. What is true is that edits here do not reach production,
+    // which is what PREVIEW_SCOPE_NOTE says, in the one place it is written.
     throw new Error('เวอร์ชันทดสอบนี้ยังไม่เปิดให้เข้าสู่ระบบด้วย Google '
-      + '— ใช้ Username และ Password แทนได้เลย (ข้อมูลที่นี่ไม่ใช่ของจริง)');
+      + `— ใช้ Username และ Password แทนได้เลย (${PREVIEW_SCOPE_NOTE})`);
   }
   const oauthOptions = {
     // Land back on the current page after Google returns.

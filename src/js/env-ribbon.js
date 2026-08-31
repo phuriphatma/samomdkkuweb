@@ -46,6 +46,24 @@
  * Only somebody deliberately writing `production` onto a preview can silence
  * it, and that is their statement to make.
  */
+/**
+ * WHAT A PREVIEW ACTUALLY PROMISES — one sentence, one home.
+ *
+ * It promises that WRITES do not reach production. It does NOT promise the data
+ * is fake: `samo-dev` is an UNMASKED copy of production (D1,
+ * docs/TEAM-WORKFLOW.md — "no masking, dev holds production data as it is"), so
+ * every name, email and รหัสนักศึกษา visible on a preview belongs to a real
+ * person.
+ *
+ * ⚠️ auth.js used to say "ข้อมูลที่นี่ไม่ใช่ของจริง" — *the data here is not
+ * real* — while this file said the true thing two lines from the same idea. One
+ * claim, two homes, only one correct: the shape this repo pays for most
+ * (`.claude/rules/mistakes.md` class 6). It was also false in the DANGEROUS
+ * direction: told the data is fake, a reasonable person screenshots it, pastes
+ * it, or forwards it. Both messages now read from here.
+ */
+export const PREVIEW_SCOPE_NOTE = 'ข้อมูลที่แก้ที่นี่ไม่มีผลกับของจริง';
+
 export function ribbonLabel(envName, hostname) {
   if (envName === 'production') return null;
   if (envName) return envName.toUpperCase();
@@ -60,6 +78,6 @@ export function mountEnvRibbon() {
   const el = document.createElement('div');
   el.className = 'samo-env-ribbon';
   el.setAttribute('role', 'status');
-  el.textContent = `${label} — ไม่ใช่เว็บจริง ข้อมูลที่แก้ที่นี่ไม่มีผลกับของจริง`;
+  el.textContent = `${label} — ไม่ใช่เว็บจริง ${PREVIEW_SCOPE_NOTE}`;
   document.body.appendChild(el);
 }
