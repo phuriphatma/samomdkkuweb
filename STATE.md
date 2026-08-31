@@ -26,9 +26,9 @@ because it held three lifetimes at once. It now holds one: **status**.
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
-01. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** — a doc
-    denied it for weeks; guard `preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md`
-    §9 lists the files a landed phase must correct — treat it as a checklist.**
+01. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
+    `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 lists the files a
+    landed phase must correct — treat it as a checklist.**
 
 02. ✅ **DOCS SITE — REBUILT AND DEPLOYED 2026-08-31.**
     **`https://samo.md.kku.ac.th/docs` is the address to give people.** English,
@@ -92,10 +92,8 @@ TRUE. That is what the grep is for.
   `/passport/`, `/pr`, `/updates` and `/notify` all 200 · all ten new
   `/docs` pages 200 · `/docs/NOPE` 404 (the deny half) · the two retired doc
   URLs 301 to their new homes · a diagram asset 200.
-  ⚠️ **`my-seat.js` is imported by BOTH entries, so it lands in the SHARED
-  `analytics-*.js` chunk** — grepping `public-*.js` for its strings returns 0
-  and means nothing. That is the shared-chunk trap in `docs/INVARIANTS.md`.
-  Previous: `9ba0e9c`, and `e10c88c` before it.
+  ⚠️ Grepping the wrong bundle proves nothing — the SHARED-CHUNK trap lives in
+  `docs/INVARIANTS.md`. Previous: `9ba0e9c`, `e10c88c`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -107,22 +105,20 @@ TRUE. That is what the grep is for.
 
   It reads the ✅ DEPLOYED line above, which is the sha's only home, and
   compares that commit with the WORKING TREE. Exit 0 = prod is current.
-  ⛔ **Never paste a `git diff <sha>..HEAD` snippet back into this file.** That
-  is what rotted: the sha had four homes here and one of them was corrected.
+  ⛔ **Never paste a `git diff <sha>..HEAD` snippet back in** — the sha had four
+  homes here and only one got corrected.
 
-- ⚠️ **Verify a deploy from the SERVED artifact, and grep the RIGHT one** — the
-  shared-chunk trap and the marker rules are durable, so they live once, in
-  `docs/INVARIANTS.md` (`analytics-*.js`) and `docs/mistakes/deploy-hosting.md`
-  (a string behind `import.meta.env` is DELETED, not renamed). Read them BEFORE
-  concluding a deploy failed; each has been mistaken for one.
+- ⚠️ **Verify from the SERVED artifact, and grep the RIGHT one.** Both traps
+  live once — `docs/INVARIANTS.md` (shared chunk) and
+  `docs/mistakes/deploy-hosting.md` (a string behind `import.meta.env` is
+  DELETED, not renamed). Each has been mistaken for a failed deploy.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
-- **Migrations through 0175.** For the test count run `npm test` — a number
-  here has nothing to check it and rots (it read 1323 while the suite ran 1355). Both have exactly ONE home, here, and
-  `state-handoff.test.js` enforces that. **ALL 27 LIVE PROOFS GREEN — re-run
-  2026-08-30** (this count is guarded against `run-proofs.mjs`, unlike the test
-  count, which is not — that is why one is stated here and the other is not), after 0175 was applied to production. Run `npm test` /
-  `npm run proofs`; never quote a remembered number.
+- **Migrations through 0175. ALL 27 LIVE PROOFS GREEN**, re-run 2026-08-30
+  after 0175 reached production. ⚠️ The proof count is guarded against
+  `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
+  written here — run `npm test` / `npm run proofs`, never quote a remembered
+  number.
 
 ---
 
@@ -132,14 +128,11 @@ TRUE. That is what the grep is for.
   15 min. ⚠️ This block once said OFF, with a procedure to re-enable something
   already enabled — **ask the DATABASE, never this file, for runtime state**:
   `select monitoring_enabled, monitoring_changed_at from public.claude_settings`.
-- `monitoring_note` still holds the old pause reason. Not shown while
-  measurement is on (checked in `paintMeasured`), and used correctly by the
-  monitor-on Discord notice as "why it had been paused". Leave it.
-- **`claude_bookings` is still EMPTY** — deployed, widely granted, and unused.
-  (Head-counts rot here; the numbers and the query live under "What is owed".)
-- ⚠️ **Re-verify all three against the DATABASE; do not quote a number from
-  here.** Last checked 2026-08-27 and healthy (sample rate matched the
-  15-minute timer). `tools/db-query.mjs` takes a FILE, not an inline string.
+- `monitoring_note` still holds the old pause reason — not shown while
+  measurement is on, and used correctly by the monitor-on notice. Leave it.
+- **`claude_bookings` is still EMPTY** — deployed, granted, unused.
+- ⚠️ **Ask the DATABASE, never this file, for runtime state.** Last checked
+  2026-08-27, healthy. `tools/db-query.mjs` takes a FILE, not an inline string.
 
 ---
 
@@ -149,12 +142,19 @@ TRUE. That is what the grep is for.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-⛳ **TWO items: the ฝ่าย tools slot, and the deploy hang.**
-✅ Shipped, do not rebuild: the passport silent-failure guard (proof #27) ·
-the docs site and its restructure (see 02 above) · `samo.md.kku.ac.th/docs`.
-⛔ **Do not build a polling timer for the docs.** One was built, verified
-end-to-end and REMOVED the same day — the owner does not need /docs fresh
-between deploys. Reasoning in the archive file named in 02.
+✅ Shipped, do not rebuild: the passport guard (proof #27) · the docs site and
+its restructure (02 above). ⛔ **No polling timer for the docs** — one was
+built, verified and REMOVED the same day; reasoning in the archive named in 02.
+
+0. ⏳ **THE ORG MOVE IS IN FLIGHT — half done.** `samomdkku` exists;
+   `panascha` is a second ACTIVE OWNER (so adding people is no longer one
+   person's job); base permissions are `read`; **`samomdkkupassport` is
+   transferred** as the Copilot test. ❌ Still to do: `samomdkkuweb` itself +
+   its three repairs, then the `maintainers` team. ⛔ Org-wide 2FA is OFF by
+   OWNER DECISION — do not re-raise.
+   **Status + next actions live in `skills/move-the-repo-to-an-organisation.md`
+   §0a — read that, not this bullet.** ⚠️ Transferring the main repo BREAKS
+   Cloudflare previews SILENTLY (§5a) and can reset branch protection (§5c).
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
@@ -237,7 +237,7 @@ in plain language:
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
-| 6 | **Move the project to a GitHub ORGANISATION?** — the fix for "I have to add every contributor myself". ✅ **A complete runbook is written and ready to execute in one sitting**: `skills/move-the-repo-to-an-organisation.md` (~90 min, phases 0–5, rollback, and a §10 done-when list). The repo is on a personal account, so every gate ends at one human — `CODEOWNERS` names `@phuriphatma` on `auth.js`, `db.js`, `supabase/`, `server/`, `tools/`, and that keeps blocking merges on a review that stops coming | `skills/move-the-repo-to-an-organisation.md` | **yes, a FREE org — and NOT a shared `samo` login.** The repo is public, so branch protection, Actions and Pages stay free. ⚠️ The Copilot worry inverts: a shared role account is not a student and qualifies for NOTHING, while an org changes nobody's personal Copilot. §0 of that skill is a 10-minute experiment; run it before believing either of us |
+| 6 | ~~Move to a GitHub organisation?~~ ✅ **DECIDED — YES, and STARTED.** Free org `samomdkku` created, two active owners, passport moved. ⛔ Do not re-litigate, and do not use a shared `samo` login (it loses Copilot and destroys `git blame`) | `skills/move-the-repo-to-an-organisation.md` §0a | Finish it: 2FA, then `samomdkkuweb` + its three repairs, then the `maintainers` team |
 | 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. (HOW they get rebuilt is status, not a decision — see the CURRENT DEPLOY block above; `deploy.sh` hangs at that step today.) ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:

@@ -16,6 +16,40 @@ are separable.
 
 ---
 
+## §0a PROGRESS — measured 2026-08-31, do not re-derive
+
+The move is **STARTED, not finished.** Verified against the GitHub API, not
+assumed:
+
+| | State |
+|---|---|
+| Organisation | ✅ **`samomdkku`** exists, Free plan |
+| Owners | ✅ `phuriphatma` **and `panascha`** both admin/active — the "never one owner" rule is satisfied. `Kita1103` invited as admin, **pending acceptance** |
+| Base permissions | ✅ already `read` |
+| Require 2FA | ⛔ **OFF, and that is the owner's decision (2026-08-31) — do not re-raise.** Requiring it REMOVES every member who does not already have it, which is not a thing to spring on volunteers mid-term |
+| Phase 0 Copilot test | ✅ `samomdkkupassport` transferred to the org; old URL redirects; `samo.md.kku.ac.th/passport/` still 200 |
+| **`samomdkkuweb`** | ⏳ **STILL `phuriphatma/samomdkkuweb` — not moved** |
+
+**Passport was the right first move and cost nothing**: measured before
+transferring, it had no GitHub Pages, no branch protection and no custom CI, so
+there was nothing to repair afterwards. `samomdkkuweb` has all three, which is
+why §5's repair steps exist and why they matter there and not here.
+
+⚠️ **The VM's passport checkout still points at the OLD URL.** GitHub redirects,
+so `deploy.sh` keeps working — this is tidy-up, not breakage.
+
+### Next actions, in order
+
+1. **Confirm Copilot still completes** in `samomdkkupassport` inside the editor.
+   If it does not, STOP — do not move `samomdkkuweb`.
+2. Transfer `samomdkkuweb`, then immediately do §5a/§5b/§5c — **§5a fails
+   silently**, so treat "previews look slow" as "previews are dead".
+3. §6 — the `maintainers` team and `CODEOWNERS`. **This is the step that
+   actually removes the bottleneck for reviews**; owners alone do not.
+4. §7 — one line in `package.json`, then `npm test` prints the rest.
+
+---
+
 ## §1 In plain language — what actually fixes this
 
 **The problem.** The project sits in your personal account. GitHub only lets the
