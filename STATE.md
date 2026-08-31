@@ -78,7 +78,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b10c9bb` (2026-08-31)** — app bundles AND `/docs` both
+- ✅ **DEPLOYED = `17bfd01` (2026-08-31)** — app bundles AND `/docs` both
   current, verified from the SERVED site rather than an exit code (one run
   exited 0 having published nothing).
   ⛔ **`./server/deploy.sh` CURRENTLY HANGS** — three attempts all went silent
