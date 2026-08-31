@@ -96,7 +96,14 @@ DOCS_BASE=/docs/ npm run docs:build
 publish docs/.vitepress/dist /var/www/docs
 
 echo "==> fix permissions"
-sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport /var/www/docs
+sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport
+# ⚠️ /var/www/docs is ubuntu:www-data 775, NOT www-data:www-data like the two
+# above. samo-docs.timer runs as `ubuntu` and rsyncs straight into it; chowning
+# it to www-data here would leave the directory looking perfectly fine while
+# every timed rebuild failed with EACCES, and /docs would silently freeze at
+# whatever the last deploy produced. nginx still reads it, by group.
+sudo chown -R ubuntu:www-data /var/www/docs
+sudo chmod -R g+w /var/www/docs
 
 echo "==> restart notify service + reload nginx"
 sudo systemctl restart samo-notify || echo "  (samo-notify not installed yet — see docs/SELF-HOST.md)"
