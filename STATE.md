@@ -15,24 +15,18 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
-000. ✅ **SCOPED GRANTS WERE INVISIBLE IN FOUR READERS — all fixed, deployed.**
-    Reported as "i set samopassport for ฝ่ายกิจการมหาวิทยาลัย and it doesn't show
-    on จัดการสิทธิ์". **The grant was live the whole time** — the server resolver
-    put all 51 people under that ฝ่าย on `d:5`. `readPermInputs` DROPS the
-    capability key when a scope is chosen (0083), so a scoped grant carries no
-    key, and four readers tested for the key: the tree chip, its ฝ่าย names, the
-    seat CTA, and the collapsed member tag. A fifth (`scopeRows` under `master`)
-    understated a master holder's access. Write-ups + the sweep that found them:
-    `docs/mistakes/authz-grants.md`.
-    ⛔ **`passport` is passport ADMIN rights over a ฝ่าย's activities — it is NOT
-    permission to open the app.** Every kkumail student can open SAMO Passport
-    and collect stamps; that was never gated (`passport_admin_context()` is the
-    authority). A session got this wrong for an hour; do not re-derive it.
+000. ✅ **SCOPED GRANTS WERE INVISIBLE IN FOUR READERS — fixed, deployed.**
+    `readPermInputs` drops the capability key when a scope is chosen (0083), so
+    four readers testing for the key saw nothing, and a fifth understated a
+    master holder. Write-ups + the sweep: `docs/mistakes/authz-grants.md`.
+    ⛔ **`passport` is passport ADMIN rights over a ฝ่าย's activities — NOT
+    permission to open the app.** Every kkumail student can open SAMO Passport;
+    that was never gated (`passport_admin_context()` is the authority). A
+    session got this wrong for an hour; do not re-derive it.
     ⚠️ **Still LATENT, deliberately not built**: `userCanAccess('passport')` has
     no scoped branch and `managedPassportScopes` is never loaded onto the user.
-    Nothing calls it today. The next person to gate a portal link on it will
+    Nothing calls it today; the next person to gate a portal link on it will
     deny 42 of the 45 holders.
-
 
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** Found by proof #27
@@ -42,18 +36,25 @@ because it held three lifetimes at once. It now holds one: **status**.
     denied it for weeks; guard `preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md`
     §9 lists the files a landed phase must correct — treat it as a checklist.**
 
-02. ✅ **DOCS SITE SHIPPED** — `https://phuriphatma.github.io/samomdkkuweb/`,
-    **and served from the VM at `https://samo.md.kku.ac.th/docs`, which is now
-    the address to give people** (2026-08-31). VitePress over `docs/`, built
-    TWICE from one config: Actions with the default base → Pages (the backup),
-    the VM with `DOCS_BASE=/docs/` → `/var/www/docs`. `npm run docs:build` is
-    inside the REQUIRED `build` check. **noindex on purpose**; `docs/demos/**`
-    excluded. Nothing secret may go in `docs/`.
-    ⚠️ **A DEPLOY is the only thing that updates `/docs`; Pages updates on every
-    push.** So the two can disagree, with `/docs` the OLDER one. Accepted by the
-    owner. A polling timer was built and REMOVED the same day — it bought
-    freshness nobody had asked for. If it is ever wanted, use a WEBHOOK (this
-    host is publicly reachable), not polling.
+02. ⚠️ **DOCS SITE — REBUILT 2026-08-31, AND THE VM IS STALE. A DEPLOY IS
+    OWED.** Two live copies and they DISAGREE right now: GitHub Pages has the
+    new structure (it republishes on every push); `samo.md.kku.ac.th/docs` is
+    still serving the old one — `/docs/start/install` 404s there while
+    `/docs/CONTRIBUTE` still answers 200. Run `npm run deploy:owed`; it now
+    covers `docs/` and was fixed today because it reported green over exactly
+    this.
+    ⛔ **`deploy.sh` does NOT install nginx config.** `server/nginx-samo.conf`
+    changed (it serves `/docs` from disk and 301s the two one-day-old URLs) and
+    needs a separate `sudo cp … /etc/nginx/sites-available/default`, `nginx -t`,
+    `systemctl reload nginx` — the install line at the top of that file. A
+    deploy alone leaves the redirects missing.
+    Shape: `docs/start/` (prerequisites → install → first-change →
+    dependent-work → troubleshooting) then `docs/contributing.md`; Claude-facing
+    material is collapsed under **บันทึกวิศวกรรม**. The old CONTRIBUTE and
+    STEP-BY-STEP pages were MERGED AWAY — do not recreate them.
+    **Why any of it is shaped this way, and three traps found doing it:
+    `docs/state-archive/2026-08-31-docs-site-restructure.md`. Read it before
+    reopening the URL question or the site's structure.**
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
@@ -153,15 +154,10 @@ TRUE. That is what the grep is for.
 
 ⛳ **ONE item is live: the ฝ่าย tools slot.**
 ✅ Shipped, do not rebuild: the passport silent-failure guard (proof #27) ·
-the docs site, now **task-shaped**: `docs/start/` runs prerequisites → install
-→ first-change → dependent-work → troubleshooting, then `docs/contributing.md`.
-⛔ The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY — two pages that
-each said "the other one answers X" is friction, not one-home. Owner's brief:
-*"start here should show how to run the project"*; Claude-facing notes are
-collapsed under **บันทึกวิศวกรรม** so a contributor never lands in them.
-Sidebar order is hand-written (`SIDEBAR` in the VitePress config), guarded by
-`docs-site.test.js`. Diagrams are FILES in `docs/diagrams/`, never inline `<svg>`
-— GitHub keeps the labels as loose paragraphs; `md-raw-tags.test.js` rejects it.
+the docs site and its restructure (see 02 above) · `samo.md.kku.ac.th/docs`.
+⛔ **Do not build a polling timer for the docs.** One was built, verified
+end-to-end and REMOVED the same day — the owner does not need /docs fresh
+between deploys. Reasoning in the archive file named in 02.
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the

@@ -32,7 +32,26 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // What a deploy actually ships. Tests live under src/ but never reach a bundle,
 // so counting them would report a deploy owed for every guard we write.
-const SHIPPED = ['src/', ':!src/**/*.test.js', 'index.html', 'admin/index.html'];
+//
+// ⚠️ `docs/` IS ON THIS LIST SINCE 2026-08-31, and the reason is worth keeping:
+// the VM started serving the documentation at samo.md.kku.ac.th/docs that day
+// (server/deploy.sh builds it with DOCS_BASE=/docs/). Until this line changed,
+// this tool watched only `src/` — so it answered "NO DEPLOY OWED, production is
+// serving current code" while /docs on the VM was an entire restructure behind
+// what `main` said. The instrument that tells you whether production is current
+// had gone blind to half of what production serves, and it failed GREEN, which
+// is the worst direction (.claude/rules/mistakes.md class 7).
+//
+// The rule this encodes: WHEN THE DEPLOY LEARNS TO PUBLISH SOMETHING NEW, ADD
+// IT HERE IN THE SAME COMMIT. Anything server/deploy.sh copies into /var/www
+// belongs on this list — nginx config included, because a config change also
+// needs a trip to the VM (and one that `deploy.sh` does NOT even perform: see
+// its install line at the top of server/nginx-samo.conf).
+const SHIPPED = [
+  'src/', ':!src/**/*.test.js', 'index.html', 'admin/index.html',
+  'docs/', ':!docs/state/**', ':!docs/state-archive/**',
+  'server/nginx-samo.conf', 'server/deploy.sh',
+];
 
 const git = (...args) =>
   execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();

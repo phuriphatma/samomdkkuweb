@@ -28,10 +28,19 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ```bash
 PW=$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')
-{ printf '%s\n' "$PW"; sleep 10; } | timeout 300 ssh -tt -o BatchMode=yes samo-vm \
+{ printf '%s\n' "$PW"; sleep 10; } | timeout 180 ssh -tt -o BatchMode=yes samo-vm \
   'sudo -v && cd "$HOME/samo-projects/samomdkkuweb" && ./server/deploy.sh; echo "DEPLOY_EXIT=$?"' 2>&1 \
   | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|==>|error" | tail -12
 ```
+
+**`timeout 180`, and do not pad it.** The owner has objected to a long ceiling
+twice (2026-08-31: *"why are you timeout for so long"*, then *"timeout 300 it's
+too long"*). `timeout` is a KILL CEILING, not a wait — the command returns the
+moment the deploy ends — but a big number reads as "this will sit here for five
+minutes", and that reading is the one that matters when someone is watching.
+The deploy is ~90 s of VM build (~110 s since the docs step was added), so 180
+is roughly 60% headroom. If a step is added that makes it slower, MEASURE the
+new time and set the ceiling from that; do not round up "to be safe".
 
 **`sleep 10`, not `sleep 420`.** The sleep exists only to hold stdin open long
 enough for `sudo -v` to read the password — which happens in the first second.

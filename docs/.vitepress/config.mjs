@@ -232,10 +232,19 @@ export default defineConfig({
   // These docs reference source files, tools and skills by path constantly —
   // `server/deploy.sh`, `tools/db-query.mjs`, `skills/deploy-vm.md`. Those are
   // real paths in the repository and NOT pages on this site, so VitePress is
-  // right that they do not resolve and wrong that it is a defect. Anything
-  // pointing INSIDE docs/ is still checked.
+  // right that they do not resolve and wrong that it is a defect.
+  //
+  // ⛔ THERE USED TO BE A `/^\/(?!samomdkkuweb)/` ENTRY HERE. REMOVED
+  // 2026-08-31 — it was the single most damaging line in this file. In markdown
+  // you write a site link WITHOUT the base (`/contributing`, `/start/install`)
+  // and VitePress prepends it at build time, so that pattern matched EVERY
+  // internal link on the site and ignored it. Dead-link checking was therefore
+  // off entirely, and the whole restructure could have shipped with broken
+  // navigation and a green build. It was presumably written believing links
+  // carry the base; they do not. Verified after removing it: the build still
+  // passes, and a deliberately broken `/no-such-page-xyz` is now caught.
   ignoreDeadLinks: [
-    /^\.\.\/(?!.*\.md$)/, /^\/(?!samomdkkuweb)/,
+    /^\.\.\/(?!.*\.md$)/,
     /^(src|tools|skills|server|supabase|appscript|public|scripts)\//,
     /^\.\.\/\.\.\//, /\.(sh|mjs|js|sql|gs|json|html|css|py)$/,
   ],

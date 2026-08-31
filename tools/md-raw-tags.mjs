@@ -34,7 +34,7 @@
 // missing figure. Allowlisting the tags would make this instrument report green
 // over exactly that. Put diagrams in `docs/diagrams/*.svg` and reference them
 // relatively (`![alt](./diagrams/x.svg)`), which both renderers handle;
-// `docs/STEP-BY-STEP.md` is the worked example.
+// `docs/start/first-change.md` is the worked example.
 //
 // 📌 IT LIVES IN tools/, NOT src/. It is an instrument for `docs/`, and nothing
 // in the app imports it — but while it sat under `src/js/` it made

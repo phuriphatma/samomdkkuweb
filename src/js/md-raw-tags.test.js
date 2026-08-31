@@ -62,7 +62,7 @@ describe('the instrument itself', () => {
     // the instrument report green over exactly that.
     //
     // Diagrams go in docs/diagrams/*.svg and are referenced relatively;
-    // docs/STEP-BY-STEP.md is the worked example. This fixture is what stops
+    // docs/start/first-change.md is the worked example. This fixture is what stops
     // the shortcut, so it asserts the CONSEQUENCE (the sweep still sees it),
     // not one spelling of the match.
     const md = '<svg viewBox="0 0 90 20">\n<rect x="1" y="1" width="88" height="18"/>\n'
