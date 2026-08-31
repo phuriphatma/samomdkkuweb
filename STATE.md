@@ -84,9 +84,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b075225` (2026-08-31)**, verified from the SERVED site, not
+- ✅ **DEPLOYED = `b10c9bb` (2026-08-31)**, verified from the SERVED site, not
   from an exit code — which matters here, because one run exited 0 having
-  published nothing.
+  published nothing. **App bundles and `/docs` are BOTH current at this sha**
+  (the app has had no `src/` change since `b075225`; the docs were published by
+  hand from `b10c9bb`).
   ⛔ **`./server/deploy.sh` CURRENTLY HANGS** — three attempts all went silent
   right after `==> docs site: build with base /docs/` and had to be killed. The
   cause is NOT known; sudo-expiry was proposed, fixed, and **the hang survived
