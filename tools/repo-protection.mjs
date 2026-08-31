@@ -21,7 +21,7 @@
 // ============================================================
 
 import { execFileSync } from 'node:child_process';
-import { SLUG, OWNER, REPO_NAME } from './repo-identity.mjs';
+import { SLUG, OWNER, REPO_NAME, SIBLING_REPOS } from './repo-identity.mjs';
 import { loadEnv } from './env-lib.mjs';
 
 // SLUG comes from package.json's `repository.url` — the ONE home for this
@@ -201,6 +201,63 @@ if (cfAccount && cfToken) {
 } else {
   console.log('– Cloudflare owner check SKIPPED: no CLOUDFLARE_ACCOUNT_ID / '
     + 'CLOUDFLARE_API_TOKEN in .env.local. After a repo transfer, run this WITH them.');
+}
+
+// ---------------------------------------------------------------------------
+// THE SIBLING REPO. Added 2026-08-31, when `maintainers` was granted write on
+// `samomdkkupassport` and it turned out to have NO protection at all: no
+// branch protection, no ruleset, no CODEOWNERS, no CI. Five people could push
+// straight to the app students scan QR codes with.
+//
+// Its expectations are deliberately NOT this repo's. It has no workflows, so
+// requiring a status check would leave every pull request waiting for a report
+// that never comes — `main` sat red for a day here once and silently blocked
+// every contributor (src/js/ci-workflows.test.js). And it has no CODEOWNERS,
+// so `require_code_owner_reviews` would require nothing while reading like a
+// rule.
+//
+// The last check is the one worth having: it does not assert today's
+// configuration, it asserts the REASONING — a required status check is only
+// legitimate once something exists to report it.
+// ---------------------------------------------------------------------------
+for (const name of SIBLING_REPOS) {
+  const sib = `${OWNER}/${name}`;
+  let sp;
+  try {
+    sp = JSON.parse(execFileSync('gh', ['api', `repos/${sib}/branches/main/protection`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+  } catch (e) {
+    // A 404 here does not mean "fine" — it means protection is GONE.
+    checks.push([`${name}: main is protected`,
+      `unprotected (${String(e.stderr || e.message).trim().slice(0, 40)})`, true,
+      'anyone with write can push straight to main on a repo students depend on']);
+    continue;
+  }
+
+  const reviews = sp.required_pull_request_reviews;
+  checks.push([`${name}: a pull request is required`,
+    (reviews?.required_approving_review_count ?? 0) >= 1, true,
+    'a team member can push to main unreviewed']);
+  checks.push([`${name}: force-push blocked`, sp.allow_force_pushes?.enabled, false,
+    'history could be rewritten under everyone']);
+  checks.push([`${name}: branch deletion blocked`, sp.allow_deletions?.enabled, false,
+    'main could be deleted']);
+  checks.push([`${name}: enforce_admins stays OFF`, sp.enforce_admins?.enabled, false,
+    'the owner could no longer push main — the escape hatch when their own PR '
+    + 'cannot self-approve, and they are often the only reviewer']);
+
+  // A required check with nothing to report it blocks every PR for ever.
+  const required = sp.required_status_checks?.contexts ?? [];
+  let hasCI = true;
+  try {
+    execFileSync('gh', ['api', `repos/${sib}/contents/.github/workflows`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch { hasCI = false; }
+  checks.push([`${name}: no required check without CI to report it`,
+    required.length === 0 || hasCI, true,
+    `main requires ${JSON.stringify(required)} but the repo has no workflows — every `
+    + 'pull request waits for a status that never arrives. Add the workflow first, '
+    + 'or drop the requirement']);
 }
 
 let failed = 0;

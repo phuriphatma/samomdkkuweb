@@ -245,6 +245,26 @@ Both Cloudflare environments are now pinned to `samo-dev` with
 `VITE_ENV_NAME=preview`, and `tools/repo-protection.mjs` asserts it. Full
 write-up: `docs/mistakes/deploy-hosting.md`.
 
+### 5f. A SECOND repo needs its own protection, and NOT a copy of this one's
+
+`samomdkkupassport` had no branch protection, no ruleset, no CODEOWNERS and no
+workflows. Copying this repo's settings across would have been worse than
+nothing:
+
+- **requiring the `build` check** freezes it — with no workflow, every pull
+  request waits for a status that never arrives (`main` sat red here for a day
+  once and silently blocked every contributor);
+- **`require_code_owner_reviews`** with no CODEOWNERS file requires nothing
+  while reading like a rule in the API.
+
+What it got instead: a pull request with **1 approval**, force-push and deletion
+blocked, `enforce_admins` **off** so the owner keeps the direct-push escape
+hatch — and **no required status check** until it has CI.
+
+`tools/repo-protection.mjs` now checks the sibling too, including the rule that
+encodes the reasoning rather than the setting: **a required status check is only
+legitimate once something exists to report it.**
+
 ### 5c. Branch protection
 
 ```bash
@@ -302,8 +322,22 @@ nothing. Do not re-add a bypass you cannot name.
 **This is the phase that answers the original question.**
 
 1. Org → Teams → **New team: `maintainers`**. Add the regulars.
-2. Team → Settings → **Visibility: visible**, and give it **Write** on the repo.
-   *(CODEOWNERS silently ignores a team that is secret or lacks write.)*
+2. Team → Settings → **Visibility: visible**, and give it **Write on EVERY repo
+   the org holds — not just this one.** *(CODEOWNERS silently ignores a team
+   that is secret or lacks write.)*
+
+   ⚠️ **Missed on 2026-08-31**: the team was granted `samomdkkuweb` only, so the
+   add-a-member dialog said *"access to 1 repository"* and the owner had to ask
+   why. Grant them all, and check:
+
+   ```bash
+   gh api orgs/<org>/teams/maintainers/repos --jq '.[].full_name'
+   ```
+
+   ⛔ **Granting write to a repo is not safe until that repo has branch
+   protection.** `samomdkkupassport` had NONE — no protection, no ruleset, no
+   CODEOWNERS, no CI — so the grant briefly let five people push straight to
+   the app students scan QR codes with. Protect first, then grant. §5f.
 3. Edit `.github/CODEOWNERS` — replace the person with the team:
 
    ```

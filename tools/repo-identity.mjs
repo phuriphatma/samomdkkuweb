@@ -48,3 +48,12 @@ export const PAGES_BASE = `/${REPO_NAME}/`;
 export const PAGES_URL = `https://${OWNER}.github.io/${REPO_NAME}/`;
 /** Cloudflare Pages names preview subdomains after the project, not the owner. */
 export const PREVIEW_HOST_SUFFIX = `${REPO_NAME}.pages.dev`;
+
+/**
+ * Repositories that move WITH this one — same account, same transfer, same day
+ * every stale link to them rots. Declared HERE rather than in the test that
+ * first needed it, because a second consumer arrived (repo-protection.mjs
+ * guards the sibling's branch protection) and two hand-kept lists of one fact
+ * is the shape this module exists to prevent.
+ */
+export const SIBLING_REPOS = ['samomdkkupassport'];

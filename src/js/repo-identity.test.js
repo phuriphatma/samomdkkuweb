@@ -25,7 +25,7 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { OWNER, REPO_NAME, SLUG, PAGES_URL } from '../../tools/repo-identity.mjs';
+import { OWNER, REPO_NAME, SLUG, PAGES_URL, SIBLING_REPOS } from '../../tools/repo-identity.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 
@@ -62,11 +62,8 @@ const THIRD_PARTY = new Map([
  */
 const GENERATED_LOCKFILES = new Set(['package-lock.json']);
 
-/**
- * Sibling repositories that move WITH this one — same account, same transfer.
- * A stale link to the passport repo rots on exactly the same day.
- */
-const SIBLING_REPOS = ['samomdkkupassport'];
+// SIBLING_REPOS now lives in tools/repo-identity.mjs — imported above, because
+// repo-protection.mjs needs the same list and two copies would drift.
 
 
 /** Files allowed to name the slug literally — it has to be written down once. */
