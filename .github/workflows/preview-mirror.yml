@@ -1,0 +1,63 @@
+# preview-mirror.yml — give `main` ONE stable address to look at.
+#
+# WHY THIS EXISTS. Cloudflare names a preview after its branch, but `main` is
+# the project's PRODUCTION branch, so its only alias is the bare
+# `samomdkkuweb.pages.dev` — the retired host, which the in-app host guard
+# bounces to the "we have moved" splash. The result: there was no memorable
+# address for "what does main look like right now", and the owner had to dig
+# the newest hash out of Cloudflare's Deployments tab every time. Reported
+# 2026-08-31 as "i tried click all cloudflare link and it render the moving
+# server splash".
+#
+# This mirrors `main` onto a branch called `preview`, which Cloudflare builds
+# as a PREVIEW deployment and serves, permanently, at:
+#
+#     https://preview.samomdkkuweb.pages.dev
+#
+# ⛔ `preview` IS A MIRROR, NEVER A TARGET. Nobody branches from it, nobody
+# opens a pull request against it, and it is force-pushed on every run. It is
+# always exactly `main` — which is the point. A branch people merge INTO is a
+# second long-lived branch, and this project deliberately does not have one
+# (docs/TEAM-WORKFLOW.md §4: trunk-based, and merging is not publishing).
+#
+# It cannot reach production data: both Cloudflare environments are pinned to
+# the samo-dev database, asserted by tools/repo-protection.mjs.
+#
+# 📌 Uses only `GITHUB_TOKEN`, which is minted per run — src/js/ci-workflows.test.js
+# forbids a workflow reading any STORED secret, and this respects that.
+
+name: preview-mirror
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: this job writes one ref and reads nothing else.
+permissions:
+  contents: write
+
+concurrency:
+  # Two pushes in quick succession would race to force-push the same ref.
+  # Keep the newest and drop the older — the mirror only ever needs to match
+  # the latest main.
+  group: preview-mirror
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history, for the same reason build.yml needs it: a shallow
+          # checkout makes valid shas look missing to anything that resolves
+          # them, and it held `main` red for a day once.
+          fetch-depth: 0
+
+      - name: Mirror main onto the preview branch
+        run: |
+          set -euo pipefail
+          echo "main is at $(git rev-parse --short HEAD)"
+          git push --force origin HEAD:refs/heads/preview
+          echo "preview now matches main — https://preview.samomdkkuweb.pages.dev"
