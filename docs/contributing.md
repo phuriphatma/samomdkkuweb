@@ -61,16 +61,22 @@ GitHub requests the right reviewer automatically, so you do not need to contact 
 
 A ฝ่าย can build its own tool page using the same process as the development team. The only difference is who approves it.
 
-::: warning Not built yet
-**The tool slot itself does not exist in the code yet** — `public/embed/` and `src/data/tools.js` are planned locations, not directories you can add a file to today. The *workflow* around them is ready (branch protection, review routing, and a worked example at `/tools/golden-period`), but the frame that would load your page has not been written.
+::: tip Half of this is built now
+**`src/data/tools.js` EXISTS** (since 2026-08-31). It is the one list of ฝ่าย
+tools, and both the เครื่องมือ launcher and every ฝ่าย page are drawn from it.
+Adding a tool that links somewhere — a tab, an in-app route, an external site —
+is **one entry in that file**, and it appears in both places at once.
 
-If your ฝ่าย wants a tool now, say so — that is the item currently at the top of the build list, and a real request is what should decide its shape.
+**Still not built: the embedded frame.** `public/embed/` does not exist, so a
+page of your own that runs *inside* the site cannot be added yet. If your ฝ่าย
+wants one, say so — a real request is what should decide its shape.
 :::
 
-| Planned location | Approval it will need |
-|---|---|
-| `public/embed/` — a page that runs in an isolated frame | Any collaborator |
-| `src/data/tools.js` · `src/tools/` | The project owner |
+| Location | Approval it needs | Exists? |
+|---|---|---|
+| `src/data/tools.js` — one entry per tool | The project owner | ✅ yes |
+| `public/embed/` — a page in an isolated frame | Any collaborator | ❌ not yet |
+| `src/tools/` — a tool inside the app bundle | The project owner | ❌ not yet |
 
 Design and decisions — [Department tools](/DEPT-TOOLS).
 

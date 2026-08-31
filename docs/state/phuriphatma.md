@@ -16,6 +16,104 @@ path named here must resolve.
 
 ---
 
+## ▶ SESSION 2026-08-31 (org move day) — WHAT IS HALF-DONE, AND EXACTLY WHERE
+
+Read `STATE.md` first. This block is the part that does not fit there: the
+things that are **started and not finished**, with the next action written out
+so nobody re-derives it.
+
+### 1. PASSPORT ON THE DEV SERVER — 1 of 5 steps done
+
+**Why anyone wants this:** the dev site (`preview.samomdkkuweb.pages.dev`) has
+no `/passport/`, so Passport cannot be tested there. `public/passport-elsewhere.html`
+explains that honestly instead of silently serving the wrong app.
+
+✅ **The blocker is gone.** samo-dev held passport's data all along —
+`dev-refresh.mjs` dumps `--schema=public --schema=passport`, structure AND rows.
+What was missing was one setting: production exposed
+`public,graphql_public,passport` to PostgREST, dev exposed only the first two,
+so every passport table answered **406 on dev, 200 on production** — which
+reads as *missing data* rather than a config gap. Dev now exposes all three and
+answers identically (scans 200/200, profiles 200/200, houses 404/404).
+`npm run dev:check` diffs exposed schemas from now on.
+
+✅ **Owner did Part A** — the Cloudflare GitHub App can now see the passport repo.
+
+❌ **THE NEXT FOUR STEPS, in order:**
+
+1. **OWNER, dashboard only** (no Cloudflare API exists for it): Workers & Pages
+   → **`samomdkkupassport`** → Settings → Build → reconnect the git repository
+   to `samomdkku/samomdkkupassport`. Build command `npm run build`, output
+   **`dist`**, production branch `main`.
+2. Repoint that project's variables. ⚠️ **They currently name
+   `idwlabpbwiwgaoqwbozz` — the FROZEN OLD passport database** (both production
+   and preview env). They must become the samo-dev URL + anon key, exactly like
+   the samomdkkuweb project. Doable from here via the Cloudflare API.
+3. Copy `.github/workflows/preview-mirror.yml` into the passport repo and push a
+   `preview` branch, giving `preview.samomdkkupassport.pages.dev`.
+4. Change `public/passport-elsewhere.html` to link at that preview instead of
+   production, and re-run `node tools/repo-protection.mjs`.
+
+⚠️ **Extend the Cloudflare database guard when step 2 lands.**
+`repo-protection.mjs` asserts the *samomdkkuweb* project uses samo-dev; the
+passport project is not covered, and it is the one currently pointed at a wrong
+database.
+
+### 2. WHY THE PASSPORT PREVIEW NEEDS A SECOND URL AT ALL — the owner's question, and it is a good one
+
+Asked: *"can't passport preview use the same one, like samo.md.kku.ac.th — is
+this why you should merge?"* **Yes. That is the strongest argument for merging
+the two repositories, and it is better than the two I had given.**
+
+Production serves both apps under ONE hostname because **nginx** joins them at
+serve time: `root /var/www` with `location /` → `samo-web` and `location
+/passport/` → `passport` (`server/nginx-samo.conf`). Cloudflare Pages has no
+nginx — **one project serves exactly one build output**. So
+`preview…/passport/` can only work if the samoweb BUILD contains
+`dist/passport/`, which requires passport's source at build time — i.e. one
+repository.
+
+**So the two-preview-URL arrangement is a workaround for a split that
+production itself does not have**, and it means the preview is structurally
+unlike production. That is a real cost, because looking unlike production is the
+one thing a preview must not do.
+
+⛔ Still **not a reason to merge in a hurry**, and `docs/PASSPORT-MERGE.md`
+records "two repos stay separate" as decided (its reason — a code firewall
+against an agent — is weaker now). If the merge is ever planned, this is the
+argument to lead with, plus: passport had NO branch protection until today, and
+none of this repo's guards cover it.
+
+### 3. ฝ่าย TOOLS — step 6 done, the frame is not
+
+✅ **`src/data/tools.js` is real.** One registry, one renderer
+(`src/js/tool-card.js`), rendered by both the launcher and every ฝ่าย page;
+`tab-tools.html` ships an empty grid. `dept-tool-mirror.test.js` is GONE,
+replaced by `tools-registry.test.js`. Driven in a real browser, 18 checks.
+
+❌ **Not built:** `public/embed/` and the frame, the starter kit, boundary CI
+(`docs/DEPT-TOOLS.md` §13 steps 9–11), and step 5's check on a real phone.
+
+📌 `docs/contributing.md` said "`src/data/tools.js` is a planned location, not a
+directory you can add a file to today". That became FALSE the moment the file
+landed and was corrected today — **when the frame ships, that page needs the
+same treatment.** It is the live contributor-facing claim about this work.
+
+### 4. WHAT I GOT WRONG TODAY, so it is not re-derived
+
+- **"Deploy a tag instead of `main` HEAD" — I called it a small change. It is
+  not.** `git checkout <tag>` leaves the VM in detached HEAD and the next
+  `git pull --ff-only` (`server/deploy.sh:82`) fails outright. The script also
+  re-execs itself after pulling, and passport has no tags. **Do not do it.**
+  The risk it addressed — shipping work you did not mean to — is already covered
+  by `npm run deploy:owed`, which lists every shipping file.
+- **The deploy "hang" did not reproduce** in two full runs (~7 min each). The
+  PTY theory I proposed is dead, alongside the sudo theory before it. NOT a root
+  cause — two clean runs are not one.
+- **"Merging the repos is now worth planning"** — overstated when I said it;
+  the passport-on-dev work needs two dashboard clicks, not a merge. The
+  argument in §2 above is the honest version.
+
 ## ▶ Golden Period — BUILT, SHIPPED, LIVE
 
 ✅ **Built as `3b92df5`, deployed in `7405712`, and two deploys behind us now.**

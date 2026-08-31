@@ -27,17 +27,12 @@ because it held three lifetimes at once. It now holds one: **status**.
     `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 lists the files a
     landed phase must correct — treat it as a checklist.**
 
-02. ✅ **DOCS SITE — REBUILT AND DEPLOYED 2026-08-31.**
-    **`https://samo.md.kku.ac.th/docs` is the address to give people.** English,
-    task-shaped: `docs/start/` (prerequisites → install → first-change →
-    dependent-work → troubleshooting) then `docs/contributing.md`; maintainer
-    and agent notes collapsed at the bottom. The old CONTRIBUTE and
-    STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do not recreate.
-    Verified live. GitHub Pages mirrors it. Thai stays only where this
-    organisation uses a Thai name (ฝ่าย, UI labels).
-    ⛔ **`deploy.sh` does NOT install nginx config** — always a separate
+02. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
+    give people. English, task-shaped. The old CONTRIBUTE and STEP-BY-STEP
+    pages were MERGED AWAY (nginx 301s both) — do not recreate them.
+    ⛔ **`deploy.sh` does NOT install nginx config** — that is always a separate
     `sudo cp … && nginx -t && systemctl reload` (header of
-    `server/nginx-samo.conf`). Done for this change; remember it next time.
+    `server/nginx-samo.conf`).
     **Why it is shaped this way: `docs/state-archive/2026-08-31-docs-site-restructure.md`.**
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
@@ -50,11 +45,9 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 Pruned to `docs/state-archive/2026-08-30-status-prune.md`. Still operative:
 
-- **PASSPORT TOTALS — CLOSED, do NOT re-investigate.** 0174 + 0175 close both
-  halves. ⚠️ The salvaged old-project scan dump at
-  `~/samo-passport-old-db-backup-2026-08-29/` **must never be committed** — both
-  repos are PUBLIC and it holds real student emails.
-- **179 passport profiles with no `auth.users` row is EXPECTED**, not a bug.
+- **PASSPORT TOTALS — CLOSED**, and the two facts people re-derive (the 179
+  account-less profiles, and the dump that must never be committed) moved to
+  `docs/INVARIANTS.md`.
 - **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND via a relay on
   587; it cannot BE or RECEIVE mail. **No password reset exists; mail config is
   why.**
@@ -155,14 +148,22 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    Cloudflare envs are pinned to `samo-dev` after a production-branch deployment
    served live student data under a PREVIEW ribbon (`deploy-hosting.md`).
 
-1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
-   the frame, the starter kit. **This is what blocks the departments**, not the
-   pages. `docs/DEPT-TOOLS.md` §13 has the build order.
+1. **The ฝ่าย tools slot — HALF BUILT.** ✅ `src/data/tools.js` is the one
+   registry; the launcher and every ฝ่าย page render from it, guarded by
+   `tools-registry.test.js` (§13 step 6). ❌ Still missing: `public/embed/` +
+   the frame, the starter kit (§13 steps 9–11), and step 5's check on a real
+   phone. `docs/DEPT-TOOLS.md` §13 has the order.
 2. ✅ **THE DEPLOY HANG IS NOT REPRODUCING** — two full runs on 2026-08-31,
    both ~7 min, both exit 0. Treat `deploy.sh` as working; give it a 900 s
    ceiling. ⛔ The prescribed diagnostic was BLIND: `deploy.sh` re-execs itself
    after pulling, so `bash -x` instruments only the first two seconds
    (`skills/deploy-vm.md`). If it recurs, `set -x` INSIDE the script.
+3. ⏳ **PASSPORT ON THE DEV SERVER — blocker cleared, 4 steps left.** samo-dev
+   now EXPOSES the `passport` schema (it always held the data), so dev answers
+   exactly as production. Owner did Part A; **Part B — reconnect the
+   `samomdkkupassport` Pages project in the DASHBOARD — is not done.**
+   ⚠️ That project still names `idwlabpbwiwgaoqwbozz`, the FROZEN OLD DB.
+   **The four remaining steps are in `docs/state/phuriphatma.md`.**
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. **A second Google OAuth client for `samo-dev`** (previews are

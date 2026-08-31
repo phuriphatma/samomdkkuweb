@@ -329,6 +329,18 @@ live in `src/js/org-rung.js`, guarded by `org-rung.test.js`.
 
 ---
 
+## Passport totals — closed, and the two facts that keep getting re-investigated
+
+**Migrations 0174 + 0175 closed both halves of the km-totals question. Do NOT
+re-investigate it.** Moved here from `STATE.md` 2026-08-31 because these are
+durable facts, not status.
+
+- **179 passport profiles with no `auth.users` row is EXPECTED**, not a bug.
+  Someone counting profiles against accounts will find this every time.
+- ⛔ **The salvaged old-project scan dump at
+  `~/samo-passport-old-db-backup-2026-08-29/` must NEVER be committed.** Both
+  repositories are PUBLIC and it holds real student email addresses.
+
 ## `passport` the GRANT is not `passport` the APP
 
 **`passport` in `permissions` means passport ADMIN rights over a ฝ่าย. It is
