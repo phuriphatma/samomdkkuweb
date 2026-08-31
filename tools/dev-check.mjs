@@ -148,6 +148,34 @@ if (!PAT || !DEVPAT) {
     problems.push(`site_url on dev points at PRODUCTION (${dev.site_url})`);
   }
 
+  // ------------------------------------------------------------------
+  // WHICH SCHEMAS THE API EXPOSES. Added 2026-08-31, after dev answered 406
+  // for every `passport` table while production answered 200.
+  //
+  // The data was there all along — dev:refresh copies BOTH public and
+  // passport, schema and rows. What differed was a dashboard setting:
+  // production exposed `public,graphql_public,passport`, dev exposed only
+  // `public,graphql_public`. So the passport app could not run against dev at
+  // all, and the failure looked like missing data rather than a config gap.
+  //
+  // This is the same class as the auth settings above — a dashboard value,
+  // outside git, that nothing else notices. dev:check reported "✓ auth config"
+  // while this was drifted, because it only compared the auth endpoint.
+  // ------------------------------------------------------------------
+  const rest = async (ref, tok) => (await fetch(
+    `https://api.supabase.com/v1/projects/${ref}/postgrest`,
+    { headers: { Authorization: `Bearer ${tok}` } })).json();
+  const prodRest = await rest(refOf(env.VITE_SUPABASE_URL), PAT);
+  const devRest = await rest(refOf(env.SUPABASE_DEV_URL), DEVPAT);
+  const setOf = (v) => new Set(String(v || '').split(',').map((x) => x.trim()).filter(Boolean));
+  const missing = [...setOf(prodRest.db_schema)].filter((x) => !setOf(devRest.db_schema).has(x));
+  if (missing.length) {
+    problems.push(`exposed schemas: dev is MISSING ${missing.join(', ')} `
+      + `(production ${prodRest.db_schema}, dev ${devRest.db_schema}). `
+      + 'An app reading that schema gets 406 on dev and 200 on production, '
+      + 'which reads as missing data rather than a setting.');
+  }
+
   if (problems.length) {
     console.error('\n✗ auth config drift:');
     for (const p of problems) console.error(`  · ${p}`);
@@ -155,4 +183,5 @@ if (!PAT || !DEVPAT) {
     process.exit(1);
   }
   console.log('✓ auth config: the settings the app branches on match; dev-only ones are set.');
+  console.log(`✓ exposed schemas match: ${devRest.db_schema}`);
 }
