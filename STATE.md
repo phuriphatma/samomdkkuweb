@@ -166,11 +166,11 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    **The four remaining steps are in `docs/state/phuriphatma.md`.**
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
-1. **A second Google OAuth client for `samo-dev`** (previews are
-   username/password only). **Only the CONSOLE step is yours** — Google exposes
-   no API for it. Paste the id/secret into `.env.local`, then
-   **`npm run dev:google`** does the rest (`-- --check` prints the exact
-   redirect URI). ⛔ Never reuse production's client — dev keys are shared.
+1. ✅ **DONE 2026-08-31 — Google sign-in works on previews.** A dev-only OAuth
+   client is in `.env.local` as `GOOGLE_DEV_*` and enabled on samo-dev;
+   `external.google` reads true. Re-check or re-apply with
+   **`npm run dev:google`** (`-- --check` reports without writing). ⛔ Never
+   reuse production's client — dev keys are shared with the team.
 2. **The dev Apps Script deployment under its own Google account** — the last
    item of dev-system phase 2, plus a `DEV` folder in Drive (parent id in
    `docs/state/phuriphatma.md`).
@@ -197,7 +197,7 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   dev** (owner: §B1).
 - **The docs site is `docs/` RENDERED — it is NOT the status.** `STATE.md` stays
   at the repo root on purpose. Nothing secret goes in `docs/`.
-- **ฝ่าย tools — THE WORKFLOW IS ON; the frame and registry are NOT built.**
+- **ฝ่าย tools — THE WORKFLOW IS ON, the REGISTRY IS BUILT, the FRAME IS NOT.**
   Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
   re-litigated) — do not work from this bullet. ✅ Live: branch protection,
   `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
@@ -243,7 +243,8 @@ in plain language:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
 round trip. **Check `docs/TEAM-WORKFLOW.md` §0/§1 before asking anything.**
 
-One thing to OFFER rather than assume: **build the SLOT for ฝ่าย tools?** (A2).
+One thing to OFFER rather than assume: **build the FRAME for ฝ่าย tools?** (A1 —
+the registry landed 2026-08-31; the frame is the half still missing).
 📌 Golden Period itself is THEIRS — IT only drafted it; hand the route over when
 their version lands. An IT-built page is a page IT owns, which is the bottleneck
 that design removes.
