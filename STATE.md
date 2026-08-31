@@ -47,9 +47,12 @@ because it held three lifetimes at once. It now holds one: **status**.
     list of files a landed phase must correct — treat it as a checklist.**
 
 02. ✅ **DOCS SITE SHIPPED** — `https://phuriphatma.github.io/samomdkkuweb/`,
-    VitePress over `docs/`, deployed by `.github/workflows/docs.yml`.
-    `npm run docs:build` is inside the REQUIRED `build` check. **noindex on
-    purpose**; `docs/demos/**` excluded. Nothing secret may go in `docs/`.
+    also reachable as **`https://samo.md.kku.ac.th/docs`** (302 from nginx,
+    2026-08-31 — the address only; the pages still come from Pages, which is
+    what keeps the publish automatic). VitePress over `docs/`, deployed by
+    `.github/workflows/docs.yml`. `npm run docs:build` is inside the REQUIRED
+    `build` check. **noindex on purpose**; `docs/demos/**` excluded. Nothing
+    secret may go in `docs/`.
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
@@ -148,9 +151,15 @@ TRUE. That is what the grep is for.
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
 ⛳ **ONE item is live: the ฝ่าย tools slot.**
-✅ Shipped 2026-08-30, do not rebuild: the passport silent-failure guard
-(proof #27) · the contributor guide (`docs/CONTRIBUTE.md`, live at
-`/CONTRIBUTE`) · the docs site itself (dev-system phase 5).
+✅ Shipped, do not rebuild: the passport silent-failure guard (proof #27) ·
+the contributor guide (`docs/CONTRIBUTE.md`, at `/CONTRIBUTE`) · the docs site
+itself (dev-system phase 5) · **the illustrated walkthrough
+`docs/STEP-BY-STEP.md` at `/STEP-BY-STEP`** (2026-08-31) — Terminal → branch →
+PR → preview → merge, plus the stacked-branch answer for "B needs A". Its four
+diagrams are **files in `docs/diagrams/`, not inline `<svg>`**: GitHub's
+sanitiser drops the svg shell and KEEPS the label text as loose paragraphs
+(measured against `gh api /markdown`), which is why `md-raw-tags.test.js`
+rejects inline SVG in a doc — it is right, do not exempt it.
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
@@ -227,7 +236,7 @@ in plain language:
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
 | 6 | **Move the project to a GitHub ORGANISATION?** — the fix for "I have to add every contributor myself". ✅ **A complete runbook is written and ready to execute in one sitting**: `skills/move-the-repo-to-an-organisation.md` (~90 min, phases 0–5, rollback, and a §10 done-when list). The repo is on a personal account, so every gate ends at one human — `CODEOWNERS` names `@phuriphatma` on `auth.js`, `db.js`, `supabase/`, `server/`, `tools/`, and that keeps blocking merges on a review that stops coming | `skills/move-the-repo-to-an-organisation.md` | **yes, a FREE org — and NOT a shared `samo` login.** The repo is public, so branch protection, Actions and Pages stay free. ⚠️ The Copilot worry inverts: a shared role account is not a student and qualifies for NOTHING, while an org changes nobody's personal Copilot. §0 of that skill is a 10-minute experiment; run it before believing either of us |
-| 7 | **What URL should the docs site have?** It is on `phuriphatma.github.io/samomdkkuweb/` — a PERSONAL account's name, which reads as unofficial to a ฝ่าย member and dies if the account is ever renamed | `docs/TEAM-WORKFLOW.md` §8 phase 5 | **ask KKU for one CNAME, `docs.samo.md.kku.ac.th` → `phuriphatma.github.io`.** Keeps the automatic deploy; costs one request. ⛔ Do NOT serve it from the VM at `samo.md.kku.ac.th/docs/` — CI cannot reach the VM (deploys need VPN), so that trades a 40-second automatic publish for a manual one |
+| 7 | **What URL should the docs site have?** ✅ **HALF-ANSWERED 2026-08-31: `https://samo.md.kku.ac.th/docs` is LIVE** and 302s to Pages, sub-path and all (`/docs/CONTRIBUTE` → 200 verified both directions). That was free — an nginx block, no request to anyone. What is still owed is the OFFICIAL-LOOKING name | `server/nginx-samo.conf`, `docs/TEAM-WORKFLOW.md` §8 phase 5 | **ask KKU for one CNAME, `docs.samo.md.kku.ac.th` → `phuriphatma.github.io`.** The underrated reason: a custom domain is the ONLY option that survives the GitHub org move (Q6) without breaking every link. ⚠️ The ask goes to **KKU central** — `md.kku.ac.th` is served by `ns0/ns1/ns2.kku.ac.th`, not the faculty — and pointing a `kku.ac.th` name at `github.io` is the kind of thing a university NOC refuses. The redirect is the fallback that already works. ⛔ Do NOT SERVE the docs from the VM (`root`/`proxy_pass`) — CI cannot reach the VM, so that trades a 40-second automatic publish for a manual one, and a proxy also forces `base` to `/docs/`, breaking Pages as the fallback you need when the VM is down |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
