@@ -96,9 +96,10 @@ TRUE. That is what the grep is for.
   `analytics-*.js` chunk** — grepping `public-*.js` for its strings returns 0
   and means nothing. That is the shared-chunk trap in `docs/INVARIANTS.md`.
   Previous: `9ba0e9c`, and `e10c88c` before it.
-- ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
-  are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
-  about `src/` and the two entry HTMLs alone — and do NOT retype the sha:
+- ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
+  session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
+  `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
+  2026-08-31. Do not judge this by eye and do not retype the sha:
 
   ```bash
   npm run deploy:owed
