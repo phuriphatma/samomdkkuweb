@@ -15,16 +15,13 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
-000. ✅ **SCOPED GRANTS WERE INVISIBLE IN FOUR READERS — fixed, deployed.**
-    `readPermInputs` drops the capability key when a scope is chosen (0083).
-    `docs/mistakes/authz-grants.md`.
-    ⛔ **`passport` is passport ADMIN rights over a ฝ่าย's activities — NOT
-    permission to open the app.** Every kkumail student can open SAMO Passport;
-    that was never gated (`passport_admin_context()` is the authority).
-    ⚠️ **LATENT, deliberately not built**: `userCanAccess('passport')` has no
-    scoped branch and `managedPassportScopes` is never loaded onto the user.
-    Nothing calls it; the next person to gate a portal link on it denies 42 of
-    the 45 holders.
+000. ✅ **Scoped grants were invisible in four readers — fixed, deployed**
+    (`docs/mistakes/authz-grants.md`). Two things it left behind:
+    ⛔ **`passport` = passport ADMIN rights over a ฝ่าย, NOT permission to open
+    the app** — every kkumail student can; `passport_admin_context()` is the
+    authority. ⚠️ **LATENT**: `userCanAccess('passport')` has no scoped branch
+    and `managedPassportScopes` is never loaded; gating a portal link on it
+    denies 42 of the 45 holders.
 
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
@@ -39,14 +36,11 @@ because it held three lifetimes at once. It now holds one: **status**.
     dependent-work → troubleshooting) then `docs/contributing.md`; maintainer
     and agent notes collapsed at the bottom. The old CONTRIBUTE and
     STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do not recreate.
-    Verified live: all 10 pages 200, `/docs/NOPE` 404, diagrams 200, app and
-    `/notify` 200. GitHub Pages mirrors it and is the fresher of the two
-    between deploys.
-    📌 Thai stays only where this organisation uses a Thai name (ฝ่าย, the app's
-    UI labels); translating those breaks the match with what is on screen.
-    ⛔ **`deploy.sh` does NOT install nginx config** — that is a separate
-    `sudo cp … && nginx -t && systemctl reload`, per the header of
-    `server/nginx-samo.conf`. Done for this change; remember it for the next.
+    Verified live. GitHub Pages mirrors it. Thai stays only where this
+    organisation uses a Thai name (ฝ่าย, UI labels).
+    ⛔ **`deploy.sh` does NOT install nginx config** — always a separate
+    `sudo cp … && nginx -t && systemctl reload` (header of
+    `server/nginx-samo.conf`). Done for this change; remember it next time.
     **Why it is shaped this way: `docs/state-archive/2026-08-31-docs-site-restructure.md`.**
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
@@ -84,11 +78,9 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b10c9bb` (2026-08-31)**, verified from the SERVED site, not
-  from an exit code — which matters here, because one run exited 0 having
-  published nothing. **App bundles and `/docs` are BOTH current at this sha**
-  (the app has had no `src/` change since `b075225`; the docs were published by
-  hand from `b10c9bb`).
+- ✅ **DEPLOYED = `b10c9bb` (2026-08-31)** — app bundles AND `/docs` both
+  current, verified from the SERVED site rather than an exit code (one run
+  exited 0 having published nothing).
   ⛔ **`./server/deploy.sh` CURRENTLY HANGS** — three attempts all went silent
   right after `==> docs site: build with base /docs/` and had to be killed. The
   cause is NOT known; sudo-expiry was proposed, fixed, and **the hang survived
@@ -156,7 +148,7 @@ TRUE. That is what the grep is for.
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 
-⛳ **ONE item is live: the ฝ่าย tools slot.**
+⛳ **TWO items: the ฝ่าย tools slot, and the deploy hang.**
 ✅ Shipped, do not rebuild: the passport silent-failure guard (proof #27) ·
 the docs site and its restructure (see 02 above) · `samo.md.kku.ac.th/docs`.
 ⛔ **Do not build a polling timer for the docs.** One was built, verified
@@ -166,6 +158,13 @@ between deploys. Reasoning in the archive file named in 02.
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
+2. **`./server/deploy.sh` HANGS at the docs step** — cause unknown, app half
+   completes, docs publish by hand meanwhile (commands in
+   `skills/deploy-vm.md`). ⛔ Do not raise the timeout or re-try the sudo
+   theory; both are already ruled out. **The one unrun diagnostic: instrument
+   the script itself** (`PS4='+ $(date +%T) '` + `set -x`) instead of measuring
+   its steps standalone, which is why three theories all measured clean.
+   `docs/mistakes/deploy-hosting.md`.
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. **A second Google OAuth client for `samo-dev`**, so previews can use Google
