@@ -24,6 +24,18 @@
 //
 // So: never widen this without adding the case to `md-raw-tags.test.js` first.
 //
+// ⛔ DO NOT ADD SVG ELEMENT NAMES TO `RENDERED_HTML`. It is the obvious "fix"
+// the first time someone puts an inline diagram in a doc and this goes red —
+// and it is wrong. Measured against GitHub's own renderer on 2026-08-31
+// (`gh api -X POST /markdown`), an inline `<svg>` does not survive: the shell
+// is stripped and every `<text>` child is KEPT, as a bare paragraph. A diagram
+// therefore becomes a scatter of stray label words in the middle of the prose —
+// worse than being dropped, because it reads as broken writing rather than a
+// missing figure. Allowlisting the tags would make this instrument report green
+// over exactly that. Put diagrams in `docs/diagrams/*.svg` and reference them
+// relatively (`![alt](./diagrams/x.svg)`), which both renderers handle;
+// `docs/STEP-BY-STEP.md` is the worked example.
+//
 // 📌 IT LIVES IN tools/, NOT src/. It is an instrument for `docs/`, and nothing
 // in the app imports it — but while it sat under `src/js/` it made
 // `npm run deploy:owed` report a deploy owed for a file that can never reach a

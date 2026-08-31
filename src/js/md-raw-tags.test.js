@@ -52,6 +52,33 @@ describe('the instrument itself', () => {
     expect(findRawTags('<table><tr><td>a</td></tr></table>')).toEqual([]);
   });
 
+  it('still flags an inline <svg> diagram — the tempting wrong fix', () => {
+    // The first doc with a diagram makes this sweep go red, and the obvious
+    // remedy is to add the SVG element names to RENDERED_HTML. That would be
+    // wrong, and quietly: measured against GitHub's renderer on 2026-08-31
+    // (`gh api -X POST /markdown`), an inline <svg> has its shell stripped and
+    // its <text> children KEPT as a bare paragraph — the diagram becomes a
+    // scatter of stray label words mid-prose. Allowlisting the tags would make
+    // the instrument report green over exactly that.
+    //
+    // Diagrams go in docs/diagrams/*.svg and are referenced relatively;
+    // docs/STEP-BY-STEP.md is the worked example. This fixture is what stops
+    // the shortcut, so it asserts the CONSEQUENCE (the sweep still sees it),
+    // not one spelling of the match.
+    const md = '<svg viewBox="0 0 90 20">\n<rect x="1" y="1" width="88" height="18"/>\n'
+      + '<text x="45" y="14">main</text>\n</svg>';
+    expect(findRawTags(md).length,
+      'inline SVG is no longer flagged — if RENDERED_HTML grew svg tags, revert it '
+      + 'and put the diagram in docs/diagrams/ instead').toBeGreaterThan(0);
+  });
+
+  it('leaves a diagram REFERENCED as a file alone (the supported shape)', () => {
+    // The control for the rule above: the sweep must not object to the thing it
+    // is steering people towards, or the guidance is unusable.
+    expect(findRawTags('![ภาพรวม](./diagrams/journey.svg)')).toEqual([]);
+    expect(findTornSpans('![ภาพรวม](./diagrams/journey.svg)')).toEqual([]);
+  });
+
   it('catches a code span torn in half by a line-leading HTML tag', () => {
     // The third miss, and the one findRawTags CANNOT see: it strips the span
     // the author intended, while the renderer never forms that span at all.

@@ -1234,6 +1234,7 @@ sample the board hides that strip rather than showing a zero.
 | What | Where |
 |---|---|
 | Production | <https://samo.md.kku.ac.th> — nginx on the KKU VM, built from `main` |
+| Docs | <https://samo.md.kku.ac.th/docs> — a **302 to GitHub Pages**, not served here. The address is on the VM; the bytes are not, so publishing stays automatic (CI cannot reach the VM). `server/nginx-samo.conf` says why proxying it would be worse |
 | `samomdkkuweb.pages.dev` | ⚠️ RETIRED — resolves, splash-redirects to the VM |
 | `refactorsamomdkkuweb.pages.dev` | ⚠️ RETIRED — same |
 
