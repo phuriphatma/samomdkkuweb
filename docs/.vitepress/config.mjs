@@ -144,7 +144,27 @@ export default defineConfig({
   title: 'SAMO MDKKU — docs',
   description: 'Working documentation for the MDKKU SAMO student portal.',
   lang: 'th',
-  base: PAGES_BASE,
+  // WHERE THIS BUILD WILL BE SERVED FROM — two answers, on purpose.
+  //
+  // The docs are built TWICE from this one config, exactly the way the passport
+  // app already is (`PASSPORT_BASE=/passport/` in server/deploy.sh):
+  //
+  //   GitHub Actions   (no DOCS_BASE)      → /samomdkkuweb/  → Pages, the backup
+  //   the KKU VM       DOCS_BASE=/docs/    → /docs/          → samo.md.kku.ac.th/docs
+  //
+  // WHY BOTH. `samo.md.kku.ac.th/docs` is the address people can be told and
+  // will remember, and serving the real pages there (rather than bouncing to a
+  // personal github.io URL) is what nextjs.org, tailwindcss.com, supabase.com
+  // and kubernetes.io all do — measured 2026-08-31, all four answer 200 at the
+  // path. KKU will not issue `docs.samo.md.kku.ac.th`, so the path is the only
+  // official-looking address available.
+  //
+  // Pages is kept because a single build would make the VM a single point of
+  // failure for the documentation — and documentation is what you go and read
+  // when the thing it documents is broken. Keeping the default base means the
+  // Pages copy needs no special handling: it is just what a build with no env
+  // var produces.
+  base: process.env.DOCS_BASE || PAGES_BASE,
 
   // ⛔ NOT INDEXED, deliberately. The repository has always been public, so
   // nothing here is newly exposed — but a rendered, crawlable site is a

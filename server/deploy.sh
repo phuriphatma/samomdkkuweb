@@ -77,8 +77,26 @@ if [ -d "$PASS_DIR" ]; then
   publish dist /var/www/passport
 fi
 
+# ---------------------------------------------------------------------------
+# The docs site, served at samo.md.kku.ac.th/docs.
+#
+# Same shape as the passport build above: one repo, a second build with a
+# different base. GitHub Actions publishes the SAME docs to GitHub Pages with
+# the default base — that copy is the backup, and the reason this VM is not a
+# single point of failure for the documentation.
+#
+# ⚠️ A DEPLOY IS NOT THE ONLY TRIGGER, and must not be. A ฝ่าย member fixing a
+# typo should not wait for someone to have VPN and run this script. The
+# samo-docs.timer unit rebuilds these from a separate checkout every few
+# minutes (server/samo-docs.*). This block is here so that a full deploy also
+# leaves /docs current, not so that it is the only way to publish.
+echo "==> docs site: build with base /docs/"
+cd "$WEB_DIR"
+DOCS_BASE=/docs/ npm run docs:build
+publish docs/.vitepress/dist /var/www/docs
+
 echo "==> fix permissions"
-sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport
+sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport /var/www/docs
 
 echo "==> restart notify service + reload nginx"
 sudo systemctl restart samo-notify || echo "  (samo-notify not installed yet — see docs/SELF-HOST.md)"

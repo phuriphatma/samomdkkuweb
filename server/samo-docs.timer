@@ -1,0 +1,24 @@
+# Every 10 minutes. Docs changes are small and rare; the script exits in about a
+# second when origin/main has not moved, so the poll is nearly free and the
+# worst case for a merged typo fix appearing is ten minutes.
+[Unit]
+Description=Keep the SAMO docs site current without a deploy
+
+[Timer]
+OnBootSec=5min
+# ⚠️ OnActiveSec IS LOAD-BEARING — same trap as samo-claude-usage.timer, which
+# this repo has already paid for once. A timer whose only triggers are
+# OnBootSec + OnUnitActiveSec comes back from a `disable` reporting `enabled`
+# and `active` with NextElapseUSecMonotonic=infinity: OnBootSec is measured from
+# BOOT, which is in the past, and OnUnitActiveSec only chains once a run has
+# happened. `enable --now` then SUCCEEDS and schedules nothing.
+# OnActiveSec is relative to the TIMER starting, so enabling always anchors a
+# first run. Verify with `systemctl list-timers` and read NEXT — never trust
+# `is-enabled` (.claude/rules/mistakes.md, class 7).
+OnActiveSec=2min
+OnUnitActiveSec=10min
+# Catch up after a reboot rather than waiting a full interval.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

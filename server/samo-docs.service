@@ -1,0 +1,18 @@
+# Rebuilds samo.md.kku.ac.th/docs from origin/main when it has changed.
+#
+# Runs as `ubuntu`, not root: /var/www/docs is ubuntu:www-data 775, so nginx
+# reads it by group and nothing here needs sudo — in particular `npm ci` never
+# runs as root. The repository is public, so no credential is involved at all.
+[Unit]
+Description=Rebuild the SAMO docs site from origin/main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/samo-projects
+ExecStart=/home/ubuntu/samo-projects/samomdkkuweb/server/samo-docs-build.sh
+# A docs build should never be the reason this box is busy.
+Nice=10
+IOSchedulingClass=idle
