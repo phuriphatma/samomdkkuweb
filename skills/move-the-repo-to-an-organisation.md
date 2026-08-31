@@ -110,9 +110,10 @@ time bomb.
 
 ### Why not a shared `samo` GitHub login instead
 
-- **It is the option that loses Copilot.** Free student access requires a
-  *verified student*. A role account shared by a committee is not one and never
-  will be, so it qualifies for nothing.
+- **It is the option that loses Copilot.** Free access requires a *verified
+  student*. A role account shared by a committee is not one and never will be,
+  so it qualifies for nothing. (Still true after the 2026-03-12 change — what a
+  student now forfeits is the Copilot Student plan rather than Pro; §3.)
 - It destroys `git blame`. This project already deleted 17 shared application
   logins on 2026-08-17/18 for exactly that reason
   (`.claude/rules/security.md`); doing it again one level up would put the
@@ -155,11 +156,29 @@ seat_breakdown.total       0             ← no seats assigned to anyone
 seat_management_setting    unconfigured  ← nobody has enabled org Copilot
 ```
 
-⛔ **The standing rule: never buy or enable Copilot seats for the org.** The
-free student entitlement belongs to a VERIFIED STUDENT and cannot be held by an
-organisation, so an org seat is a strict downgrade — it replaces something free
-with something billed. Personal Copilot stays each person's own, and stays each
-person's own switch, under their account Settings → Copilot.
+⛔ **The standing rule: never buy or enable Copilot seats for the org** — but
+the REASON changed under us on 2026-03-12, and the old reason is now false.
+
+Until then a verified student got Copilot **Pro** free, which made an org seat
+a strict downgrade: free replaced by billed, for the same thing. Since
+2026-03-12 students get the **Copilot Student** plan instead — unlimited IDE
+completions plus **200 AI credits a month** covering chat, code review, agents
+and the CLI. A Copilot Business seat LIFTS that cap, so it is no longer
+strictly worse.
+
+**The rule survives on COST, not capability.** It is a per-person monthly bill
+for a volunteer committee, out of a club budget that does not exist, to remove
+a cap this repo's pull-request volume does not come near. If someone one day
+argues for it, that is the argument to have — not "it would take away their
+free Pro", which is no longer true.
+
+⚠️ **NOT VERIFIED: what an org seat does to a free Copilot Student plan.**
+GitHub documents cancelling-and-refunding a PAID personal plan (Pro/Pro+/Max).
+A free plan has nothing to refund, and this runbook has no evidence either way.
+Do not assert it; ask the authority if it ever matters.
+
+Personal Copilot stays each person's own, and stays each person's own switch,
+under their account Settings → Copilot.
 
 **If `total` is anything but 0, STOP and reassess before moving this repo.**
 

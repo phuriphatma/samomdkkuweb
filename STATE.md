@@ -78,22 +78,21 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `17bfd01` (2026-08-31)** — app bundles AND `/docs` both
+- ✅ **DEPLOYED = `f27ebdd` (2026-08-31)** — app bundles AND `/docs` both
   current, verified from the SERVED site rather than an exit code (one run
-  exited 0 having published nothing).
-  ⛔ **`./server/deploy.sh` CURRENTLY HANGS** — three attempts all went silent
-  right after `==> docs site: build with base /docs/` and had to be killed. The
-  cause is NOT known; sudo-expiry was proposed, fixed, and **the hang survived
-  the fix**. The docs were published by running the build + rsync by hand (ten
-  seconds — the exact commands are in `docs/mistakes/deploy-hosting.md`, along
-  with what is ruled out and the one diagnostic nobody has run yet:
-  instrument `deploy.sh` itself instead of measuring its steps standalone).
-  **The app half of the deploy is unaffected and completes.** Checked live: the app, `/admin/`,
-  `/passport/`, `/pr`, `/updates` and `/notify` all 200 · all ten new
-  `/docs` pages 200 · `/docs/NOPE` 404 (the deny half) · the two retired doc
-  URLs 301 to their new homes · a diagram asset 200.
+  exited 0 having published nothing): the served `/docs/start/install` names
+  the ORG slug ten times and the personal one zero times.
+  ✅ **THE HANG DID NOT REPRODUCE.** Two full runs, both exit 0, both ~7 min,
+  docs step INCLUDED — one with output redirected on the VM, one streamed
+  exactly as `skills/deploy-vm.md` documents. **A full deploy takes ~7 minutes**
+  and every earlier report is consistent with a ceiling below that (the skill
+  records `timeout 300` killing a live docs build). ⚠️ NOT proven — two clean
+  runs are not a root cause. Give it `timeout 900`, run it in the BACKGROUND,
+  and do not re-open the sudo or PTY theories: both are now falsified.
+  Checked live: `/`, `/admin/`, `/passport/`, `/pr`, `/updates`, `/notify` and
+  `/docs` all 200 · `/docs/NOPE` 404 (the deny half).
   ⚠️ Grepping the wrong bundle proves nothing — the SHARED-CHUNK trap lives in
-  `docs/INVARIANTS.md`. Previous: `9ba0e9c`, `e10c88c`.
+  `docs/INVARIANTS.md`. Previous: `17bfd01`, `9ba0e9c`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -159,13 +158,11 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the
    pages. `docs/DEPT-TOOLS.md` §13 has the build order.
-2. **`./server/deploy.sh` HANGS at the docs step** — cause unknown, app half
-   completes, docs publish by hand meanwhile (commands in
-   `skills/deploy-vm.md`). ⛔ Do not raise the timeout or re-try the sudo
-   theory; both are already ruled out. **The one unrun diagnostic: instrument
-   the script itself** (`PS4='+ $(date +%T) '` + `set -x`) instead of measuring
-   its steps standalone, which is why three theories all measured clean.
-   `docs/mistakes/deploy-hosting.md`.
+2. ✅ **THE DEPLOY HANG IS NOT REPRODUCING** — two full runs on 2026-08-31,
+   both ~7 min, both exit 0. Treat `deploy.sh` as working; give it a 900 s
+   ceiling. ⛔ The prescribed diagnostic was BLIND: `deploy.sh` re-execs itself
+   after pulling, so `bash -x` instruments only the first two seconds
+   (`skills/deploy-vm.md`). If it recurs, `set -x` INSIDE the script.
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. **A second Google OAuth client for `samo-dev`**, so previews can use Google

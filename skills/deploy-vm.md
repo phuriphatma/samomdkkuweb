@@ -24,7 +24,35 @@ A bundle that reads a column the live database does not have is 0129's
 code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 (`skills/ship-a-migration.md`).
 
-## ⛔ KNOWN ISSUE FIRST — this script currently HANGS at the docs step
+## ✅ THE HANG DID NOT REPRODUCE (2026-08-31) — read this before the section below
+
+**Two full deploys, both `DEPLOY_EXIT=0`, both ~7 minutes, docs step included.**
+One had output redirected to a file on the VM; the CONTROL had it streamed
+through `ssh -tt` exactly as "The command" below documents. Neither hung.
+
+**A full deploy takes ~7 minutes** (19:23:26 → 19:30:26 measured). Every earlier
+report is consistent with a ceiling below that — this file already records
+`timeout 300` killing a run *during the live docs build* at 12:45:56. That is a
+deploy being killed, not a deploy hanging, and the docs step is simply the one
+the clock runs out in because it is last.
+
+⚠️ **Two clean runs are not a root cause.** Do not write "the hang is fixed"
+anywhere. Give it `timeout 900`, run it in the BACKGROUND, and let it finish.
+
+⛔ **The diagnostic this file used to prescribe CANNOT SEE THE RUN.**
+`PS4='+ $(date +%T) ' bash -x ./server/deploy.sh` instruments only the first two
+seconds: the script **`exec`s itself** after pulling —
+
+```
++ 12:21:42 exec bash /home/ubuntu/samo-projects/samomdkkuweb/server/deploy.sh
+```
+
+— and `exec` replaces the process with a fresh, untraced `bash`. Everything
+after the pull ran with no tracing at all. If the hang recurs, put `set -x`
+INSIDE the script (after the re-exec) or export `BASH_XTRACEFD`; do not reach
+for `bash -x` from outside and believe its silence.
+
+## The section that follows is KEPT FOR ITS EVIDENCE — the hang as it was reported
 
 **As of 2026-08-31, `./server/deploy.sh` goes silent right after
 `==> docs site: build with base /docs/` and never finishes.** Three attempts
