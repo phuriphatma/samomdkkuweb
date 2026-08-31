@@ -3,7 +3,7 @@
 **The guide lives here, and it is written for everyone — ฝ่าย members and
 developers read the same page:**
 
-### 👉 https://phuriphatma.github.io/samomdkkuweb/CONTRIBUTE
+### 👉 https://samo.md.kku.ac.th/docs/CONTRIBUTE
 
 (Source: [`docs/CONTRIBUTE.md`](docs/CONTRIBUTE.md) — edit it there.)
 
@@ -11,9 +11,14 @@ developers read the same page:**
 merged pull request, including what to do when your feature depends on one that
 is still in review:
 
-### 👉 https://phuriphatma.github.io/samomdkkuweb/STEP-BY-STEP
+### 👉 https://samo.md.kku.ac.th/docs/STEP-BY-STEP
 
 (Source: [`docs/STEP-BY-STEP.md`](docs/STEP-BY-STEP.md).)
+
+Both pages are also published to GitHub Pages at
+<https://phuriphatma.github.io/samomdkkuweb/> — same content, built from the
+same commit. That copy exists so the documentation is still readable if the KKU
+server is down, which is exactly when you are most likely to want it.
 
 ---
 

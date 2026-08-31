@@ -34,25 +34,26 @@ because it held three lifetimes at once. It now holds one: **status**.
     deny 42 of the 45 holders.
 
 
-00. ✅ **PASSPORT — a carried student would have lost every km on signing in.
-    FIXED by 0175 before anyone hit it.** 0174's new UPDATE trigger fired on the
-    signup re-key, debiting the real profile and crediting an id nothing lived
-    at yet. **Zero students affected.** Found by the new guard, proof #27
-    (`tools/passport-link-on-signup.sql`). Write-up:
-    `docs/mistakes/postgres-schema.md`.
+00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
+    signup; FIXED by 0175, zero students affected.** Found by proof #27
+    (`tools/passport-link-on-signup.sql`). `docs/mistakes/postgres-schema.md`.
 
-01. ✅ **CONTRIBUTING.md said "there is no preview deploy" — wrong for weeks.**
-    Per-PR previews point at `samo-dev` and are safe to submit forms on.
-    Guard: `src/js/preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md` §9 is the
-    list of files a landed phase must correct — treat it as a checklist.**
+01. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** — a doc
+    denied it for weeks; guard `preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md`
+    §9 lists the files a landed phase must correct — treat it as a checklist.**
 
 02. ✅ **DOCS SITE SHIPPED** — `https://phuriphatma.github.io/samomdkkuweb/`,
-    also reachable as **`https://samo.md.kku.ac.th/docs`** (302 from nginx,
-    2026-08-31 — the address only; the pages still come from Pages, which is
-    what keeps the publish automatic). VitePress over `docs/`, deployed by
-    `.github/workflows/docs.yml`. `npm run docs:build` is inside the REQUIRED
-    `build` check. **noindex on purpose**; `docs/demos/**` excluded. Nothing
-    secret may go in `docs/`.
+    **and served from the VM at `https://samo.md.kku.ac.th/docs`, which is now
+    the address to give people** (2026-08-31). VitePress over `docs/`, built
+    TWICE from one config: Actions with the default base → Pages (the backup),
+    the VM with `DOCS_BASE=/docs/` → `/var/www/docs`. `npm run docs:build` is
+    inside the REQUIRED `build` check. **noindex on purpose**; `docs/demos/**`
+    excluded. Nothing secret may go in `docs/`.
+    ⚙️ **`samo-docs.timer` rebuilds /docs from `origin/main` every 10 minutes**,
+    from its OWN checkout (`~/samo-projects/samomdkkuweb-docs`), as `ubuntu`,
+    with no credential — the repo is public. So a merged docs fix ships without
+    a deploy and without VPN. Verified re-arming across two runs; do not read
+    `is-enabled`, read NEXT from `systemctl list-timers`.
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
@@ -236,7 +237,7 @@ in plain language:
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
 | 6 | **Move the project to a GitHub ORGANISATION?** — the fix for "I have to add every contributor myself". ✅ **A complete runbook is written and ready to execute in one sitting**: `skills/move-the-repo-to-an-organisation.md` (~90 min, phases 0–5, rollback, and a §10 done-when list). The repo is on a personal account, so every gate ends at one human — `CODEOWNERS` names `@phuriphatma` on `auth.js`, `db.js`, `supabase/`, `server/`, `tools/`, and that keeps blocking merges on a review that stops coming | `skills/move-the-repo-to-an-organisation.md` | **yes, a FREE org — and NOT a shared `samo` login.** The repo is public, so branch protection, Actions and Pages stay free. ⚠️ The Copilot worry inverts: a shared role account is not a student and qualifies for NOTHING, while an org changes nobody's personal Copilot. §0 of that skill is a 10-minute experiment; run it before believing either of us |
-| 7 | **What URL should the docs site have?** ✅ **HALF-ANSWERED 2026-08-31: `https://samo.md.kku.ac.th/docs` is LIVE** and 302s to Pages, sub-path and all (`/docs/CONTRIBUTE` → 200 verified both directions). That was free — an nginx block, no request to anyone. What is still owed is the OFFICIAL-LOOKING name | `server/nginx-samo.conf`, `docs/TEAM-WORKFLOW.md` §8 phase 5 | **ask KKU for one CNAME, `docs.samo.md.kku.ac.th` → `phuriphatma.github.io`.** The underrated reason: a custom domain is the ONLY option that survives the GitHub org move (Q6) without breaking every link. ⚠️ The ask goes to **KKU central** — `md.kku.ac.th` is served by `ns0/ns1/ns2.kku.ac.th`, not the faculty — and pointing a `kku.ac.th` name at `github.io` is the kind of thing a university NOC refuses. The redirect is the fallback that already works. ⛔ Do NOT SERVE the docs from the VM (`root`/`proxy_pass`) — CI cannot reach the VM, so that trades a 40-second automatic publish for a manual one, and a proxy also forces `base` to `/docs/`, breaking Pages as the fallback you need when the VM is down |
+| 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` is not available and the earlier CNAME recommendation here was dead on arrival | `server/nginx-samo.conf`, `server/samo-docs.*` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⚠️ **The objection that nearly killed this was WRONG and is worth remembering: "docs on the VM would need someone on VPN to publish."** CI cannot reach the VM, but the VM reaches GitHub fine, and the repo is public — a timer closes it. Do not treat "nothing can push in" as "nothing can be automatic" |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
