@@ -1,19 +1,17 @@
 # Contributing
 
-**The guide lives here, and it is written for everyone — ฝ่าย members and
-developers read the same page:**
+**Everything you need, in order — what to install, how to run it, and how to
+send your first change:**
 
-### 👉 https://samo.md.kku.ac.th/docs/CONTRIBUTE
+### 👉 https://samo.md.kku.ac.th/docs/start/prerequisites
 
-(Source: [`docs/CONTRIBUTE.md`](docs/CONTRIBUTE.md) — edit it there.)
+(Source: [`docs/start/`](docs/start/) — edit it there.)
 
-**Want the commands, in order, with diagrams?** — from opening Terminal to a
-merged pull request, including what to do when your feature depends on one that
-is still in review:
+**What you may change, the rules, and who has to approve what:**
 
-### 👉 https://samo.md.kku.ac.th/docs/STEP-BY-STEP
+### 👉 https://samo.md.kku.ac.th/docs/contributing
 
-(Source: [`docs/STEP-BY-STEP.md`](docs/STEP-BY-STEP.md).)
+(Source: [`docs/contributing.md`](docs/contributing.md).)
 
 Both pages are also published to GitHub Pages at
 <https://phuriphatma.github.io/samomdkkuweb/> — same content, built from the

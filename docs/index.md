@@ -2,61 +2,45 @@
 layout: home
 hero:
   name: SAMO MDKKU
-  text: Working documentation
-  tagline: The docs behind the student portal at samo.md.kku.ac.th — architecture, the rules that outlive a session, and every bug this repo has already paid for.
+  text: คู่มือนักพัฒนา
+  tagline: เว็บสโมสรนักศึกษาแพทย์ ม.ขอนแก่น — วิธีรันบนเครื่องตัวเอง วิธีส่งงาน และระบบทำงานยังไง
   actions:
     - theme: brand
-      text: Start here — the invariants
-      link: /INVARIANTS
+      text: เริ่มต้นที่นี่
+      link: /start/prerequisites
     - theme: alt
-      text: Architecture map
-      link: /CONTEXT
-    - theme: alt
-      text: Contributing
-      link: https://github.com/phuriphatma/samomdkkuweb/blob/main/CONTRIBUTING.md
+      text: ร่วมพัฒนา
+      link: /contributing
 features:
-  - title: Rules that outlive a session
-    details: docs/INVARIANTS.md — what must stay true no matter who is working. Read it before notifications, deploys, or reparenting a ฝ่าย.
-    link: /INVARIANTS
-  - title: Bug write-ups
-    details: Ten files, one per area, every one of them a mistake this project made once and wrote down so it is not made twice. Symptom → cause → fix → the general rule.
-    link: /mistakes/INDEX
-  - title: How a ฝ่าย ships a tool
-    details: One pull-request workflow for everybody, with CODEOWNERS carrying the whole difference. No department needs IT to write their page.
+  - title: รันบนเครื่องตัวเอง
+    details: ต้องลงอะไรบ้าง ดึงโปรเจกต์ยังไง แล้วเปิดเว็บที่ localhost:5174 ประมาณ 10 นาที
+    link: /start/install
+  - title: ส่งการแก้ครั้งแรก
+    details: สร้าง branch แก้ไฟล์ เปิด pull request แล้วดูของจริงในเว็บทดลอง ทีละคำสั่ง พร้อมรูป
+    link: /start/first-change
+  - title: เครื่องมือของฝ่าย
+    details: ฝ่ายทำหน้าเครื่องมือของตัวเองได้ ใช้ขั้นตอนเดียวกับทีมพัฒนา ไม่ต้องรอ IT เขียนให้
     link: /DEPT-TOOLS
-  - title: The team workflow
-    details: The dev database, per-PR previews, credentials and review flow — what is built, what is still a design, and which decisions are closed.
-    link: /TEAM-WORKFLOW
+  - title: ระบบทำงานยังไง
+    details: โครงสร้างเว็บ ฐานข้อมูล สิทธิ์การเข้าถึง และกฎที่ห้ามผิดไม่ว่าจะผ่านไปกี่ปี
+    link: /CONTEXT
 ---
 
-## What this site is, and what it is not
+## ใครควรอ่านหน้าไหน
 
-This is the `docs/` directory of
-[`phuriphatma/samomdkkuweb`](https://github.com/phuriphatma/samomdkkuweb),
-rendered. It is the working documentation for the MDKKU SAMO student portal —
-written for the people who maintain it and for the agents that help.
-
-**It is not the status of the system.** That lives in `STATE.md` at the root of
-the repository, on purpose: it changes almost every session, and a copy of it
-here would be a second home for a decaying fact — which is the single most
-expensive mistake this codebase has repeated. If you want to know what is
-deployed, what is in flight and what is owed, read
-[`STATE.md`](https://github.com/phuriphatma/samomdkkuweb/blob/main/STATE.md).
-
-**It is not a manual for students.** Nothing here is user documentation; the
-portal itself is at [samo.md.kku.ac.th](https://samo.md.kku.ac.th).
-
-## Where to go first
-
-| You want | Read |
+| คุณคือ | เริ่มที่ |
 |---|---|
-| The rules that must not be broken | [INVARIANTS](/INVARIANTS) |
-| How the thing is put together — schema, RLS, deploy | [CONTEXT](/CONTEXT) |
-| To contribute a page for your ฝ่าย | [DEPT-TOOLS](/DEPT-TOOLS) |
-| Whether this bug has happened before | [the write-up index](/mistakes/INDEX) — or `grep -rin "<symptom>" docs/mistakes/`, which searches the write-ups themselves |
-| Why something was built the way it was | the [archive](/state-archive/2026-08-27-state-split) |
+| อยากแก้คำผิดหรือข้อความ ไม่เคยเขียนโปรแกรม | [ร่วมพัฒนา](/contributing) — แก้ได้ในเว็บ GitHub ไม่ต้องลงอะไร |
+| อยากรันเว็บบนเครื่องตัวเอง | [สิ่งที่ต้องมีก่อน](/start/prerequisites) |
+| อยู่ฝ่ายและอยากมีหน้าเครื่องมือของตัวเอง | [เครื่องมือของฝ่าย](/DEPT-TOOLS) |
+| ดูแลระบบ หรือกำลังรับช่วงต่อ | [ระบบทำงานยังไง](/CONTEXT) แล้วต่อด้วย [กฎที่ห้ามผิด](/INVARIANTS) |
 
-⚠️ **Everything here is public**, because the repository is. No key, no
-credential, no unlisted URL and no student's name, รหัสนักศึกษา or photograph
-belongs in `docs/` — that was already true of a public repo, and this site only
-makes it easier to find.
+## เกี่ยวกับเว็บนี้
+
+เว็บนี้คือโฟลเดอร์ `docs/` ของโปรเจกต์ แสดงผลเป็นหน้าเว็บ แก้เอกสารหน้าไหนก็แก้ไฟล์ในโฟลเดอร์นั้น แล้วเปิด pull request ตามปกติ
+
+หมวด **บันทึกวิศวกรรม · Maintainer & agent notes** และหมวดที่อยู่ใต้ลงไป เขียนไว้สำหรับผู้ดูแลระบบและเครื่องมือ AI ที่ช่วยพัฒนา — เป็นบันทึกการทำงาน ไม่ใช่คู่มือ ข้ามได้ถ้าคุณมาเพื่อส่งงาน
+
+::: warning สถานะปัจจุบันไม่ได้อยู่ที่นี่
+อะไรกำลังทำอยู่ อะไรค้าง อะไรพัง — อยู่ในไฟล์ `STATE.md` ที่โฟลเดอร์บนสุดของโปรเจกต์ ตั้งใจแยกไว้เพราะมันเปลี่ยนแทบทุกวัน และสำเนาที่นี่จะเก่าทันที
+:::

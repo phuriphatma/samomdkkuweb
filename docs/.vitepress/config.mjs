@@ -67,43 +67,74 @@ export function titleOf(rel) {
 }
 
 /**
- * The top-level docs, GROUPED FOR A READER rather than listed alphabetically.
+ * THE SIDEBAR, IN READING ORDER.
  *
- * A flat list of 71 pages is the thing the owner said drove non-technical
- * people off GitHub in the first place, so this is the one hand-maintained
- * list on the site — and it is guarded: `src/js/docs-site.test.js` fails when a
- * new top-level doc is not in exactly one group. A file is never LOST by
- * omission (it lands in `UNSORTED` and the test goes red naming it); it just
- * cannot be quietly ignored.
+ * Ordered by WHAT SOMEONE WANTS TO DO, not by what a document is. The first
+ * version grouped by document type — "Plans, proposals and history", "Archive
+ * — why it was done that way" — and the result was a site whose first click
+ * was the invariants file and where 37 of 70 pages were session notes and
+ * archived handoffs. The owner's verdict on 2026-08-31: "it's full of technical
+ * jargon that is the memory of Claude ... start here should show how to run the
+ * project".
+ *
+ * So the top of this list is a path: what you need → how to run it → how to
+ * send a change. Everything an agent or a maintainer reads is real and stays
+ * published, but it sits BELOW that path and is collapsed, because a
+ * contributor is not looking for it.
+ *
+ * Two forms, and a group may use either:
+ *   { text, files: [...] }  explicit top-level files, in the order given
+ *   { text, dir: 'x' }      every doc under docs/x/, found on disk
+ *
+ * A file is never LOST by omission — anything unclaimed lands in an "Unsorted"
+ * group and `src/js/docs-site.test.js` goes red naming it. That guard is the
+ * reason this hand-written order is safe to keep (.claude/rules/mistakes.md
+ * class 6: a hand-maintained list beside the thing it describes drifts, and the
+ * drift is invisible).
  */
-export const TOP_GROUPS = [
+export const SIDEBAR = [
   {
-    text: 'เริ่มที่นี่ · Start here',
-    files: ['CONTRIBUTE.md', 'STEP-BY-STEP.md', 'DEPT-TOOLS.md', 'TEAM-WORKFLOW.md', 'SUCCESSION.md', 'MERGE-CHECKLIST.md', 'VERSIONING.md'],
+    text: 'เริ่มต้นที่นี่',
+    dir: 'start',
+    // A TUTORIAL HAS AN ORDER AND THE DISK DOES NOT. Left to `collect()` these
+    // sort alphabetically — dependent-work, first-change, install,
+    // prerequisites, troubleshooting — which hands a newcomer the hardest page
+    // first and the setup page fourth. Anything under start/ that is missing
+    // here still appears, at the end, so a new page is never lost.
+    order: ['prerequisites.md', 'install.md', 'first-change.md', 'dependent-work.md', 'troubleshooting.md'],
   },
   {
-    text: 'How the system works',
+    text: 'ร่วมพัฒนา',
+    files: ['contributing.md', 'DEPT-TOOLS.md'],
+  },
+  {
+    text: 'ระบบทำงานยังไง',
     files: [
-      'INVARIANTS.md', 'CONTEXT.md', 'EMAIL.md', 'PERSON-REGISTRY.md',
+      'CONTEXT.md', 'INVARIANTS.md', 'PERSON-REGISTRY.md', 'EMAIL.md',
       'HOUSE-SYSTEM.md', 'house-data-spec-th.md', 'TEAM-ROLES-AND-PHOTOS.md',
-      'SELF-HOST.md',
     ],
   },
   {
-    text: 'Plans, proposals and history',
+    text: 'อ้างอิง',
+    files: ['VERSIONING.md', 'MERGE-CHECKLIST.md', 'SELF-HOST.md', 'SUCCESSION.md'],
+  },
+  {
+    text: 'บันทึกวิศวกรรม · Maintainer & agent notes',
+    collapsed: true,
     files: [
-      'NEXT.md', 'PROJECT-ARCHITECTURE.md', 'KKU-SSO.md', 'KKU-SSO-MANUAL.md',
-      'AUTH-MODEL.md', 'SUPABASE-MIGRATION.md', 'PASSPORT-MERGE.md',
+      'TEAM-WORKFLOW.md', 'NEXT.md', 'PROJECT-ARCHITECTURE.md',
+      'KKU-SSO.md', 'KKU-SSO-MANUAL.md', 'AUTH-MODEL.md',
+      'SUPABASE-MIGRATION.md', 'PASSPORT-MERGE.md',
     ],
   },
+  { text: 'บั๊กที่เคยเจอ · Bug write-ups', dir: 'mistakes', collapsed: true },
+  { text: 'บันทึกระหว่างทำงาน · Session notes', dir: 'state', collapsed: true },
+  { text: 'คลังเก่า · Archive', dir: 'state-archive', collapsed: true },
+  { text: 'Design references', dir: 'design-refs', collapsed: true },
 ];
 
-const SUBDIR_GROUPS = [
-  { key: 'mistakes', text: 'Bug write-ups', collapsed: true },
-  { key: 'state', text: 'Session notes', collapsed: true },
-  { key: 'state-archive', text: 'Archive — why it was done that way', collapsed: true },
-  { key: 'design-refs', text: 'Design references', collapsed: true },
-];
+/** Kept for the guard's sake: every top-level file this sidebar claims. */
+export const TOP_GROUPS = SIDEBAR.filter((g) => g.files);
 
 const linkOf = (rel) => '/' + rel.replace(/\.md$/, '').split(sep).join('/');
 const dirOf = (rel) => (rel.includes(sep) ? rel.split(sep)[0] : '');
@@ -113,29 +144,48 @@ const dirOf = (rel) => (rel.includes(sep) ? rel.split(sep)[0] : '');
  */
 export function buildSidebar(files = collect()) {
   const top = files.filter((f) => dirOf(f) === '' && f !== 'index.md');
-  const claimed = new Set(TOP_GROUPS.flatMap((g) => g.files));
-  const groups = TOP_GROUPS.map((g) => ({
-    text: g.text,
-    collapsed: false,
-    items: g.files.filter((f) => top.includes(f)).map((f) => ({ text: titleOf(f), link: linkOf(f) })),
-  }));
+  const claimed = new Set(SIDEBAR.flatMap((g) => g.files ?? []));
+  const usedDirs = new Set(SIDEBAR.map((g) => g.dir).filter(Boolean));
+  const groups = [];
 
-  // Anything nobody classified. Empty in a healthy repo; the test says so.
-  const unsorted = top.filter((f) => !claimed.has(f));
-  if (unsorted.length) {
+  for (const g of SIDEBAR) {
+    let items;
+    if (g.dir) {
+      items = files.filter((f) => dirOf(f) === g.dir);
+      // Dated filenames — newest first, which is the order anyone wants them in.
+      if (g.dir === 'state-archive') items = items.slice().reverse();
+      if (g.order) {
+        const rank = (f) => {
+          const i = g.order.indexOf(f.split(sep).slice(1).join(sep));
+          return i === -1 ? g.order.length : i;   // unlisted sinks to the end
+        };
+        items = items.slice().sort((a, b) => rank(a) - rank(b));
+      }
+    } else {
+      items = g.files.filter((f) => top.includes(f));
+    }
+    if (!items.length) continue;
     groups.push({
-      text: 'Unsorted — add these to TOP_GROUPS',
-      collapsed: false,
-      items: unsorted.map((f) => ({ text: titleOf(f), link: linkOf(f) })),
+      text: g.text,
+      collapsed: g.collapsed ?? false,
+      items: items.map((f) => ({ text: titleOf(f), link: linkOf(f) })),
     });
   }
 
-  for (const { key, text, collapsed } of SUBDIR_GROUPS) {
-    let items = files.filter((f) => dirOf(f) === key);
-    if (!items.length) continue;
-    // Dated filenames — newest first, which is the order anyone wants them in.
-    if (key === 'state-archive') items = items.slice().reverse();
-    groups.push({ text, collapsed, items: items.map((f) => ({ text: titleOf(f), link: linkOf(f) })) });
+  // Anything nobody classified — a top-level file, or a whole new subdirectory.
+  // Empty in a healthy repo; the test says so. Its presence is the failure, not
+  // the remedy: a page must never vanish from the sidebar quietly, because
+  // nobody misses a page they do not know exists.
+  const unsorted = [
+    ...top.filter((f) => !claimed.has(f)),
+    ...files.filter((f) => dirOf(f) !== '' && !usedDirs.has(dirOf(f))),
+  ];
+  if (unsorted.length) {
+    groups.push({
+      text: 'Unsorted — add these to SIDEBAR',
+      collapsed: false,
+      items: unsorted.map((f) => ({ text: titleOf(f), link: linkOf(f) })),
+    });
   }
   return groups;
 }
@@ -193,10 +243,9 @@ export default defineConfig({
   themeConfig: {
     outline: { level: [2, 3], label: 'ในหน้านี้ · On this page' },
     nav: [
-      { text: 'เริ่มที่นี่', link: '/DEPT-TOOLS' },
-      { text: 'How it works', link: '/CONTEXT' },
-      { text: 'Rules', link: '/INVARIANTS' },
-      { text: 'Bug write-ups', link: '/mistakes/INDEX' },
+      { text: 'เริ่มต้นที่นี่', link: '/start/prerequisites' },
+      { text: 'ร่วมพัฒนา', link: '/contributing' },
+      { text: 'ระบบทำงานยังไง', link: '/CONTEXT' },
       {
         text: 'Repo',
         items: [

@@ -1,4 +1,6 @@
-# INVARIANTS — the things that will still be true next year
+# กฎที่ห้ามผิด
+
+> กฎที่ยังต้องเป็นจริงในปีหน้า ไม่ว่าใครจะเป็นคนดูแล
 
 Split out of `STATE.md` on 2026-08-27, as designed in `docs/TEAM-WORKFLOW.md`
 §6.5. That file had grown to 1,403 lines against a ~200-line target because it

@@ -1,4 +1,6 @@
-# เครื่องมือฝ่าย — how a ฝ่าย gets a tool onto samoweb without IT writing it
+# เครื่องมือของฝ่าย
+
+*ฝ่ายทำหน้าเครื่องมือของตัวเองได้ ไม่ต้องรอ IT เขียนให้*
 
 > ## ⚠️ STATUS: the WORKFLOW is built. The TOOLS are not. Written 2026-08-27.
 >

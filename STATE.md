@@ -153,14 +153,15 @@ TRUE. That is what the grep is for.
 
 ⛳ **ONE item is live: the ฝ่าย tools slot.**
 ✅ Shipped, do not rebuild: the passport silent-failure guard (proof #27) ·
-the contributor guide (`docs/CONTRIBUTE.md`, at `/CONTRIBUTE`) · the docs site
-itself (dev-system phase 5) · **the illustrated walkthrough
-`docs/STEP-BY-STEP.md` at `/STEP-BY-STEP`** (2026-08-31) — Terminal → branch →
-PR → preview → merge, plus the stacked-branch answer for "B needs A". Its four
-diagrams are **files in `docs/diagrams/`, not inline `<svg>`**: GitHub's
-sanitiser drops the svg shell and KEEPS the label text as loose paragraphs
-(measured against `gh api /markdown`), which is why `md-raw-tags.test.js`
-rejects inline SVG in a doc — it is right, do not exempt it.
+the docs site, now **task-shaped**: `docs/start/` runs prerequisites → install
+→ first-change → dependent-work → troubleshooting, then `docs/contributing.md`.
+⛔ The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY — two pages that
+each said "the other one answers X" is friction, not one-home. Owner's brief:
+*"start here should show how to run the project"*; Claude-facing notes are
+collapsed under **บันทึกวิศวกรรม** so a contributor never lands in them.
+Sidebar order is hand-written (`SIDEBAR` in the VitePress config), guarded by
+`docs-site.test.js`. Diagrams are FILES in `docs/diagrams/`, never inline `<svg>`
+— GitHub keeps the labels as loose paragraphs; `md-raw-tags.test.js` rejects it.
 
 1. **The ฝ่าย tools slot** — `src/data/tools.js` registry, `public/embed/` +
    the frame, the starter kit. **This is what blocks the departments**, not the

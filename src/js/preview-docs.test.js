@@ -48,15 +48,22 @@ const DENIALS = [
 
 /** The docs a contributor actually reads before their first pull request. */
 const CONTRIBUTOR_DOCS = [
-  'CONTRIBUTING.md', 'README.md', 'docs/CONTRIBUTE.md',
-  // Added 2026-08-31 with the page itself. docs/CONTRIBUTE.md answers "what may
-  // I change"; docs/STEP-BY-STEP.md answers "what do I type" — and the second
-  // one is where a procedure describes the preview at length, so it is the
-  // likelier home for a future contradiction. A new contributor-facing doc that
-  // is not in this list is a fact with a second, unswept home, which is exactly
-  // the shape that let CONTRIBUTING.md go on denying previews for weeks.
-  'docs/STEP-BY-STEP.md',
+  'CONTRIBUTING.md', 'README.md',
+  // Restructured 2026-08-31: docs/CONTRIBUTE.md and docs/STEP-BY-STEP.md were
+  // merged into a task-shaped docs/start/ path plus docs/contributing.md. This
+  // list is the sweep's SUBJECT, so it had to move with them — and it going red
+  // on the rename is the guard working, not the guard being in the way. Every
+  // contributor-facing page belongs here: one that is missing is a fact with an
+  // unswept second home, which is exactly how CONTRIBUTING.md went on denying
+  // previews for weeks after they started working.
+  'docs/contributing.md',
+  'docs/start/install.md',
+  'docs/start/first-change.md',
+  'docs/start/troubleshooting.md',
 ];
+
+/** The page that must positively EXPLAIN previews, not merely avoid denying them. */
+const THE_GUIDE = 'docs/start/first-change.md';
 
 describe('the contributor guide agrees with the preview pipeline', () => {
   it('the denial matcher can find a denial (control)', () => {
@@ -91,24 +98,29 @@ describe('the contributor guide agrees with the preview pipeline', () => {
   }
 
   it('the guide tells a contributor how to reach their preview', () => {
-    // The canonical home is docs/CONTRIBUTE.md — one page for both audiences.
-    // CONTRIBUTING.md is a POINTER on purpose (it held a stale copy of this
-    // very fact until 2026-08-30), so it is swept for denials above but is not
-    // where the explanation has to live.
-    const text = read('docs/CONTRIBUTE.md');
+    // The canonical home is the "send your first change" page — previews are a
+    // STEP in that flow, not a topic. CONTRIBUTING.md is a POINTER on purpose
+    // (it held a stale copy of this very fact until 2026-08-30), so it is swept
+    // for denials above but is not where the explanation has to live.
+    const text = read(THE_GUIDE);
     expect(text, 'the guide never mentions npm run preview:url').toMatch(/preview:url/);
   });
 
   it('CONTRIBUTING.md points at the guide instead of copying it', () => {
+    // Matches the docs-site PATH, not a page NAME. The first version matched
+    // /CONTRIBUTE/ and went red the day that page was merged away — correct, but
+    // it was asserting a filename when the property is "this file hands the
+    // reader onward rather than holding its own copy". A path survives a rename
+    // of the page it points at; a name does not.
     const text = read('CONTRIBUTING.md');
-    expect(text, 'CONTRIBUTING.md does not link the guide').toMatch(/CONTRIBUTE/);
+    expect(text, 'CONTRIBUTING.md does not link the docs site').toMatch(/\/docs\/(start|contributing)/);
   });
 
   it('and says a preview points at the dev database, not production', () => {
     // The reason a preview is safe to submit forms on. A contributor who does
     // not know this either avoids testing writes at all, or assumes the same of
     // production. Both are worse than knowing.
-    const text = read('docs/CONTRIBUTE.md');
+    const text = read(THE_GUIDE);
     expect(text, 'the guide does not say a preview points at the dev database')
       .toMatch(/(preview|ทดลอง)[\s\S]{0,600}(samo-dev|สำเนา)/i);
   });

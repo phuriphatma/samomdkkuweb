@@ -1,4 +1,6 @@
-# Who else can recover this, if one person disappears
+# ส่งต่อระบบ
+
+> ถ้าคนเดียวหายไป ใครกู้ระบบไหนคืนได้บ้าง
 
 **Run `npm run succession:audit` before reading further.** It prints the live
 answer for the systems an API can be asked; the numbers below are from

@@ -1,4 +1,6 @@
-# Self-hosting on the KKU VM (moving off Cloudflare Pages)
+# ติดตั้งเซิร์ฟเวอร์เอง
+
+> ติดตั้งบน VM ของ มข. (ย้ายออกจาก Cloudflare Pages)
 
 The app moved from Cloudflare Pages to a KKU virtual machine (Ubuntu, behind
 the university reverse proxy at `samo.md.kku.ac.th` → `https://10.101.111.181`).

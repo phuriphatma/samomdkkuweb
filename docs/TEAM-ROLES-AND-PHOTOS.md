@@ -1,4 +1,6 @@
-# Design — managing roles & permissions, and getting faces onto เกี่ยวกับเรา
+# ตำแหน่งและรูปทีม
+
+> จัดการตำแหน่ง สิทธิ์ และรูปหน้าในหน้าเกี่ยวกับเรา
 
 Status (corrected 2026-08-12): **PART A is still unbuilt; most of PART B
 SHIPPED.** Written 2026-08-04 against the live DB, and half of it has since been

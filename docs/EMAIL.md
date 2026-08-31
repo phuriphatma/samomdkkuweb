@@ -1,4 +1,6 @@
-# Email — what sends it, what the ceilings are, and what the VM can do
+# อีเมล
+
+> ใครเป็นคนส่ง ส่งได้วันละเท่าไร และเซิร์ฟเวอร์ทำอะไรได้บ้าง
 
 **Status: assessment, 2026-08-28. Nothing here is built beyond the three
 `samo-dev` settings noted in §6.** Written after the owner asked whether to

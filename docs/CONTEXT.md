@@ -1,4 +1,6 @@
-# CONTEXT — architecture, schema, deploy plumbing
+# โครงสร้างระบบ
+
+> แผนผังสถาปัตยกรรม โครงสร้างฐานข้อมูล สิทธิ์การเข้าถึง และการ deploy
 
 Read this when editing:
 - Anything in `supabase/migrations/`

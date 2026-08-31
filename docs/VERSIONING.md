@@ -1,4 +1,6 @@
-# Versioning & releases — MDKKU SAMO Portal
+# เวอร์ชันและการปล่อยรุ่น
+
+> เลขเวอร์ชันทำงานยังไง และปล่อยรุ่นใหม่ยังไง
 
 How this project numbers its releases, why it numbers them that way, and the
 exact steps to cut one.

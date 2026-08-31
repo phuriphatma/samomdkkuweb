@@ -1,4 +1,6 @@
-# Merge Checklist: `refactor/modular` → `main`
+# Merge checklist
+
+> ขั้นตอนตอนรวม `refactor/modular` เข้า `main`
 
 > ## ⚠️ HISTORICAL. This merge happened.
 >
