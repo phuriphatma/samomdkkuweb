@@ -203,7 +203,7 @@ between deploys. Reasoning in the archive file named in 02.
   re-litigated) — do not work from this bullet. ✅ Live: branch protection,
   `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
   and **Golden Period at `/tools/golden-period`, which is THEIRS to PR against**.
-  ❌ NOT built: the four pieces in A2 above.
+  ❌ NOT built: the pieces in A1 above.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
