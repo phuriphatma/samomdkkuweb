@@ -16,17 +16,15 @@ because it held three lifetimes at once. It now holds one: **status**.
 ## WHAT CHANGED MOST RECENTLY (2026-08-30)
 
 000. ✅ **SCOPED GRANTS WERE INVISIBLE IN FOUR READERS — fixed, deployed.**
-    `readPermInputs` drops the capability key when a scope is chosen (0083), so
-    four readers testing for the key saw nothing, and a fifth understated a
-    master holder. Write-ups + the sweep: `docs/mistakes/authz-grants.md`.
+    `readPermInputs` drops the capability key when a scope is chosen (0083).
+    `docs/mistakes/authz-grants.md`.
     ⛔ **`passport` is passport ADMIN rights over a ฝ่าย's activities — NOT
     permission to open the app.** Every kkumail student can open SAMO Passport;
-    that was never gated (`passport_admin_context()` is the authority). A
-    session got this wrong for an hour; do not re-derive it.
-    ⚠️ **Still LATENT, deliberately not built**: `userCanAccess('passport')` has
-    no scoped branch and `managedPassportScopes` is never loaded onto the user.
-    Nothing calls it today; the next person to gate a portal link on it will
-    deny 42 of the 45 holders.
+    that was never gated (`passport_admin_context()` is the authority).
+    ⚠️ **LATENT, deliberately not built**: `userCanAccess('passport')` has no
+    scoped branch and `managedPassportScopes` is never loaded onto the user.
+    Nothing calls it; the next person to gate a portal link on it denies 42 of
+    the 45 holders.
 
 00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
@@ -35,30 +33,21 @@ because it held three lifetimes at once. It now holds one: **status**.
     denied it for weeks; guard `preview-docs.test.js`. **`docs/TEAM-WORKFLOW.md`
     §9 lists the files a landed phase must correct — treat it as a checklist.**
 
-02. ⚠️ **DOCS SITE — REBUILT 2026-08-31, AND THE VM IS STALE. A DEPLOY IS
-    OWED.** Two live copies and they DISAGREE right now: GitHub Pages has the
-    new structure (it republishes on every push); `samo.md.kku.ac.th/docs` is
-    still serving the old one — `/docs/start/install` 404s there while
-    `/docs/CONTRIBUTE` still answers 200. Run `npm run deploy:owed`; it now
-    covers `docs/` and was fixed today because it reported green over exactly
-    this.
-    ⛔ **`deploy.sh` does NOT install nginx config.** `server/nginx-samo.conf`
-    changed (it serves `/docs` from disk and 301s the two one-day-old URLs) and
-    needs a separate `sudo cp … /etc/nginx/sites-available/default`, `nginx -t`,
-    `systemctl reload nginx` — the install line at the top of that file. A
-    deploy alone leaves the redirects missing.
-    Shape: `docs/start/` (prerequisites → install → first-change →
+02. ✅ **DOCS SITE — REBUILT AND DEPLOYED 2026-08-31.**
+    **`https://samo.md.kku.ac.th/docs` is the address to give people.** English,
+    task-shaped: `docs/start/` (prerequisites → install → first-change →
     dependent-work → troubleshooting) then `docs/contributing.md`; maintainer
-    and agent material is collapsed at the bottom. The old CONTRIBUTE and
-    STEP-BY-STEP pages were MERGED AWAY — do not recreate them.
-    📌 **The contributor docs are ENGLISH now** (owner: *"thai seem weird"*),
-    in plain instructional prose. Thai stays only for things this organisation
-    actually calls by a Thai name (ฝ่าย, the app's own UI labels) — translating
-    those would stop them matching what a person sees on screen. `STATE.md`,
-    `docs/mistakes/` and the archive are unaffected.
-    **Why any of it is shaped this way, and three traps found doing it:
-    `docs/state-archive/2026-08-31-docs-site-restructure.md`. Read it before
-    reopening the URL question or the site's structure.**
+    and agent notes collapsed at the bottom. The old CONTRIBUTE and
+    STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do not recreate.
+    Verified live: all 10 pages 200, `/docs/NOPE` 404, diagrams 200, app and
+    `/notify` 200. GitHub Pages mirrors it and is the fresher of the two
+    between deploys.
+    📌 Thai stays only where this organisation uses a Thai name (ฝ่าย, the app's
+    UI labels); translating those breaks the match with what is on screen.
+    ⛔ **`deploy.sh` does NOT install nginx config** — that is a separate
+    `sudo cp … && nginx -t && systemctl reload`, per the header of
+    `server/nginx-samo.conf`. Done for this change; remember it for the next.
+    **Why it is shaped this way: `docs/state-archive/2026-08-31-docs-site-restructure.md`.**
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
@@ -95,15 +84,19 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `9ba0e9c` (2026-08-30)**, `DEPLOY_EXIT=0`. The scoped-grant
-  sweep, complete: the จัดการสิทธิ์ chip + its ฝ่าย names, the seat CTA, the
-  collapsed member tag, and the master understatement. Verified in the SERVED
-  bundles with controls; `smoke:browser` 9/9.
+- ✅ **DEPLOYED = `b075225` (2026-08-31)**, verified from the SERVED site, not
+  from the deploy's exit code — which is the only reason it is trustworthy here,
+  because **the deploy script was killed twice by its own `timeout` before this
+  one landed** (`docs/mistakes/deploy-hosting.md`: sudo's credential expired
+  mid-run and the next sudo blocked forever on a closed stdin;
+  `server/deploy.sh` now keeps it alive). Checked live: the app, `/admin/`,
+  `/passport/`, `/pr`, `/updates` and `/notify` all 200 · all ten new
+  `/docs` pages 200 · `/docs/NOPE` 404 (the deny half) · the two retired doc
+  URLs 301 to their new homes · a diagram asset 200.
   ⚠️ **`my-seat.js` is imported by BOTH entries, so it lands in the SHARED
   `analytics-*.js` chunk** — grepping `public-*.js` for its strings returns 0
-  and means nothing. That is the shared-chunk trap in `docs/INVARIANTS.md`, and
-  it caught me on this deploy before I read our own note.
-  Previous: `e10c88c`, and `8d72bab` before it.
+  and means nothing. That is the shared-chunk trap in `docs/INVARIANTS.md`.
+  Previous: `9ba0e9c`, and `e10c88c` before it.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state.** Most commits
   are docs, `docs/mistakes/` and tests, none of which reaches a bundle. Ask
   about `src/` and the two entry HTMLs alone — and do NOT retype the sha:

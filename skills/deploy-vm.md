@@ -28,19 +28,46 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ```bash
 PW=$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')
-{ printf '%s\n' "$PW"; sleep 10; } | timeout 180 ssh -tt -o BatchMode=yes samo-vm \
+{ printf '%s\n' "$PW"; sleep 10; } | timeout 600 ssh -tt -o BatchMode=yes samo-vm \
   'sudo -v && cd "$HOME/samo-projects/samomdkkuweb" && ./server/deploy.sh; echo "DEPLOY_EXIT=$?"' 2>&1 \
   | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|==>|error" | tail -12
 ```
 
-**`timeout 180`, and do not pad it.** The owner has objected to a long ceiling
-twice (2026-08-31: *"why are you timeout for so long"*, then *"timeout 300 it's
-too long"*). `timeout` is a KILL CEILING, not a wait — the command returns the
-moment the deploy ends — but a big number reads as "this will sit here for five
-minutes", and that reading is the one that matters when someone is watching.
-The deploy is ~90 s of VM build (~110 s since the docs step was added), so 180
-is roughly 60% headroom. If a step is added that makes it slower, MEASURE the
-new time and set the ceiling from that; do not round up "to be safe".
+**RUN IT IN THE BACKGROUND, AND GIVE IT A GENEROUS CEILING.** These two go
+together and getting them backwards truncated a real deploy on 2026-08-31.
+
+The owner objected to a long `timeout` twice — *"why are you timeout for so
+long"*, then *"timeout 30 is enough"* — and the objection is about WAITING, not
+about the ceiling. `timeout` is a kill limit, not a duration. The fix for the
+waiting is `run_in_background: true`: the command returns immediately, the VM
+keeps working, and you are notified when it exits. Then the ceiling costs
+nobody anything and should be generous.
+
+⚠️ **MEASURED, because the old figure here was stale and I trusted it.** This
+file used to say "~90 s", from an era when the deploy built ONE app. It now
+builds three things — samomdkkuweb, samomdkkupassport, and the docs site — each
+with its own `npm ci`. A real run on 2026-08-31 started 12:40:55 and was still
+in the docs build when `timeout 300` killed it at 12:45:56. **A full deploy needs
+MORE than five minutes.** 600 is the ceiling until someone measures a completed
+run and writes the number here.
+
+**What a truncated deploy leaves behind** — the reason the ceiling matters. The
+kill landed after the three builds and before `fix permissions`, `restart
+samo-notify` and `nginx -t && systemctl reload nginx`. That run happened to be
+harmless: the app was already current, and `/var/www/docs` kept a complete,
+self-consistent OLD build (every page still 200). Do not read that as "killing
+it is safe" — `publish()` is an rsync, so a kill during the mirror step CAN
+leave a half-written root, and the nginx reload never happening means a config
+change silently does not take effect.
+
+**Always verify from outside afterwards**, VPN or no VPN — the public host is
+reachable without it:
+
+```bash
+for p in / /admin/ /passport/ /pr /notify; do
+  printf "%-12s " "$p"; curl -s -o /dev/null -m 15 -w "%{http_code}\n" "https://samo.md.kku.ac.th$p"
+done
+```
 
 **`sleep 10`, not `sleep 420`.** The sleep exists only to hold stdin open long
 enough for `sudo -v` to read the password — which happens in the first second.

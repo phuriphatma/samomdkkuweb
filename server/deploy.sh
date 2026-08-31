@@ -31,6 +31,37 @@ if [ "${SAMO_DEPLOY_REEXEC:-}" != "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# KEEP THE SUDO CREDENTIAL ALIVE FOR THE WHOLE RUN.
+#
+# This script's sudo calls are spread across a run that now takes well over five
+# minutes — three `npm ci` and three builds (samomdkkuweb, samomdkkupassport,
+# the docs site). sudo's timestamp expires partway through, and because the
+# deploy is driven over ssh with the password piped in ONCE at the start, the
+# next sudo has no stdin left to read from. **It does not fail. It blocks
+# forever.**
+#
+# Observed twice on 2026-08-31: both runs printed "==> docs site: build with
+# base /docs/" and then went silent, and were eventually killed by the outer
+# `timeout` — the first at 300 s, the second at 600 s, both at exactly the
+# ceiling, which is the tell that nothing was progressing. The docs publish and
+# the nginx reload never ran, so the deploy looked slow rather than stuck.
+#
+# The diagnosis is worth keeping because the obvious readings were both wrong:
+# it was not a slow build (that step measures 10 s on the VM) and not a slow
+# rsync (the whole publish measures under a second). It was a prompt nobody
+# could answer.
+#
+# `sudo -v` every 45 s for as long as this script lives. `kill -0 "$$"` makes
+# the refresher exit with its parent instead of outliving it.
+sudo -n true 2>/dev/null || {
+  echo "no cached sudo credential — the caller must run 'sudo -v' first (see skills/deploy-vm.md)" >&2
+  exit 1
+}
+while true; do sudo -n true; sleep 45; kill -0 "$$" 2>/dev/null || exit; done &
+SUDO_KEEPALIVE=$!
+trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null || true' EXIT
+
+# ---------------------------------------------------------------------------
 # publish() — add the new build WITHOUT yanking the old one out from under
 # browsers that are still running it.
 #

@@ -488,3 +488,50 @@ this instead", ask what status code goes out with it — the humans are fine
 either way, and the instruments are the ones you are lying to. Probe the DENY
 half of every route, not just the allow half: `/docs/CONTRIBUTE` returning 200
 proved the routing worked and said nothing at all about `/docs/NOPE`.
+
+## The deploy went silent after "==> docs site" and was killed by its own timeout — twice
+
+**Symptom.** `./server/deploy.sh` over ssh printed its three build headings,
+then nothing. Both attempts ended at **exactly** the outer `timeout` value —
+300 s on the first run, 600 s on the second — with no `==> fix permissions` and
+no `==> done`. The site stayed healthy throughout; the docs publish and the
+nginx reload simply never happened, so it read as "the deploy is slow" rather
+than "the deploy is stuck".
+
+**Cause.** **sudo's credential cache expired mid-run, and the next `sudo` had no
+stdin to prompt on, so it blocked forever.** The deploy is driven by piping the
+password in ONCE at the start (`printf '%s\n' "$PW" | ssh -tt … 'sudo -v && …'`,
+with a short `sleep` to hold the pipe open). That was correct when the script
+built one app and finished in ~90 s. It now runs three `npm ci` and three builds
+— samomdkkuweb, samomdkkupassport and the docs site — and takes over five
+minutes, which outlives the timestamp.
+
+**Both obvious readings were wrong, and each was checked.** Not a slow build:
+`DOCS_BASE=/docs/ npm run docs:build` measures **10 s** on the VM. Not a slow
+rsync: the whole `publish()` measures **under a second**. Running the identical
+steps with a fresh credential completed in 10 s end to end. What differed was
+only the age of the sudo timestamp.
+
+**Fix.** A keep-alive in `server/deploy.sh`: assert a cached credential up
+front, then `sudo -v` every 45 s in a background loop that exits with its parent
+(`kill -0 "$$"`). `skills/deploy-vm.md` also gained the measured duration — its
+"~90 s" was from the one-app era — and now says to run the deploy with
+`run_in_background` and a generous ceiling, because the ceiling was never the
+thing anyone was waiting on.
+
+**Where it lives now.** `server/deploy.sh`, above `publish()`;
+`skills/deploy-vm.md`.
+
+**The general rules.** Two, and the second is the transferable one:
+
+1. **A credential handed over once must outlive the longest run, not the
+   original one.** Anything that authenticates at the start and is consumed
+   throughout — sudo, a session token, an ssh agent — becomes a hang the day the
+   work between the first use and the last grows past the lifetime. Refresh it
+   on a timer rather than assuming the run is short.
+2. **A process that stops at EXACTLY its timeout was not slow, it was blocked.**
+   A genuinely slow job finishes at an arbitrary time; only a stuck one lands on
+   the round number. Treat "it hit the ceiling again, at the higher ceiling too"
+   as proof that raising the ceiling is the wrong fix — the second run is the
+   experiment that rules slowness out, so read it that way instead of raising it
+   a third time.
