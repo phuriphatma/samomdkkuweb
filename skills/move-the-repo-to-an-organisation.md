@@ -40,8 +40,10 @@ so `deploy.sh` keeps working — this is tidy-up, not breakage.
 
 ### Next actions, in order
 
-1. **Confirm Copilot still completes** in `samomdkkupassport` inside the editor.
-   If it does not, STOP — do not move `samomdkkuweb`.
+1. ✅ **Copilot is SETTLED — measured 2026-08-31, do not re-test in the editor.**
+   `gh api orgs/samomdkku/copilot/billing` returned 0 seats, `unconfigured`, so
+   nothing can displace a personal student subscription. §3 has the reasoning
+   and the one standing rule (never buy org seats).
 2. Transfer `samomdkkuweb`, then immediately do §5a/§5b/§5c — **§5a fails
    silently**, so treat "previews look slow" as "previews are dead".
 3. §6 — the `maintainers` team and `CODEOWNERS`. **This is the step that
@@ -117,12 +119,36 @@ change nothing. The one real hazard is a **setting**: an organisation that buys
 Copilot and assigns a member a seat *replaces* that member's personal
 subscription.
 
-⛔ **Do not take that on trust.** Create the organisation, move **one small
-repo** into it — `samomdkkupassport` is the natural volunteer — open it in your
-editor, and confirm Copilot still completes. Verify from the authority rather
-than assert (`.claude/rules/mistakes.md` §7).
+⛔ **Do not take that on trust — but do not use the editor test either.**
+This section used to say "move one small repo in, open it in your editor and
+confirm Copilot still completes". **That test cannot see the hazard.** Inline
+completion runs on the OPEN FILE, not on the remote, so it passes on a file in
+no git repository at all — it would have reported success no matter what the
+org did (`.claude/rules/mistakes.md` §7, "check the INSTRUMENT can see it").
 
-**If Copilot stops working, STOP and reassess before moving this repo.**
+**Ask the authority instead.** The only thing that can take a personal
+(student) Copilot away is an org ASSIGNING that person a seat — GitHub cancels
+the personal plan and refunds it pro rata, and from then on the person cannot
+cancel their own plan. So the question is whether the org has any seats:
+
+```bash
+gh api orgs/<org>/copilot/billing
+```
+
+✅ **Safe** — what `samomdkku` returned on 2026-08-31:
+
+```
+seat_breakdown.total       0             ← no seats assigned to anyone
+seat_management_setting    unconfigured  ← nobody has enabled org Copilot
+```
+
+⛔ **The standing rule: never buy or enable Copilot seats for the org.** The
+free student entitlement belongs to a VERIFIED STUDENT and cannot be held by an
+organisation, so an org seat is a strict downgrade — it replaces something free
+with something billed. Personal Copilot stays each person's own, and stays each
+person's own switch, under their account Settings → Copilot.
+
+**If `total` is anything but 0, STOP and reassess before moving this repo.**
 
 ---
 
