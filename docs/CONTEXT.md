@@ -1234,7 +1234,7 @@ sample the board hides that strip rather than showing a zero.
 | What | Where |
 |---|---|
 | Production | <https://samo.md.kku.ac.th> — nginx on the KKU VM, built from `main` |
-| Docs | <https://samo.md.kku.ac.th/docs> — **served from this VM**, built by `server/deploy.sh` with `DOCS_BASE=/docs/` and kept current between deploys by `samo-docs.timer` (pulls `origin/main` every 10 min; public repo, no credential, no VPN). KKU issues no subdomain, so the path is the only official-looking address. **GitHub Pages still publishes the same docs at the default base** — that copy is the backup, so this VM is not a single point of failure for the documentation |
+| Docs | <https://samo.md.kku.ac.th/docs> — **served from this VM**, built by `server/deploy.sh` with `DOCS_BASE=/docs/`. **A deploy is the only thing that updates it.** KKU issues no subdomain, so the path is the only official-looking address. **GitHub Pages publishes the same docs at the default base on every push** — the backup, so the VM is not a single point of failure, and the fresher of the two between deploys |
 | `samomdkkuweb.pages.dev` | ⚠️ RETIRED — resolves, splash-redirects to the VM |
 | `refactorsamomdkkuweb.pages.dev` | ⚠️ RETIRED — same |
 

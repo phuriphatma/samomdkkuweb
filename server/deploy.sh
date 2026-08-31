@@ -85,25 +85,26 @@ fi
 # the default base — that copy is the backup, and the reason this VM is not a
 # single point of failure for the documentation.
 #
-# ⚠️ A DEPLOY IS NOT THE ONLY TRIGGER, and must not be. A ฝ่าย member fixing a
-# typo should not wait for someone to have VPN and run this script. The
-# samo-docs.timer unit rebuilds these from a separate checkout every few
-# minutes (server/samo-docs.*). This block is here so that a full deploy also
-# leaves /docs current, not so that it is the only way to publish.
+# THE DEPLOY IS THE ONLY TRIGGER, deliberately. A pull-based timer was built and
+# then removed on 2026-08-31: the owner does not need /docs to update between
+# deploys, so it was machinery bought with an argument nobody was making. One
+# publishing mechanism beats two.
+#
+# ⚠️ WHAT THAT COSTS, so nobody is surprised by it: GitHub Pages republishes in
+# ~40 s on any push to docs/, this copy waits for a deploy. The two can
+# therefore disagree, with /docs being the OLDER one. If that ever matters, the
+# fix is a webhook (this host is publicly reachable) rather than polling.
 echo "==> docs site: build with base /docs/"
 cd "$WEB_DIR"
 DOCS_BASE=/docs/ npm run docs:build
 publish docs/.vitepress/dist /var/www/docs
 
 echo "==> fix permissions"
-sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport
-# ⚠️ /var/www/docs is ubuntu:www-data 775, NOT www-data:www-data like the two
-# above. samo-docs.timer runs as `ubuntu` and rsyncs straight into it; chowning
-# it to www-data here would leave the directory looking perfectly fine while
-# every timed rebuild failed with EACCES, and /docs would silently freeze at
-# whatever the last deploy produced. nginx still reads it, by group.
-sudo chown -R ubuntu:www-data /var/www/docs
-sudo chmod -R g+w /var/www/docs
+# Uniform again now that only this script writes /var/www/docs. It was briefly
+# ubuntu:www-data so a timer running as `ubuntu` could rsync into it; that timer
+# is gone, so the special case went with it rather than lingering as a rule with
+# no reason — which is how a config grows things nobody dares touch.
+sudo chown -R www-data:www-data /var/www/samo-web /var/www/passport /var/www/docs
 
 echo "==> restart notify service + reload nginx"
 sudo systemctl restart samo-notify || echo "  (samo-notify not installed yet — see docs/SELF-HOST.md)"

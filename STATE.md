@@ -49,11 +49,11 @@ because it held three lifetimes at once. It now holds one: **status**.
     the VM with `DOCS_BASE=/docs/` → `/var/www/docs`. `npm run docs:build` is
     inside the REQUIRED `build` check. **noindex on purpose**; `docs/demos/**`
     excluded. Nothing secret may go in `docs/`.
-    ⚙️ **`samo-docs.timer` rebuilds /docs from `origin/main` every 10 minutes**,
-    from its OWN checkout (`~/samo-projects/samomdkkuweb-docs`), as `ubuntu`,
-    with no credential — the repo is public. So a merged docs fix ships without
-    a deploy and without VPN. Verified re-arming across two runs; do not read
-    `is-enabled`, read NEXT from `systemctl list-timers`.
+    ⚠️ **A DEPLOY is the only thing that updates `/docs`; Pages updates on every
+    push.** So the two can disagree, with `/docs` the OLDER one. Accepted by the
+    owner. A polling timer was built and REMOVED the same day — it bought
+    freshness nobody had asked for. If it is ever wanted, use a WEBHOOK (this
+    host is publicly reachable), not polling.
 
 03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
@@ -237,7 +237,7 @@ in plain language:
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
 | 6 | **Move the project to a GitHub ORGANISATION?** — the fix for "I have to add every contributor myself". ✅ **A complete runbook is written and ready to execute in one sitting**: `skills/move-the-repo-to-an-organisation.md` (~90 min, phases 0–5, rollback, and a §10 done-when list). The repo is on a personal account, so every gate ends at one human — `CODEOWNERS` names `@phuriphatma` on `auth.js`, `db.js`, `supabase/`, `server/`, `tools/`, and that keeps blocking merges on a review that stops coming | `skills/move-the-repo-to-an-organisation.md` | **yes, a FREE org — and NOT a shared `samo` login.** The repo is public, so branch protection, Actions and Pages stay free. ⚠️ The Copilot worry inverts: a shared role account is not a student and qualifies for NOTHING, while an org changes nobody's personal Copilot. §0 of that skill is a 10-minute experiment; run it before believing either of us |
-| 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` is not available and the earlier CNAME recommendation here was dead on arrival | `server/nginx-samo.conf`, `server/samo-docs.*` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⚠️ **The objection that nearly killed this was WRONG and is worth remembering: "docs on the VM would need someone on VPN to publish."** CI cannot reach the VM, but the VM reaches GitHub fine, and the repo is public — a timer closes it. Do not treat "nothing can push in" as "nothing can be automatic" |
+| 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM, rebuilt by `deploy.sh`. ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
