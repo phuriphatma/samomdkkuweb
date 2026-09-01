@@ -19,8 +19,7 @@ because it held three lifetimes at once. It now holds one: **status**.
     (0176) · passport km on signup (0175). Both in `docs/mistakes/`; the rule
     0176 bought is class 5 in `.claude/rules/mistakes.md`.
 
-02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
-    `preview-docs.test.js`). `docs/TEAM-WORKFLOW.md` §9 = the landed-phase checklist.
+02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on.**
 
 03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`.** The old
     CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do
@@ -47,11 +46,12 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `d0a1c25` (2026-09-01)** — app and docs BOTH published by
-  `deploy.sh` itself, no hand step; `smoke:browser` 13/13 against the live site. Verified from the
+- ✅ **DEPLOYED = `d8bb52d` (2026-09-01)** — app and docs BOTH published by
+  `deploy.sh` itself, no hand step. ⚠️ `4490dee` (one JS fix) is NOT deployed;
+  run `npm run deploy:owed`, it will say so. Verified from the
   SERVED artifact, with a string UNIQUE to the change and an old one as control
   — a shared phrase scored a stale page as fresh earlier today.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **10 runs, 6
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **11 runs, 7
   published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
   its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
   in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
@@ -62,7 +62,7 @@ TRUE. That is what the grep is for.
   ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
   (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then settle it by
   curl-grepping a SERVED page for a string added today, with an old one as
-  control. Both traps are in `skills/deploy-vm.md`. Done for `d0a1c25`.
+  control. Both traps are in `skills/deploy-vm.md`. Done for `d8bb52d`.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
   the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.

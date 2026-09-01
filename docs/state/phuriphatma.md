@@ -16,6 +16,60 @@ path named here must resolve.
 
 ---
 
+## ▶ SESSION 2026-09-01c — หน้าฝ่าย: a ฝ่าย edits its own page (0177/0178)
+
+**Read the commit `d8bb52d` message first — it is the real handoff.** This block
+is only what a commit cannot carry.
+
+### The correction that produced this work
+
+I built the ฝ่าย tool FRAME (§13 steps 9–11) and reported it as "the ฝ่าย tools
+lane". The owner's reply was *"where is the tools that ฝ่าย can edit their own
+page… so what have you done, i dont see nothing"* — and they were right twice
+over. The frame is the GITHUB road (write a file, open a PR, the owner deploys);
+it does not remove the owner from the loop. And I had made the only example
+`launcher:false, dept:null`, so from the site nothing looked different at all.
+
+**The lesson worth keeping: "ฝ่าย tools" named two different roads, and I picked
+the one the build order listed rather than the one that removes the bottleneck.**
+§13 is an order, not a priority. Before starting a numbered step, check the step
+is the thing being asked for.
+
+### What is DONE and needs no rework
+
+Backend, UI, grant, guards, browser-driven, deployed, 29/29 proofs green,
+1,636 tests. `dept0177-page-scope.sql` is registered in `run-proofs.mjs`.
+
+### ⛔ What I did NOT do, deliberately — read before touching this
+
+1. **No image UPLOAD in the editor.** Cover/video are URL fields. Wiring the
+   Drive uploader means a cleanup path for a REPLACED cover, and there is none:
+   0178 makes `photo_reference_count` see these columns so nothing is
+   DESTROYED, but a replaced file leaks. That is the safe side of the trade and
+   it was chosen, not overlooked.
+2. **No preview of an UNSAVED html edit.** The preview re-renders from the last
+   SAVED rows. Live-previewing the textarea is easy and is the exact place
+   someone will reach for `innerHTML`; if you add it, render into the same
+   `srcdoc` frame and keep `dept-content.test.js` green.
+3. **A page editor can still publish a convincing FAKE SIGN-IN FORM** on a real
+   samo.md.kku.ac.th page. The sandbox stops it reading the real session; it
+   does not stop a reader typing into it. The controls are the grant and
+   `updated_by`. **This is a real consideration before widening the grant, and
+   it is the owner's call, not a bug to quietly close.**
+4. **`initDeptPageAdmin` keeps module-level `state`.** It is reset on every
+   section entry from the CURRENT user, which is what makes an account switch
+   safe — do not "optimise" that to a one-time init.
+
+### For whoever is next
+
+- **`4490dee` is not deployed** (a one-line reorder fix). `npm run deploy:owed`.
+- `apply-migration.mjs` and the proofs now take `--dev` / a dev env; the one
+  DDL tool could only reach production until today, so no migration had ever
+  been tried anywhere else first.
+- `npm run migrate:status` still reports nothing outstanding.
+
+---
+
 ## ▶ SESSION 2026-09-01b — the ฝ่าย tool FRAME (DEPT-TOOLS §13 steps 9–11)
 
 Built and driven. Two things worth carrying forward.
