@@ -65,11 +65,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `90e9259` (2026-09-01)** — app from `deploy.sh`, docs
-  published BY HAND after the script skipped it AGAIN. Both halves verified
-  from the SERVED artifact: the chunk the served `/admin/` HTML names carries
-  this build's markers and none of the strings it replaced, and the served
-  INVARIANTS docs page carries the section written today.
+- ✅ **DEPLOYED = `cd6ca11` (2026-09-01)** — app bundles are `90e9259` (nothing
+  since touched `src/`); docs are `cd6ca11`, published BY HAND after
+  `deploy.sh` skipped that step on BOTH runs. Verified from the SERVED
+  artifact, with a string UNIQUE to the change and an old one as control —
+  a shared phrase scored a stale page as fresh earlier today.
   ⛔ **THE DOCS STEP STILL FAILS — AND IT EXITS 0.** Tally **6 runs, 2 published
   docs, 4 did not** (both of today's skipped, both returned 0). Publish by hand
   — `skills/deploy-vm.md`, which keeps the count — and never trust the code.
