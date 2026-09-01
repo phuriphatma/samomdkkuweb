@@ -27,8 +27,8 @@ because it held three lifetimes at once. It now holds one: **status**.
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
 02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
-    `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 lists the files a
-    landed phase must correct — treat it as a checklist.**
+    `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 = the checklist of
+    files a landed phase must correct.**
 
 03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
     give people. The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY
@@ -59,11 +59,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `de0168d` (2026-09-01)** — app bundles and docs BOTH published
-  by `deploy.sh` itself, in one 30-second run, no hand step. Verified from the
+- ✅ **DEPLOYED = `ff3024f` (2026-09-01)** — app bundles and docs BOTH published
+  by `deploy.sh` itself, in a 33-second run, no hand step. Verified from the
   SERVED artifact, with a string UNIQUE to the change and an old one as control
   — a shared phrase scored a stale page as fresh earlier today.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **7 runs, 3
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **9 runs, 5
   published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
   its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
   in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
@@ -75,7 +75,8 @@ TRUE. That is what the grep is for.
   `ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'` — then settle
   it by curl-grepping a SERVED page for a string you added today, with an old
   one as control (rsync leaves an unchanged dir's mtime alone, so stat alone
-  can read as a false skip; grepping the wrong bundle proves nothing).
+  can read as a false skip; grepping the wrong bundle proves nothing). Done for
+  `ff3024f`: roots 16 s apart, new string served, old string served.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
   the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.

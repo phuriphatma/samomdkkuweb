@@ -26,12 +26,12 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 7 runs, 3 completed the docs step, 4 did not.**
-(4 on 2026-08-31: 2 ok, 2 not. 3 on 2026-09-01: two skipped docs and **both
-returned exit 0**, one of them after `pgrep deploy.sh` already showed the
-script gone while ssh had still not returned; the third — the first run with
-the log and trace in place — completed in **30 seconds** and published
-everything.) The count only grows — a run that works is not evidence, and this
+**Run tally: 9 runs, 5 completed the docs step, 4 did not.**
+(4 on 2026-08-31: 2 ok, 2 not. 5 on 2026-09-01: the first two skipped docs and
+**both returned exit 0**, one of them after `pgrep deploy.sh` already showed the
+script gone while ssh had still not returned; the last three — every run since
+the log and trace landed — took **30, 31 and 33 seconds** and published
+everything. ⚠️ Three clean runs still prove nothing about the fourth.) The count only grows — a run that works is not evidence, and this
 file said "the hang did not reproduce" once already.
 
 ✅ **Run 7 is the first one whose evidence survived.** `deploy.sh` now writes
