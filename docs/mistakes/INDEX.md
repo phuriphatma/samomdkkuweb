@@ -35,7 +35,7 @@ Open when: auth.js · db.js · anything calling supabase-js.
 - (Passport repo) Forcing Google OAuth `hd=<workspace-domain>` redirects to the domain's SAML IdP
 - "when i login in the preview, i got {"code":400,…"Unsupported provider: provider is not enabled"}"
 
-## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(27)*
+## `authz-rls.md` — RLS policies, SECURITY DEFINER & read paths *(28)*
 
 Open when: any policy, `current_user_*` helper, or definer RPC.
 
@@ -66,6 +66,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - A bypass flag set with `set_config(..., true)` stays set for the whole TRANSACTION, not the statement
 - Every signed-in account could read all 531 rows of `public.users`
 - "someone could just book 16.40-20.00 kick me out"
+- A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
 
 ## `authz-grants.md` — The permission / seat / scope channel *(17)*
 
@@ -319,4 +320,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Dead-link checking on the docs site had been off since the day it was built
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 
-_262 entries across 9 files._
+_263 entries across 9 files._

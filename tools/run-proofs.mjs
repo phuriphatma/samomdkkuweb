@@ -56,6 +56,7 @@ const PROOFS = [
   ['proj0165-succession-and-prefs.sql', 'the seat reaches what the retired role account reached; ปีงบ + prefs boundaries'],
   ['passport0174-total-km-symmetry.sql', 'a passport total moves DOWN as well as up'],
   ['passport-link-on-signup.sql', 'a carried student keeps their km, and a re-key that gives up is VISIBLE'],
+  ['proj0176-master-desk.sql', 'a master works the ผู้ส่ง desk, and the professor guard still guards'],
   ['house0132-registry.mjs', 'public.people is the registry'],
   ['proj0092-seat-parity.mjs', 'project seats resolve identically both ways'],
   ['team0135-name-split.mjs', 'name splitting round-trips'],

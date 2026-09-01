@@ -228,7 +228,21 @@ async function onSubmit(e) {
         const folder = buildDocFolderPath(project.id, project.name, doc.id, title);
         // Patch the document's drive_folder now that we have the real doc id.
         // (createDocument received an empty placeholder doc id segment.)
-        try { await updateDocument(doc.id, { drive_folder: folder }); } catch {}
+        //
+        // NOT `catch {}`. This PATCH raised for every `master` sender from
+        // 0111 until 0176 — the professor column guard read their third desk
+        // as a disqualification — and an empty catch meant three หนังสือ kept
+        // the placeholder path `…/<slug>_` while their files went to
+        // `…/<slug>_DOC-XXXXX`, for eight days, with nothing anywhere saying
+        // so. The upload below uses `folder` directly, so the send itself is
+        // still correct without this patch and must not be aborted; what was
+        // missing is any trace at all.
+        try {
+          await updateDocument(doc.id, { drive_folder: folder });
+        } catch (err) {
+          console.warn('[projects] drive_folder patch failed — the row keeps the placeholder path:',
+            doc.id, err?.message || err);
+        }
 
         for (let i = 0; i < pendingFiles.length; i++) {
           const f = pendingFiles[i];

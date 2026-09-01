@@ -114,11 +114,46 @@ async function refreshAccessTokenOnce() {
   return inFlightRefresh;
 }
 
-/** True when the PostgREST error body looks like a JWT-expired
- *  rejection (PGRST303). Used to decide whether to refresh-and-retry. */
-function isJwtExpiredError(status, message) {
+/**
+ * Turn a PostgREST error body into { message, code, details, hint, raw }.
+ *
+ * WHY: the body is JSON, and this used to hand the WHOLE STRING to callers as
+ * `error.message`. Every one of them does `alert(e.message || 'บันทึกไม่สำเร็จ')`,
+ * so a refused write showed a Thai-speaking user
+ *   {"code":"P0001","details":null,"hint":null,"message":"project_documents_prof_guard: …"}
+ * — which is exactly how the 0176 report arrived. The sentence a trigger
+ * `raise` writes IS the message; the braces around it are noise.
+ *
+ * `raw` keeps the original text because isJwtExpiredError() matches on
+ * `PGRST303`, which lives in the `code` field and would VANISH if this
+ * returned only `message`. That is the seam: narrowing a shared transport's
+ * error breaks whoever was reading the part you dropped.
+ */
+export function parseRestError(status, text, statusText = '') {
+  const raw = text || statusText || '';
+  let body = null;
+  try { body = JSON.parse(raw); } catch { body = null; }
+  const message = (body && typeof body.message === 'string' && body.message.trim())
+    ? body.message
+    : (raw || statusText);
+  return {
+    status,
+    message,
+    code:    body?.code    ?? null,
+    details: body?.details ?? null,
+    hint:    body?.hint    ?? null,
+    raw,
+  };
+}
+
+/** True when the PostgREST error looks like a JWT-expired rejection
+ *  (PGRST303). Used to decide whether to refresh-and-retry. Reads `code`
+ *  and `raw` as well as `message` — PGRST303 is a CODE, and it stopped
+ *  being part of `message` when parseRestError started unwrapping it. */
+function isJwtExpiredError(error) {
+  const status = error?.status;
   if (status !== 401 && status !== 403) return false;
-  const m = (message || '').toLowerCase();
+  const m = `${error?.code || ''} ${error?.message || ''} ${error?.raw || ''}`.toLowerCase();
   return m.includes('pgrst303') || m.includes('jwt expired') || m.includes('jwt is expired');
 }
 
@@ -160,7 +195,7 @@ export async function dbRest(path, opts = {}) {
       clearTimeout(timer);
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        return { data: null, error: { status: res.status, message: text || res.statusText } };
+        return { data: null, error: parseRestError(res.status, text, res.statusText) };
       }
       const data = res.status === 204
         ? null
@@ -178,7 +213,7 @@ export async function dbRest(path, opts = {}) {
   // when the user spent >1hr typing in a modal before submitting. Trying
   // a refresh-and-retry here is cheap and turns "PGRST303 JWT expired"
   // into a transparent recovery instead of a "บันทึกไม่สำเร็จ" toast.
-  if (first.error && isJwtExpiredError(first.error.status, first.error.message)) {
+  if (first.error && isJwtExpiredError(first.error)) {
     const refreshed = await refreshAccessTokenOnce();
     if (refreshed) return doFetch();
   }

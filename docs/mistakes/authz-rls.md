@@ -1097,3 +1097,111 @@ and silently grants the second. Any booking, lock, or reservation over something
 with an incumbent needs an ownership test that runs BEFORE the capacity test —
 and if the remaining quantity cannot be guaranteed, offering it is worse than
 refusing it.
+
+---
+
+## A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
+
+**Symptom.** Reported 2026-09-01: *"my friend has permission master with
+ผู้ส่งคณะ but can't ซ่อนจากเว็บ on each หนังสือ of หนังสือโครงการ"* — and,
+pasted from the alert:
+
+```
+{"code":"P0001", "details":null "hint":null
+ "message":"project_documents_prof_guard: professor may only add comments"}
+```
+
+The friend is not a professor. The **โครงการ-level** ซ่อนจากเว็บ worked; only
+the **per-หนังสือ** one failed. That asymmetry is the whole diagnosis in one
+observation: `projects` has no prof guard, `project_documents` does.
+
+**Cause.** 0051 widened `project_documents_update` to admit the professor so he
+could comment, and a row-level UPDATE policy grants every column in the row
+(class 1) — so it added a BEFORE UPDATE column guard that raises when
+`current_user_is_prof()`. Correct at the time: prof and actor were disjoint
+sets.
+
+0111 §2 then folded `master` into `current_user_project_seats()` as
+`array['vpa','staff','prof']` — deliberately, so a master can work any of the
+three desks. `current_user_is_prof()` has answered TRUE for every master since
+2026-08-17.
+
+Every **other** caller of that helper is an OR branch in a read/update/insert
+policy, where an extra `true` only widens. These two triggers are the only
+places it appears as a **restriction**, and a restriction keyed on an identity
+reads an EXTRA identity as a disqualification. Enumerated on the live database
+— of ten raising triggers, `shop_orders_self_update_guard`,
+`vs_tickets_self_update_guard` and `users_self_update_guard` are all
+exemption-first (`if <privileged> then return new`), which is why master never
+broke there. Only the two prof guards invert it.
+
+**Measured on production before the fix** (rolled-back transaction):
+
+| subject | seats | actor | prof | flip `is_public` on a หนังสือ |
+|---|---|---|---|---|
+| master | `{vpa,staff,prof}` | t | t | **raise — the bug** |
+| vpa-only | `{vpa}` | t | f | allow |
+| staff-only | `{staff}` | t | f | refused by `project_public_flag_guard` (correct — staff receive, they do not publish) |
+| prof-only | `{prof}` | f | t | denied by RLS (correct) |
+
+So the blast radius was not the reported button. **A master could change
+NOTHING on a หนังสือ except a comment** — not ซ่อนจากเว็บ, not
+รับเรื่อง/กำลังดำเนินการ/เสร็จสิ้น/ส่งกลับให้แก้/ย้อนสถานะ, not แก้ไขชื่อ/โน้ต,
+not `drive_folder`. 41 accounts, eight days, one report. Their colleagues
+holding a plain seat were never affected, which is exactly why it looked like
+an individual's problem.
+
+**And it was silently corrupting data.** `send.js` creates the row, then
+patches `drive_folder` with the real doc id (the folder segment needs an id the
+insert has not minted yet) — inside `catch {}`. For a master that PATCH raised.
+Three หนังสือ, all master-sent, kept the placeholder path `…/<slug>_` while
+their files were uploaded to `…/<slug>_DOC-XXXXX`, so QR-โฟลเดอร์ and
+folder-delete pointed at a path that does not exist. Found by asking which rows
+do NOT end in their own id — an exact predicate, not a guess, which is also why
+the repair (`drive_folder || id`) reproduces byte-for-byte what `send.js` would
+have written. The FIRST predicate tried (`like '%//%'`) matched nothing and
+would have closed the question as "no damage"; printing the rows is what found
+it.
+
+**Fix.** Both guards now ask **`current_user_is_prof() AND NOT
+current_user_is_project_actor()`** — "here ONLY as a professor", which is
+precisely the branch the policy `actor OR (prof AND prof_can_see_document(id))`
+admits him through. The guard and the policy it backstops now name the same
+predicate instead of two spellings of one rule (class 6).
+
+**Not** by narrowing `current_user_project_seats()`: master must keep the prof
+seat, which is what lets a master read `project_settings`, be listed as a
+signer, and insert a signed file. Narrowing the helper would have broken five
+GRANTS to fix two RESTRICTIONS. **Not** by exempting `master` by name either —
+that spelling drifts, and it is blind to the stored `{staff,prof}` pair the ทีม
+SAMO editor can create at any time (zero such accounts today; the guard now
+covers them anyway).
+
+`sign_requests_prof_guard` had the identical defect and is fixed in the same
+commit. It is LATENT — the UI only ever patches the decision columns — but "the
+first fix landing alone" is how these two drift apart (0149 paid for that).
+
+**Where it lives now.** `0176_a_master_is_not_only_a_professor.sql`. Proved live
+in both directions by `tools/proj0176-master-desk.sql` (22/22): §A a master may
+now flip `is_public`, status, title and `drive_folder`; §B an account that is a
+professor and *nothing else* still cannot, and still can comment. §B needed
+GEOMETRY the first draft did not create — `prof_can_see_document()` requires the
+หนังสือ to have a sign request, so on a หนังสือ with none the professor is
+refused by RLS *before* the guard is consulted, and all five §B rows came back
+`deny-rls` including the one asserting he CAN comment. A refused row is not a
+passing guard; the proof now creates the sign request rather than relaxing what
+it asserts. `prof-guard-actor-exemption.test.js` pins the migration corpus at
+`npm test` time against the specific way this dies — a later migration
+`create or replace`-ing these functions from 0051's or 0114's body, which
+0114's own header warns about having nearly done. The empty `catch` in
+`send.js` now logs.
+
+**The general rule.** *A guard that RESTRICTS by identity must ask whether that
+identity is the ONLY reason the caller is here.* When a grant is widened so one
+account can hold several roles at once, every predicate that GRANTS on a role
+keeps working — and every predicate that DENIES on a role inverts, silently, for
+exactly the most privileged accounts. So when you add a role-folding grant,
+enumerate the RESTRICTIONS, not the grants: `pg_get_functiondef ~ 'raise
+exception'` over every trigger, and read which side of the `if` the raise is on.
+The tell that you are on the wrong side is a guard whose condition is an
+identity rather than "the caller has no other way in".

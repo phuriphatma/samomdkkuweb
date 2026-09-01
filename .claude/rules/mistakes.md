@@ -68,6 +68,17 @@ it is the part that generalises to code not yet written.
    wherever `role==='dev'` grants power. **But a gate sweep misses the function
    that PRODUCES what gates read** — `projectSeatRole` has no role literal; 36 of
    41 masters got a blank หนังสือโครงการ (2026-08-18). Registry, not pattern: `master-mirrors.test.js`
+   **AND THE MIRROR IMAGE — A GUARD THAT *DENIES* ON AN IDENTITY INVERTS WHEN
+   ONE ACCOUNT HOLDS SEVERAL.** Widening a grant so `master` holds all three
+   หนังสือโครงการ desks made `current_user_is_prof()` true for it. Every OTHER
+   caller is an OR branch, where an extra `true` only widens — but the two prof
+   COLUMN GUARDS restrict, so the extra desk read as a disqualification and all
+   41 masters could change NOTHING on a หนังสือ but a comment, for 8 days, on
+   one report (0176). Ask whether the identity is the ONLY reason the caller is
+   here: `is_prof AND NOT is_project_actor`. When you add a role-folding grant,
+   enumerate the RESTRICTIONS, not the grants — `pg_get_functiondef ~ 'raise
+   exception'` over every trigger, then read which side of the `if` the raise
+   is on. Exemption-first (`if <privileged> then return new`) never inverts.
 6. **Two implementations of one rule drift** — but check both callers want the
    SAME answer, and SHARE THE ORDER, NOT THE GEOMETRY: one parentage for both org
    views made แผนผัง a 52,000px staircase; none left ระดับ drawn in one, ignored
@@ -279,7 +290,7 @@ shaving the classes, which are the only part that generalises.
 <!-- BEGIN GENERATED INDEX — npm run mistakes:index -->
 
 - `supabase-client.md` *(18)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
-- `authz-rls.md` *(27)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
+- `authz-rls.md` *(28)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(17)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(24)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(82)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.

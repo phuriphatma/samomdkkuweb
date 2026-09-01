@@ -13,16 +13,26 @@ because it held three lifetimes at once. It now holds one: **status**.
 | architecture, RLS, schema, deploy | `docs/CONTEXT.md` |
 | the backlog | `docs/NEXT.md` |
 
-## WHAT CHANGED MOST RECENTLY (2026-08-30)
+## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
-00. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
+00. ✅ **หนังสือโครงการ — a `master` could change NOTHING on a หนังสือ but a
+    comment; FIXED by 0176.** The prof column guard (0051/0114) asked
+    `current_user_is_prof()`, and 0111 §2 gives a master all three seats — so
+    the third desk read as a disqualification for all 41 master holders:
+    ซ่อนจากเว็บ, status, title, note, drive_folder, since 2026-08-17. A plain
+    `vpa`/`staff` seat was never affected. Both prof guards now ask
+    `is_prof AND NOT is_project_actor`; §3 repaired three หนังสือ whose Drive
+    path lost its id to a swallowed `catch {}`. Proof
+    `proj0176-master-desk.sql` (22/22, both ways); `authz-rls.md`.
+
+01. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
-01. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
+02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
     `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 lists the files a
     landed phase must correct — treat it as a checklist.**
 
-02. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
+03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
     give people. English, task-shaped. The old CONTRIBUTE and STEP-BY-STEP
     pages were MERGED AWAY (nginx 301s both) — do not recreate them.
     ⛔ **`deploy.sh` does NOT install nginx config** — that is always a separate
@@ -30,7 +40,7 @@ because it held three lifetimes at once. It now holds one: **status**.
     `server/nginx-samo.conf`).
     **Why it is shaped this way: `docs/state-archive/2026-08-31-docs-site-restructure.md`.**
 
-03. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
+04. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
     (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
     every stale reference. **`docs/SUCCESSION.md` + `npm run succession:audit`**
     map who can recover each system; the org move runbook is
@@ -38,16 +48,10 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
 
-Pruned to `docs/state-archive/2026-08-30-status-prune.md`. Still operative:
-
-- **PASSPORT TOTALS — CLOSED**, and the two facts people re-derive (the 179
-  account-less profiles, and the dump that must never be committed) moved to
-  `docs/INVARIANTS.md`.
-- **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND via a relay on
-  587; it cannot BE or RECEIVE mail. **No password reset exists; mail config is
-  why.**
-- **Discord notify is rotated; VitalSound routes per ฝ่าย to 12 channels** —
-  read the notify rules in `docs/INVARIANTS.md` BEFORE touching notifications.
+Pruned to `docs/state-archive/2026-08-30-status-prune.md`. Nothing here is
+status any more: passport totals, the mail rules and the Discord notify rules
+were the last three durable items and all now live in `docs/INVARIANTS.md`
+(2026-09-01). Read that file, not this block.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -99,8 +103,8 @@ TRUE. That is what the grep is for.
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
-- **Migrations through 0175. ALL 27 LIVE PROOFS GREEN**, re-run 2026-08-30
-  after 0175 reached production. ⚠️ The proof count is guarded against
+- **Migrations through 0176. ALL 28 LIVE PROOFS GREEN**, re-run 2026-09-01
+  after 0176 reached production. ⚠️ The proof count is guarded against
   `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
   written here — run `npm test` / `npm run proofs`, never quote a remembered
   number.

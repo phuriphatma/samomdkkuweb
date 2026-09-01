@@ -341,6 +341,19 @@ durable facts, not status.
   `~/samo-passport-old-db-backup-2026-08-29/` must NEVER be committed.** Both
   repositories are PUBLIC and it holds real student email addresses.
 
+## Mail, and Discord notify — read the file before you touch either
+
+Moved here from `STATE.md` 2026-09-01: these are rules that outlive a session,
+and STATE.md was the only home for them, which is why they kept surviving every
+prune of a block whose other items were long dead.
+
+- **READ `docs/EMAIL.md` BEFORE TOUCHING MAIL.** The VM can SEND through a
+  relay on 587; it cannot BE or RECEIVE mail (25 blocked outbound, no inbound
+  port, `p=reject`). **No password reset exists, and the mail configuration is
+  why** — anyone proposing one is proposing a mail system first.
+- **Discord notify is rotated; VitalSound routes per ฝ่าย to 12 channels.**
+  Read the notify rules in this file BEFORE touching notifications.
+
 ## `passport` the GRANT is not `passport` the APP
 
 **`passport` in `permissions` means passport ADMIN rights over a ฝ่าย. It is
