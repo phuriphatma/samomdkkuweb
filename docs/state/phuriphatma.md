@@ -69,6 +69,49 @@ identically is a better lead than either button on its own.
   wants master to reach every control, the fix is a desk SWITCHER, not a
   wider gate.
 
+### The sweep afterwards — what it found, and one thing I did NOT fix
+
+**SQL is clean, and I can say that from an enumeration rather than a hunch.**
+Every function in `public` + `passport` that raises AND reads a caller identity:
+30 — 6 triggers, 24 RPCs. All 24 RPCs are `if NOT <privileged> then raise`
+(deny-by-default; an extra identity only admits). Four of the six triggers are
+exemption-first (`if <privileged> then return new`). The inverting shape existed
+in exactly two places, both fixed. No RESTRICTIVE policies exist at all, and
+every `is_prof` inside a policy is an OR-grant. **Re-run that query before
+adding any grant that folds one account into several identities** — it is in
+`docs/mistakes/authz-rls.md` under the 0176 entry.
+
+**JS was not clean**, and the second commit fixes it: `db.js`, `vs-form.js`,
+`pr-form.js` each formatted PostgREST errors their own way and all three put the
+raw JSON body where a person reads it. Now one home, `src/js/rest-error.js`.
+`docs/mistakes/supabase-client.md`.
+
+**⚠️ FOUND, DELIBERATELY NOT FIXED — `prof_can_see_document()` is broader than
+its name.**
+
+```sql
+select public.current_user_is_prof()
+   and exists (select 1 from public.project_sign_requests r
+                where r.document_id = p_doc_id)
+```
+
+It asks whether the หนังสือ has **any** sign request — never whether the request
+is addressed to **this** อาจารย์. It gates both `project_documents_read` and the
+prof branch of `project_documents_update`, so any prof-seat holder can read and
+comment on all 18 หนังสือ that have a sign request, including ones sent to a
+different อาจารย์. `project_files` has the same shape via `prof_can_see_file`.
+
+**There is exactly ONE prof-seat holder today (and zero `sa_prof` roles), so
+nothing is currently exposed between people.** It becomes a real
+cross-visibility question the moment a second อาจารย์ is added — which is why it
+is written here rather than left for someone to rediscover.
+
+**It is the owner's call, not a bug to quietly close**: อาจารย์ผู้ลงนาม may well
+be *supposed* to see each other's หนังสือ (co-signing, cover during absence).
+Narrowing it to `r.prof_id = auth.uid()` is a one-line change to one function —
+but it silently removes access somebody may be relying on, and the ask has never
+been made. **Ask before changing it.**
+
 ### One thing for whoever is next, unrelated to this bug
 
 `npm run migrate:status` prints **EDITED AFTER RECORDING** for

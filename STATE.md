@@ -16,14 +16,12 @@ because it held three lifetimes at once. It now holds one: **status**.
 ## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
 00. ✅ **หนังสือโครงการ — a `master` could change NOTHING on a หนังสือ but a
-    comment; FIXED by 0176.** The prof column guard (0051/0114) asked
-    `current_user_is_prof()`, and 0111 §2 gives a master all three seats — so
-    the third desk read as a disqualification for all 41 master holders:
-    ซ่อนจากเว็บ, status, title, note, drive_folder, since 2026-08-17. A plain
-    `vpa`/`staff` seat was never affected. Both prof guards now ask
-    `is_prof AND NOT is_project_actor`; §3 repaired three หนังสือ whose Drive
-    path lost its id to a swallowed `catch {}`. Proof
-    `proj0176-master-desk.sql` (22/22, both ways); `authz-rls.md`.
+    comment; FIXED by 0176**, and the sweep after it found the same shape in
+    the two GUEST forms (`rest-error.js`). ⚠️ **The rule this bought: a grant
+    that folds one account into several identities widens every predicate that
+    GRANTS and INVERTS every predicate that DENIES.** Enumerate the raising
+    triggers before adding one. Write-ups: `authz-rls.md`,
+    `supabase-client.md`. Proof `proj0176-master-desk.sql` (22/22).
 
 01. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
@@ -48,10 +46,10 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
 
-Pruned to `docs/state-archive/2026-08-30-status-prune.md`. Nothing here is
-status any more: passport totals, the mail rules and the Discord notify rules
-were the last three durable items and all now live in `docs/INVARIANTS.md`
-(2026-09-01). Read that file, not this block.
+Fully drained 2026-09-01: the reasoning is in
+`docs/state-archive/2026-08-30-status-prune.md`, and the last three durable
+items (passport totals, mail, Discord notify) now live in
+`docs/INVARIANTS.md`.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
 grep the WHOLE file before correcting anything · never touch the deploy block
@@ -67,24 +65,26 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `defa9d9` (2026-08-31)** — app bundles from `deploy.sh`,
-  `/docs` published BY HAND after the script skipped it. Verified from the
-  SERVED site: `/docs/contributing` carries the day's correction and zero
-  occurrences of the text it replaced.
-  ⛔ **THE DOCS STEP STILL FAILS — AND IT NOW EXITS 0.** It reproduced on the
-  4th run of the day after two clean ones. **The app half published; `/docs`
-  did not, and `ssh` returned success.** Publish docs BY HAND
-  (`skills/deploy-vm.md`) and **never trust the exit code.**
+- ✅ **DEPLOYED = `90e9259` (2026-09-01)** — app from `deploy.sh`, docs
+  published BY HAND after the script skipped it AGAIN. Both halves verified
+  from the SERVED artifact: the chunk the served `/admin/` HTML names carries
+  this build's markers and none of the strings it replaced, and the served
+  INVARIANTS docs page carries the section written today.
+  ⛔ **THE DOCS STEP STILL FAILS — AND IT EXITS 0.** Tally **6 runs, 2 published
+  docs, 4 did not** (both of today's skipped, both returned 0). Publish by hand
+  — `skills/deploy-vm.md`, which keeps the count — and never trust the code.
   ⚠️ **The only reliable tell** — compare when each root was written:
   ```bash
   ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'
   ```
   Same minute = docs published. Hours apart = the step was skipped.
+  ⚠️ **FALSE-SKIP direction**: rsync leaves an unchanged directory's mtime
+  alone, so use this to raise suspicion and SETTLE it by curl-grepping a served
+  docs page for a heading you added today, with an old heading as control.
   ⛔ Falsified, do not re-open: sudo expiry · a ceiling below ~7 min · the PTY.
-  Two clean runs were NOT a root cause and I wrote them up as one — see
-  `docs/mistakes/deploy-hosting.md`.
+  Two clean runs were NOT a root cause; `docs/mistakes/deploy-hosting.md`.
   ⚠️ Grepping the wrong bundle proves nothing (`docs/INVARIANTS.md`).
-  Previous: `f27ebdd`, `17bfd01`.
+  Previous: `defa9d9`, `f27ebdd`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -195,8 +195,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   holds REAL student data**. Rebuild `CONFIRM=1 npm run dev:refresh`; check
   `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on
   dev** (owner: §B1).
-- **The docs site is `docs/` RENDERED — it is NOT the status.** `STATE.md` stays
-  at the repo root on purpose. Nothing secret goes in `docs/`.
+- **The docs site is `docs/` RENDERED, not the status.** `STATE.md` stays at the
+  repo root on purpose; nothing secret goes in `docs/`.
 - **ฝ่าย tools — THE WORKFLOW IS ON, the REGISTRY IS BUILT, the FRAME IS NOT.**
   Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
   re-litigated) — do not work from this bullet. ✅ Live: branch protection,
@@ -221,8 +221,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 1. **This file**, top to bottom. Read all of it.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-3. **`docs/state/phuriphatma.md`** — its top block names the three claims a new
-   session is most likely to get wrong, and what is decided so you do not redo it.
+3. **`docs/state/phuriphatma.md`** — its newest block names what was found and
+   deliberately NOT fixed; the one below it, the claims most often got wrong.
 4. Only then, the archive file for whatever you are about to touch.
 
 **What waits on the owner is section B above — do not restate it here.** These

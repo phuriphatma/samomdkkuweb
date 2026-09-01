@@ -548,3 +548,71 @@ to you — check the precondition before the handoff, or you are catching an err
 that will never arrive.* And when a check gates a user-facing action, decide its
 polarity explicitly and write the reason down: this one is only correct because
 it fails open and skips production, and both are invisible from the code alone.
+
+---
+
+## Three fetchers of one API, three error strings, and all three showed the raw JSON body
+
+**Symptom.** A bug report arrived as this, pasted out of the page:
+
+```
+{"code":"P0001", "details:null hint null message project_documents_prof_guard:
+ professor may only add comments
+```
+
+It was legible to an engineer and meaningless to the person who hit it. Found
+while fixing 0176; the sweep afterwards found the same string on the two
+**guest-facing** forms, where the audience is a student with no staff context
+at all: *"บันทึกไม่สำเร็จ: PostgREST 400: {"code":…}"*, rendered into the page.
+
+**Cause.** Three places fetch PostgREST directly and each invented its own
+error string:
+
+| | what it put where a person reads it |
+|---|---|
+| `db.js` `dbRest` | `message: text` — the whole body |
+| `vs-form.js` | `` `PostgREST ${status}: ${body.substring(0,200)}` `` |
+| `pr-form.js` | identical copy of the vs-form line |
+
+Every caller then does `alert(e.message || 'บันทึกไม่สำเร็จ')` or writes it into
+`innerHTML`, so the braces reached the screen every time. Three copies of one
+rule (class 6) — and none of them was *wrong* on its own terms, which is why
+none of them was ever fixed: each looked like a reasonable local decision.
+
+**The seam that makes this more than a cosmetic fix.** The obvious repair —
+return `body.message` — silently breaks the JWT refresh-and-retry, because
+`PGRST303` lives in the **`code`** field, not in `message`. `isJwtExpiredError`
+matched it only because the whole body was being passed through. A fix to the
+HUMAN half of a string can break the MACHINE half of the same string, and the
+retry fails by simply not retrying — no error, just a session that logs itself
+out on a backgrounded tab.
+
+**Fix.** `src/js/rest-error.js` — one home. `parseRestError()` returns
+`{status, message, code, details, hint, raw}`: the sentence for people, the
+code and the raw body for the retry. `restErrorMessage()` is the user-facing
+half and additionally refuses a wall of SQL (>200 chars, or anything still
+starting with `{`), falling back to a Thai sentence **that carries the status**
+— so a reporter still has something worth pasting. `db.js` re-exports
+`parseRestError` rather than keeping a second copy.
+
+Both display sites were also interpolating that string into `innerHTML`
+unescaped, and a PostgREST error can echo the value just submitted (a
+constraint message quotes the offending key). Now `escHtml`'d. Self-XSS only —
+the submitter is the only viewer — but it is markup assembled from an
+untrusted string, and the cost of escaping it is one call.
+
+The console keeps `err.raw`. **Narrowing what the PAGE shows must not narrow
+the DEBUGGING surface with it** — that is how a readable error becomes an
+undiagnosable one, and it would have cost the very report that started this.
+
+**Where it lives now.** `src/js/rest-error.js`, imported by `db.js`,
+`vs-form.js`, `pr-form.js`. `rest-error.test.js` (16) pins both halves,
+including the one that matters most: PGRST303 is still findable after
+unwrapping.
+
+**The general rule.** *An error message has two audiences, and a helper that
+returns a string can only serve one.* Return the parts — the sentence, the
+code, the raw — and let each caller take what it needs. And when you find the
+same ad-hoc error formatting in a second place, look for the third: the number
+of copies is set by how many entry points talk to the service, not by how many
+you happened to open.

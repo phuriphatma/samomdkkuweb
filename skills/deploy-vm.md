@@ -26,7 +26,12 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally for 2026-08-31: 4 runs, 2 completed the docs step, 2 did not.**
+**Run tally: 6 runs, 2 completed the docs step, 4 did not.**
+(4 on 2026-08-31: 2 ok, 2 not. 2 on 2026-09-01: **both skipped docs, both
+returned exit 0**, one of them after `pgrep deploy.sh` already showed the
+script gone while ssh had still not returned.) The count only grows — a run
+that works is not evidence, and this file said "the hang did not reproduce"
+once already.
 The two that did not present DIFFERENTLY — three earlier attempts hung and were
 killed; the fourth **returned exit 0 having published the app and skipped
 `/docs` entirely.**
