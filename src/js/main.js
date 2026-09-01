@@ -46,6 +46,8 @@ import {
 import { ADMIN_FEATURES } from './team-vocab.js';
 import { initProjectsView } from './projects-view.js';
 import { mountGoldenPeriodCalendar } from './golden-period.js';
+import { mountToolFrame, embedSlugFromPath } from './tool-frame.js';
+import { TOOLS } from '../data/tools.js';
 import { mountEnvRibbon } from './env-ribbon.js';
 import { initAnalytics } from './analytics.js';
 import { initHomeStats } from './home-stats.js';
@@ -310,6 +312,7 @@ document.addEventListener('shown.bs.tab', (e) => {
       || e.target?.id === 'pills-departments-tab'
       || e.target?.id === 'pills-projects-view-tab'
       || e.target?.id === 'pills-golden-period-tab'
+      || e.target?.id === 'pills-tool-embed-tab'
       || e.target?.id === 'pills-announcements-tab') {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
@@ -412,7 +415,20 @@ function pathToTab(pathname) {
   const exact = PATH_ROUTES.find((r) => r.path === p);
   if (exact) return exact.tab;
   if (/^\/news\/.+/.test(p)) return 'pills-article-tab';
+  // Every kind:'embed' tool shares ONE pane; the path says which tool.
+  // The exact match above runs FIRST, so /tools/golden-period keeps its own
+  // native pane — an embed can take that slug later without a router change.
+  if (embedToolFor(p)) return 'pills-tool-embed-tab';
   return null;
+}
+
+/** The registry entry for an embed route, or null. The registry is the gate:
+ *  a folder in public/embed/ with no entry here is not reachable, which is
+ *  what makes CODEOWNERS on src/data/tools.js the review point (DEPT-TOOLS §8). */
+function embedToolFor(pathname) {
+  const slug = embedSlugFromPath(pathname);
+  if (!slug) return null;
+  return TOOLS.find((t) => t.kind === 'embed' && t.slug === slug) || null;
 }
 
 function tabToPath(tabBtnId) {
@@ -455,6 +471,13 @@ function applyPathRoute() {
   }
   const tab = pathToTab(location.pathname);
   if (tab) window.activateTab(tab);
+  // Mount the frame HERE rather than on `shown.bs.tab`, because two embed
+  // routes share one pane: going from /tools/a to /tools/b re-shows a tab that
+  // is ALREADY active, and Bootstrap fires no shown event for that — the page
+  // would keep showing tool A under tool B's URL. This function is the one
+  // place every route change passes through (boot, navigateTo, popstate).
+  const embed = embedToolFor(location.pathname);
+  if (embed) mountToolFrame(embed);
 }
 
 // Back/forward — keep the active tab in sync with the path.

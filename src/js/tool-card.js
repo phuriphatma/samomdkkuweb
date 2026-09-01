@@ -23,7 +23,7 @@
 // ============================================================
 
 import { escHtml } from './utils.js';
-import { toolTarget } from '../data/tools.js';
+import { toolTarget, toolPath } from '../data/tools.js';
 
 /** The inner content — identical for every kind. */
 function cardInner(tool) {
@@ -59,9 +59,12 @@ export function renderToolCard(tool) {
   if (tool.kind === 'external') {
     return `<a ${attrs} href="${escHtml(tool.href)}" target="_blank" rel="noopener">${inner}</a>`;
   }
-  if (tool.kind === 'path') {
-    return `<a ${attrs} href="${escHtml(tool.path)}"
-              data-dept-tool-path="${escHtml(tool.path)}">${inner}</a>`;
+  // An embed is a path tool whose path is derived from its slug — same card,
+  // same in-app navigation, no second branch to keep in step.
+  const path = toolPath(tool);
+  if (path) {
+    return `<a ${attrs} href="${escHtml(path)}"
+              data-dept-tool-path="${escHtml(path)}">${inner}</a>`;
   }
   return `<button type="button" ${attrs}
              data-dept-tool-tab="${escHtml(tool.tabId)}">${inner}</button>`;

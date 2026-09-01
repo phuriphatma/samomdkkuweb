@@ -1,0 +1,34 @@
+      <!-- ==========================================================
+           TOOL FRAME — the shared host for every Lane-B ฝ่าย tool.
+           docs/DEPT-TOOLS.md §3. ONE pane serves every /tools/<slug>
+           embed route; the title, the description and the frame are
+           filled in by src/js/tool-frame.js from src/data/tools.js.
+
+           ⛔ ถึงฝ่าย: ไฟล์นี้ไม่ใช่หน้าเครื่องมือของคุณ — เป็นกรอบของเว็บ
+              หน้าของคุณอยู่ที่ public/embed/<slug>/index.html แก้ที่นั่น
+              แล้วเปิด Pull Request ได้เลย ไม่ต้องแตะไฟล์นี้
+           ========================================================== -->
+      <div class="tab-pane fade tool-frame-tab" id="pills-tool-embed" role="tabpanel">
+        <div class="container tool-frame-body">
+
+          <header class="tool-frame-header">
+            <button type="button" class="tool-frame-back"
+              onclick="navigateTo('/tools')">
+              <i class="bi bi-arrow-left" aria-hidden="true"></i>
+              <span>เครื่องมือทั้งหมด</span>
+            </button>
+            <h2 class="tool-frame-title" id="toolFrameTitle"></h2>
+            <p class="tool-frame-desc" id="toolFrameDesc"></p>
+          </header>
+
+          <!-- The iframe is written here by mountToolFrame(), never in markup:
+               the sandbox attribute is generated in ONE place so the guard test
+               can assert the property on what is actually rendered. -->
+          <div id="toolFrameHost"></div>
+
+          <p class="tool-frame-note">
+            หน้านี้ดูแลโดยฝ่ายเจ้าของเครื่องมือ ไม่ใช่ฝ่ายไอที
+          </p>
+
+        </div>
+      </div>

@@ -54,3 +54,20 @@ jobs:
       # not. This step is inside the REQUIRED `build` check on purpose, so a
       # doc that would break the published site cannot merge.
       - run: npm run docs:build
+      # THE ฝ่าย TOOL BOUNDARY, and it lives HERE on purpose (DEPT-TOOLS §8.3).
+      # A `tool/*` branch may reach only public/embed/<slug>/ plus the one
+      # registry file — that limit is what makes a PEER approval of code they
+      # cannot fully read a safe thing to accept.
+      #
+      # It is a step inside the REQUIRED `build` job rather than a workflow of
+      # its own, because a separate required check would have nothing to report
+      # on every branch that is not tool/*, and this repo has already blocked
+      # `main` for a day that way (tools/repo-protection.mjs's last assertion).
+      # On any other branch the script says so and exits 0.
+      - run: npm run check:tool-boundary
+        env:
+          SAMO_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          SAMO_BASE_REF: origin/${{ github.base_ref || 'main' }}
+      # Every routed ฝ่าย tool folder still obeys the lane's rules. Cheap, and
+      # it is the check a contributor can run alone: npm run check:embeds
+      - run: npm run check:embeds

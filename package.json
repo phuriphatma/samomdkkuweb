@@ -38,7 +38,9 @@
     "docs:preview": "vitepress preview docs",
     "succession:audit": "node tools/succession-audit.mjs",
     "dev:google": "node tools/dev-google-signin.mjs",
-    "cf:pin-dev": "node tools/cloudflare-pin-dev.mjs"
+    "cf:pin-dev": "node tools/cloudflare-pin-dev.mjs",
+    "check:embeds": "node tools/check-embeds.mjs",
+    "check:tool-boundary": "node tools/check-tool-boundary.mjs"
   },
   "devDependencies": {
     "@google/clasp": "^3.3.0",

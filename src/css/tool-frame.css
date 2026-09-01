@@ -1,0 +1,67 @@
+/* ==========================================================
+   tool-frame.css — the host chrome around a Lane-B ฝ่าย tool.
+   docs/DEPT-TOOLS.md §3. Everything INSIDE the frame is the ฝ่าย's own
+   stylesheet and cannot reach out here (opaque origin), which is the
+   reason this lane needs no prefix linting.
+   ========================================================== */
+
+.tool-frame-body {
+  max-width: 960px;
+  padding-top: 1.25rem;
+  padding-bottom: 2.5rem;
+}
+
+.tool-frame-header {
+  margin-bottom: 1rem;
+}
+
+.tool-frame-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: none;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
+  color: var(--brand-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.tool-frame-back:hover { text-decoration: underline; }
+
+.tool-frame-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.tool-frame-desc {
+  color: #6c757d;
+  margin: 0.25rem 0 0;
+}
+
+/* THE FLOOR, and the reason there is no fallback timer.
+   A frame starts at 70vh and stays there until the tool reports a real
+   height, so a tool that never reports one is readable (it scrolls inside)
+   instead of collapsing to nothing. tool-frame.js sets min-height:0 only
+   once a measurement has actually arrived. */
+.tool-frame {
+  display: block;
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.tool-frame-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #8a8f98;
+}
+
+@media (max-width: 575.98px) {
+  .tool-frame-body { padding-top: 0.75rem; }
+  .tool-frame-title { font-size: 1.25rem; }
+}

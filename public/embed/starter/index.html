@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตัวอย่างเครื่องมือฝ่าย</title>
+<link rel="stylesheet" href="./TOKENS.css">
+<style>
+  /* หน้าตาของเครื่องมือคุณ เขียนตรงนี้ได้เลย
+     ใช้ตัวแปรสีจาก TOKENS.css เพื่อให้เข้ากับเว็บ SAMO */
+  body { margin: 0; padding: 1rem; font-family: var(--font-body); color: var(--ink); background: var(--bg); }
+  h1 { font-size: 1.15rem; margin: 0 0 .25rem; color: var(--brand-primary); }
+  p.lead { margin: 0 0 1rem; color: var(--ink-muted); }
+  .rows { display: grid; gap: .5rem; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .6rem; background: #fff;
+  }
+  .bar { flex: 1; height: .5rem; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--brand-primary); }
+  .val { min-width: 3.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+  button { font: inherit; padding: .4rem .8rem; border: 1px solid var(--line);
+           border-radius: .5rem; background: #fff; color: var(--ink); }
+</style>
+</head>
+<body>
+
+  <h1>ตัวอย่างเครื่องมือฝ่าย</h1>
+  <p class="lead">
+    ไฟล์นี้คือจุดตั้งต้น คัดลอกทั้งโฟลเดอร์แล้วแก้ได้เลย —
+    เปิดไฟล์นี้ด้วยการดับเบิลคลิกก็ทำงานได้ทันที ไม่ต้องติดตั้งอะไร
+  </p>
+
+  <div class="rows" id="rows"></div>
+
+  <p><button type="button" id="sortBtn">สลับการเรียงลำดับ</button></p>
+
+<script src="./data.js"></script>
+<script>
+  // ---- เนื้อหาของคุณ -------------------------------------------------
+  var desc = false;
+  function draw() {
+    var items = ROWS.slice().sort(function (a, b) { return desc ? b.value - a.value : a.value - b.value; });
+    var max = Math.max.apply(null, items.map(function (r) { return r.value; })) || 1;
+    document.getElementById('rows').innerHTML = items.map(function (r) {
+      var pct = Math.round((r.value / max) * 100);
+      // textContent ปลอดภัยกว่า แต่ถ้าใช้ innerHTML อย่าใส่ข้อความจากคนอื่นตรงๆ
+      return '<div class="row"><span>' + r.label + '</span>'
+           + '<span class="bar"><i style="width:' + pct + '%"></i></span>'
+           + '<span class="val">' + r.value + '</span></div>';
+    }).join('');
+  }
+  document.getElementById('sortBtn').addEventListener('click', function () { desc = !desc; draw(); });
+  draw();
+
+  // ---- อย่าลบหกบรรทัดนี้ ---------------------------------------------
+  // บอกความสูงของหน้าให้เว็บแม่รู้ ไม่งั้นกรอบจะสูงค้างที่ 70% ของจอ
+  // (เว็บแม่วัดความสูงเองไม่ได้ เพราะกรอบนี้ถูกกันออกจากกันด้วย sandbox)
+  function reportHeight() {
+    parent.postMessage({ type: 'samo-embed-height', height: document.documentElement.scrollHeight }, '*');
+  }
+  new ResizeObserver(reportHeight).observe(document.documentElement);
+  window.addEventListener('load', reportHeight);
+</script>
+
+</body>
+</html>

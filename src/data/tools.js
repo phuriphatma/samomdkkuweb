@@ -26,10 +26,16 @@
 //   dept      which ฝ่าย page it appears on, or null for launcher-only tools
 //             (ระบบจองห้องสโม belongs to no single ฝ่าย). Must be a key of
 //             DEPT_DEFS — `tools-registry.test.js` fails on a typo.
-//   kind      'tab' | 'path' | 'external'
+//   kind      'tab' | 'path' | 'external' | 'embed'
 //   tabId     kind:'tab'      — the Bootstrap pill to activate
 //   path      kind:'path'     — an IN-APP route; MUST exist in PATH_ROUTES
 //   href      kind:'external' — opens in a new tab
+//   (embed)   kind:'embed'    — a ฝ่าย tool in public/embed/<slug>/, shown in
+//             a sandboxed frame at /tools/<slug>. It needs NO path field: the
+//             route IS the slug, which is what stops a folder and a route from
+//             disagreeing. ⛔ THE ENTRY IS THE GATE — a folder with no entry
+//             here is unreachable, which is why CODEOWNERS puts this file
+//             behind the owner (docs/DEPT-TOOLS.md §3, §8).
 //   keywords  extra search terms for the launcher (Thai + English + acronyms).
 //             The visible name is searched too, so do not repeat it here.
 //   cats      launcher filter chips, space-separated ('public', 'pr', 'vs')
@@ -151,6 +157,23 @@ export const TOOLS = [
     cats: 'public',
   },
   {
+    // THE STARTER KIT, and the living proof that the frame works.
+    // dept:null + launcher:false means it appears on NO page and in NO search —
+    // it exists so `/tools/starter` can be opened by a contributor (and by the
+    // guard) to see a real embed rendering under the real chrome. Copy this
+    // folder to begin a tool: public/embed/starter/README.md says how.
+    slug: 'starter',
+    dept: null,
+    kind: 'embed',
+    launcher: false,
+    name: 'ตัวอย่างเครื่องมือฝ่าย (starter)',
+    desc: 'ไฟล์ตั้งต้นสำหรับฝ่ายที่จะทำหน้าเครื่องมือของตัวเอง',
+    icon: 'bi-box-seam',
+    color: 'var(--brand-primary)',
+    keywords: 'starter template ตัวอย่าง',
+    cats: 'public',
+  },
+  {
     slug: 'mdi-website',
     dept: 'media',
     kind: 'external',
@@ -182,5 +205,13 @@ export const toolsForDept = (dept) => TOOLS.filter((t) => t.dept === dept);
 /** The tools the searchable launcher renders, in registry order. */
 export const launcherTools = () => TOOLS.filter((t) => t.launcher !== false);
 
+/** The in-app path of a tool that has one, else null.
+ *  An embed's path is DERIVED from its slug and never stored: two fields for
+ *  one fact is how a route and a folder drift apart (class 6). */
+export const toolPath = (t) => (t.kind === 'embed' ? `/tools/${t.slug}` : (t.path || null));
+
 /** Where a tool navigates to — the one place that knows which key holds it. */
-export const toolTarget = (t) => t.tabId || t.path || t.href || '';
+export const toolTarget = (t) => t.tabId || toolPath(t) || t.href || '';
+
+/** The ฝ่าย tools that ship as a folder in public/embed/. */
+export const embedTools = () => TOOLS.filter((t) => t.kind === 'embed');

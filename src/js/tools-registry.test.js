@@ -74,10 +74,14 @@ describe('the ฝ่าย tool registry', () => {
     const bad = [];
     for (const t of TOOLS) {
       if (!t.name || !t.desc || !t.icon) bad.push(`${t.slug}: missing name/desc/icon`);
-      if (!['tab', 'path', 'external'].includes(t.kind)) bad.push(`${t.slug}: kind=${t.kind}`);
+      if (!['tab', 'path', 'external', 'embed'].includes(t.kind)) bad.push(`${t.slug}: kind=${t.kind}`);
       if (t.kind === 'tab' && !t.tabId) bad.push(`${t.slug}: kind:'tab' with no tabId`);
       if (t.kind === 'path' && !t.path) bad.push(`${t.slug}: kind:'path' with no path`);
       if (t.kind === 'external' && !t.href) bad.push(`${t.slug}: kind:'external' with no href`);
+      // An embed stores no path — it must not, or the folder and the route can
+      // disagree. Its slug is the route, so the slug has to be URL-shaped.
+      if (t.kind === 'embed' && t.path) bad.push(`${t.slug}: kind:'embed' must not carry a path — the slug IS the route`);
+      if (t.kind === 'embed' && !/^[a-z0-9][a-z0-9-]*$/.test(t.slug)) bad.push(`${t.slug}: an embed slug must be lowercase url-safe`);
       if (!toolTarget(t)) bad.push(`${t.slug}: no target at all`);
     }
     expect(bad).toEqual([]);
@@ -104,6 +108,9 @@ describe('the ฝ่าย tool registry', () => {
   });
 
   it('every in-app route exists in PATH_ROUTES', () => {
+    // Embeds are excluded ON PURPOSE and covered by tool-frame.test.js instead:
+    // they are matched by a PATTERN in pathToTab, not listed in PATH_ROUTES, so
+    // asserting them here would demand a second home for the same fact.
     const bad = TOOLS.filter((t) => t.kind === 'path' && !spaPaths.has(t.path))
       .map((t) => `${t.slug} → ${t.path}`);
     expect(bad, [
