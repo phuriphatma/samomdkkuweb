@@ -41,11 +41,8 @@ because it held three lifetimes at once. It now holds one: **status**.
     **`docs/SUCCESSION.md` + `npm run succession:audit`** map who can recover
     each system; org runbook `skills/move-the-repo-to-an-organisation.md`.
 
-## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
-
-Fully drained 2026-09-01: the reasoning is in
-`docs/state-archive/2026-08-30-status-prune.md`, and the last three durable
-items (passport totals, mail, Discord notify) now live in
+Everything older was drained on 2026-09-01 — reasoning in
+`docs/state-archive/2026-08-30-status-prune.md`, durable items in
 `docs/INVARIANTS.md`.
 
 **Rules for editing this file, each paid for:** give a decaying fact ONE home ·
@@ -141,9 +138,15 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    the next push while the proof read all-green (§5d).
    ❌ **Last box, §10: someone who is NOT the owner must add a person to a team
    once.** Until that happens the bottleneck has not moved.
-   ⛔ **NOTHING on `*.pages.dev` may reach the production database** — both
-   Cloudflare envs are pinned to `samo-dev` after a production-branch deployment
-   served live student data under a PREVIEW ribbon (`deploy-hosting.md`).
+   ⛔ **NOTHING on `*.pages.dev` may reach the production database.** ⚠️ The
+   guard for this asserted it of ONE project and read 18/18 green while the
+   account held THREE — `refactorsamomdkkuweb` still carried the LIVE
+   production URL + anon key with `VITE_ENV_NAME` unset. Both the guard and
+   `npm run cf:pin-dev` now enumerate the ACCOUNT; all 27 pass
+   (`deploy-hosting.md`). ⛔ **Still open, OWNER + destructive: the two retired
+   projects' EXISTING deployments keep the old URL in their bundle and
+   `<hash>.<project>.pages.dev` serves them — deleting the projects is the only
+   complete fix.**
 
 1. **The ฝ่าย tools slot — HALF BUILT.** ✅ `src/data/tools.js` is the one
    registry; the launcher and every ฝ่าย page render from it, guarded by
@@ -155,12 +158,12 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    ceiling. ⛔ The prescribed diagnostic was BLIND: `deploy.sh` re-execs itself
    after pulling, so `bash -x` instruments only the first two seconds
    (`skills/deploy-vm.md`). If it recurs, `set -x` INSIDE the script.
-3. ⏳ **PASSPORT ON THE DEV SERVER — blocker cleared, 4 steps left.** samo-dev
+3. ⏳ **PASSPORT ON THE DEV SERVER — 2 of 4 steps left.** samo-dev
    now EXPOSES the `passport` schema (it always held the data), so dev answers
    exactly as production. Owner did Part A; **Part B — reconnect the
    `samomdkkupassport` Pages project in the DASHBOARD — is not done.**
-   ⚠️ That project still names `idwlabpbwiwgaoqwbozz`, the FROZEN OLD DB.
-   **The four remaining steps are in `docs/state/phuriphatma.md`.**
+   ✅ Step 2 is DONE — its variables now name samo-dev, not the frozen old DB.
+   **The remaining steps are in `docs/state/phuriphatma.md`.**
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. ✅ **DONE 2026-08-31 — Google sign-in works on previews.** A dev-only OAuth

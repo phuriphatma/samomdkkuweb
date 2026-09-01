@@ -143,25 +143,34 @@ answers identically (scans 200/200, profiles 200/200, houses 404/404).
 
 ✅ **Owner did Part A** — the Cloudflare GitHub App can now see the passport repo.
 
-❌ **THE NEXT FOUR STEPS, in order:**
+**THE STEPS — 2 of 4 now done (2026-09-01).**
 
-1. **OWNER, dashboard only** (no Cloudflare API exists for it): Workers & Pages
-   → **`samomdkkupassport`** → Settings → Build → reconnect the git repository
-   to `samomdkku/samomdkkupassport`. Build command `npm run build`, output
+1. ❌ **OWNER, dashboard only** (no Cloudflare API exists for it): Workers &
+   Pages → **`samomdkkupassport`** → Settings → Build → reconnect the git
+   repository to the org's passport repo. Build command `npm run build`, output
    **`dist`**, production branch `main`.
-2. Repoint that project's variables. ⚠️ **They currently name
-   `idwlabpbwiwgaoqwbozz` — the FROZEN OLD passport database** (both production
-   and preview env). They must become the samo-dev URL + anon key, exactly like
-   the samomdkkuweb project. Doable from here via the Cloudflare API.
-3. Copy `.github/workflows/preview-mirror.yml` into the passport repo and push a
-   `preview` branch, giving `preview.samomdkkupassport.pages.dev`.
-4. Change `public/passport-elsewhere.html` to link at that preview instead of
+2. ✅ **DONE — variables repointed to samo-dev** (both production and preview),
+   by `npm run cf:pin-dev`. They had named `idwlabpbwiwgaoqwbozz`, the frozen
+   old passport database.
+3. ❌ Copy `.github/workflows/preview-mirror.yml` into the passport repo and
+   push a `preview` branch, giving `preview.samomdkkupassport.pages.dev`.
+4. ❌ Change `public/passport-elsewhere.html` to link at that preview instead of
    production, and re-run `node tools/repo-protection.mjs`.
 
-⚠️ **Extend the Cloudflare database guard when step 2 lands.**
-`repo-protection.mjs` asserts the *samomdkkuweb* project uses samo-dev; the
-passport project is not covered, and it is the one currently pointed at a wrong
-database.
+✅ **The Cloudflare database guard now covers the whole ACCOUNT, not one named
+project — and finding out why is what turned step 2 up.** It reported 18/18
+green while THREE projects existed and two were wired elsewhere; the worst was
+`refactorsamomdkkuweb`, retired but still connected to a branch, holding the
+LIVE production URL and a production anon key with `VITE_ENV_NAME` unset — the
+exact shape of the 2026-08-31 incident. All 27 pass now.
+`docs/mistakes/deploy-hosting.md`.
+
+⛔ **STILL OPEN, and it is the owner's call because it is destructive.**
+Repointing a variable only affects the NEXT build. Existing deployments keep
+the URL baked into their bundle and `<hash>.<project>.pages.dev` serves them
+directly — the apex splash does not cover those. Measured:
+`05dc3a2a.samomdkkupassport.pages.dev` answers 200 with the frozen database in
+its bundle. **Deleting the two retired projects is the only complete fix.**
 
 ### 2. WHY THE PASSPORT PREVIEW NEEDS A SECOND URL AT ALL — the owner's question, and it is a good one
 

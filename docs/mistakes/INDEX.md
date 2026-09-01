@@ -265,7 +265,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(16)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(17)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -285,6 +285,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "After I login on the preview link, it navigates back to samo.md.kku.ac.th"
 - The deploy exited 0, published the app, and silently skipped `/docs`
 - Six runs, four failures, no diagnosis
+- The guard said "nothing on pages.dev reaches production"
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(33)*
 
@@ -324,4 +325,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
 
-_267 entries across 9 files._
+_268 entries across 9 files._

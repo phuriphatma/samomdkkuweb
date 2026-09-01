@@ -172,24 +172,51 @@ if (cfAccount && cfToken) {
     // hardcoded ref, which would rot the first time a project is recreated.
     // -----------------------------------------------------------------
     const devUrl = env.SUPABASE_DEV_URL || process.env.SUPABASE_DEV_URL;
-    const cfg = body?.result?.deployment_configs ?? {};
-    const dbOf = (e) => cfg[e]?.env_vars?.VITE_SUPABASE_URL?.value ?? '(unset)';
-    const nameOf = (e) => cfg[e]?.env_vars?.VITE_ENV_NAME?.value ?? '(unset)';
 
     if (!devUrl) {
       console.log('– Cloudflare database check SKIPPED: no SUPABASE_DEV_URL in '
         + '.env.local. It is what "not production" is measured against.');
     } else {
-      for (const e of ['production', 'preview']) {
-        checks.push([`Cloudflare ${e} uses the DEV database`,
-          dbOf(e), devUrl,
-          `a pages.dev deployment is wired to a database that is not samo-dev. If that `
-          + `is the production project, every form submitted on a preview URL writes REAL `
-          + `student data while the page shows a PREVIEW ribbon.`]);
-        checks.push([`Cloudflare ${e} labels itself non-production`,
-          nameOf(e) !== 'production' && nameOf(e) !== '(unset)', true,
-          `VITE_ENV_NAME is ${nameOf(e)}. Unset makes the ribbon guess from the hostname, `
-          + `which is how a production-data deployment came to display "PREVIEW".`]);
+      // ⚠️ THIS CHECK USED TO NAME ONE PROJECT, AND THAT IS WHY IT PASSED.
+      // Written 2026-08-31 against `REPO_NAME`, it reported all-green on
+      // 2026-09-01 while the account held THREE Pages projects and the other
+      // two were both wired to a database that is not samo-dev — one of them
+      // to the LIVE production project, with a production anon key and no
+      // VITE_ENV_NAME, which is the exact configuration this guard was written
+      // to catch. The property is "NOTHING on pages.dev may reach the
+      // production database": it is a statement about the ACCOUNT, so the
+      // guard has to enumerate the account. A guard built from the same list
+      // as the fix can only ever confirm the fix.
+      const list = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${cfAccount}/pages/projects`,
+        { headers: { Authorization: `Bearer ${cfToken}` } }).then((r) => r.json());
+      const projects = list?.result ?? [];
+
+      checks.push(['Cloudflare: the project list is readable',
+        projects.length > 0, true,
+        'could not enumerate Pages projects; a guard that sees nothing must not pass']);
+
+      for (const proj of projects) {
+        const pcfg = proj?.deployment_configs ?? {};
+        for (const e of ['production', 'preview']) {
+          const vars = pcfg[e]?.env_vars ?? {};
+          // Unset is SAFE — a build with no Supabase URL reaches no database.
+          // Set-to-anything-but-dev is the failure, whichever project it is.
+          const url = vars.VITE_SUPABASE_URL?.value;
+          checks.push([`Cloudflare ${proj.name}/${e} cannot reach a non-dev database`,
+            !url || url === devUrl, true,
+            `VITE_SUPABASE_URL is ${url}. A pages.dev build made from this config talks `
+            + `to a database that is not samo-dev. If it is the production project, every `
+            + `form submitted there writes REAL student data while the page shows a `
+            + `PREVIEW ribbon. Repoint it (npm run cf:pin-dev) or delete the project.`]);
+
+          const nm = vars.VITE_ENV_NAME?.value;
+          checks.push([`Cloudflare ${proj.name}/${e} labels itself non-production`,
+            nm !== undefined && nm !== 'production', true,
+            `VITE_ENV_NAME is ${nm ?? '(unset)'}. Unset makes the ribbon guess from the `
+            + `hostname, which is how a production-data deployment came to display `
+            + `"PREVIEW".`]);
+        }
       }
     }
   } catch (e) {

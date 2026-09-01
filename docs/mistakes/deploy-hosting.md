@@ -743,3 +743,56 @@ who is listening — here, a `grep` in the invocation silently deleted the only
 witness, and two of the three instruments left reported success by construction.
 **A baseline is part of the evidence**: without "healthy = 30 s" there was no way
 to see that the successful runs were sick too.
+
+## The guard said "nothing on pages.dev reaches production" — it had only ever asked ONE of the three projects
+
+**Symptom.** `node tools/repo-protection.mjs` reported **all 18 pass**, including
+`Cloudflare production uses the DEV database`. The account actually held three
+Pages projects, and two of them were wired elsewhere:
+
+| Project | production `VITE_SUPABASE_URL` | `VITE_ENV_NAME` |
+|---|---|---|
+| `samomdkkuweb` | samo-dev ✓ | `preview` ✓ |
+| **`refactorsamomdkkuweb`** | **the LIVE production project**, with a production anon key | **unset** |
+| **`samomdkkupassport`** | the frozen OLD passport database | unset |
+
+`refactorsamomdkkuweb` is the exact configuration the guard was written for on
+2026-08-31 — production database, production anon key, `VITE_ENV_NAME` unset, so
+`ribbonLabel` guesses "PREVIEW" from the `.pages.dev` hostname. It is a retired
+project, but it is still connected to a branch: a push to `refactor/modular`
+would have built and published a working app over live student data.
+
+**Cause.** The check was written against `REPO_NAME` — the repository the guard
+lives in. But the rule it encodes is *"**nothing** on pages.dev may reach the
+production database"*, and that is a statement about the **account**. Asking one
+project can only ever confirm the project you already fixed. Neither of the
+other two is named anywhere in this repository, so nothing here could see them:
+`refactorsamomdkkuweb` still builds this repository's PRE-MOVE path (a
+`phuriphatma/…` slug GitHub redirects), and `samomdkkupassport` builds a
+sibling repo.
+
+**Fix.** The guard enumerates `/pages/projects` and asserts, for every project ×
+{production, preview}, that `VITE_SUPABASE_URL` is unset or samo-dev and that
+`VITE_ENV_NAME` is not `production` — 18 checks became 27, seven of them red.
+`tools/cloudflare-pin-dev.mjs` (`npm run cf:pin-dev`, `CONFIRM=1` to write) is
+the matching fix and enumerates the same way; all 27 green afterwards, verified
+by re-reading the API rather than by trusting the PATCH.
+
+**⚠️ What the repoint does NOT fix, and it is the owner's call.** Env vars apply
+to the NEXT build. Deployments that already exist keep the URL compiled into
+their bundle, and `<hash>.<project>.pages.dev` serves them directly — the splash
+redirect on the apex host does not cover a per-deployment hostname. Measured:
+`05dc3a2a.samomdkkupassport.pages.dev` returns 200 and its bundle still names
+the frozen passport database. **Deleting a retired project is the only complete
+fix**, and deleting is destructive.
+
+**Where it lives now.** `tools/repo-protection.mjs` (the account-wide loop, with
+the reason above it) and `tools/cloudflare-pin-dev.mjs`.
+
+**The general rule — a restatement of "never write a guard from the same list
+the code came from".** *A guard whose SUBJECT is a name can only ever check that
+name.* When the rule says "nothing", "every" or "any", the guard must enumerate
+the population from the authority that owns it — here the Cloudflare account,
+not this repository. Ask what the sentence quantifies over, then ask who can
+list that. **A green count is not coverage**: 18 passed while three of the
+account's six environments were wrong.
