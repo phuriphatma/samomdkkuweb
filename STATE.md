@@ -71,12 +71,10 @@ TRUE. That is what the grep is for.
   ⛔ **A HEALTHY RUN IS 30 SECONDS** — measured from that trace, docs build 10 s.
   So a run taking MINUTES is already the fault, and the two "clean ~7-minute
   runs" the hang was declared dead on were 14× baseline, not controls.
-  ⚠️ **After every deploy, check the ARTEFACT**: root write times must agree —
-  `ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'` — then settle
-  it by curl-grepping a SERVED page for a string you added today, with an old
-  one as control (rsync leaves an unchanged dir's mtime alone, so stat alone
-  can read as a false skip; grepping the wrong bundle proves nothing). Done for
-  `ff3024f`: roots 16 s apart, new string served, old string served.
+  ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
+  (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then settle it by
+  curl-grepping a SERVED page for a string added today, with an old one as
+  control. Both traps are in `skills/deploy-vm.md`. Done for `ff3024f`.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
   the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.
