@@ -868,3 +868,51 @@ narrows it must know which grants already ARE that value.* Master is the widest
 VS แผนก and the widest passport ฝ่าย, so any UI that says "เฉพาะ …" has to ask
 first. Grep for the rule's existing statement — it was already written down one
 file away.
+
+## A SIXTH scope dimension — what "thread it through every gate" actually cost, itemised
+
+**Not a bug report.** 0177 added per-ฝ่าย page editing, and the grant is the
+fifth thing modelled as a scope (permissions, VS แผนก, project seat, passport
+scope, shop source). Class 5 says a new access channel must be threaded through
+every gate the old one used; this is the enumeration, written down because the
+last four times it was rediscovered one gate at a time — each rediscovery being
+a separate reported bug.
+
+**The gates, all of them:**
+
+| # | Gate | What happens if you miss it |
+|---|---|---|
+| 1 | `team_nodes.dept_page` + `team_members.dept_page` | nowhere to grant it |
+| 2 | `node_effective_*` + `effective_team_*_for_email` | the tree row resolves to nothing |
+| 3 | `sync_my_team_permissions` | resolves at login, then reverts |
+| 4 | `recompute_team_managed_permissions` | a tree EDIT does not reach existing users |
+| 5 | `users_self_update_guard` | a user can grant it to themselves |
+| 6 | `current_user_*_scope()` + the RLS policies | the grant reaches no table |
+| 7 | `auth.js` select + sync mapping + `userCanAccess` | **the DB allows it and the UI never shows it** |
+| 8 | the perms modal: fill, visibility, load, save | the grant cannot be made, or is wiped on re-open |
+| 9 | the CHIP | the grant is invisible to the admin who made it |
+| 10 | `io.js` export/import | a team export silently drops it |
+| 11 | `photo_reference_count`, if the feature holds a `*_url` | the cleanup destroys a file still in use |
+
+⚠️ **Three of those are not where anyone looks.** #7 is the one this repo has
+paid for most (0089→0093→0102): a person scoped to ONE ฝ่าย holds no permission
+key at all, so `userCanAccess('dept_pages')` is false and the sidebar hides the
+screen the database would happily let them write. #9 was reported for real about
+Passport on 2026-08-30 — *"i set samopassport … and it doesn't show"* — where the
+grant was live the whole time and only the chip was missing. #11 was caught here
+by a guard test on the same commit, not by a person.
+
+**Two decisions this shape forces, and they have different answers:**
+
+- **ADDITIVE or EXCLUSIVE?** A page grant is additive: holding two pages is
+  holding two. A project SEAT is exclusive, which is why 0092 had to make the
+  nearest binding REPLACE what it inherits — two seats is not a wider grant, it
+  is an ambiguous one, and "widest wins" silently upgrades privilege.
+- **Does the blanket key subsume the scope?** Yes, and therefore they must be
+  mutually exclusive ON SAVE (`readPermInputs` drops the key when a ฝ่าย is
+  chosen). Store both and the scope is decorative, because permissive policies
+  are OR'd — 0083, the first time this was learned.
+
+**The general rule.** *A scope dimension is eleven edits, not one.* Adding one
+"just like the last" and stopping at the tables is what produced 0089, 0090,
+0091, 0093 and 0102 — five reports of one omission. Work this table.

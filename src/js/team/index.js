@@ -15,6 +15,7 @@
 import {
   PERM_CATALOG, PERM_LABEL, PERM_ICON, VS_DEPTS, VS_DEPT_LABEL,
   PROJECT_SEATS, PROJECT_SEAT_LABEL, IMPLICIT_PERMS,
+  DEPT_PAGES, DEPT_PAGE_LABEL, DEPT_PAGES_ALL,
 } from '../team-vocab.js';
 import { escHtml } from '../utils.js';
 import { normalizeKind } from '../node-kind.js';
@@ -272,6 +273,36 @@ function inheritedPassportScopesFor(nodeId, inheritOn = null) {
     if (!cur.inherit_permissions) break;
     cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
   }
+  return out;
+}
+
+/** ฝ่าย pages a node inherits from its ANCESTORS. Mirrors
+ *  `public.node_effective_dept_pages` minus the node's own binding — and the
+ *  SQL is the authority: if the two ever disagree the chip is wrong, not the
+ *  grant. Same walk as its three siblings above, deliberately. */
+function inheritedDeptPagesFor(nodeId, inheritOn = null) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (!node) return out;
+  const on = inheritOn === null ? node.inherit_permissions !== false : inheritOn;
+  if (!on) return out;
+  let cur = node.parent_id ? nodesById.get(node.parent_id) : null;
+  while (cur) {
+    if (cur.dept_page) out.add(cur.dept_page);
+    if (!cur.inherit_permissions) break;
+    cur = cur.parent_id ? nodesById.get(cur.parent_id) : null;
+  }
+  return out;
+}
+
+/** A node's full effective ฝ่าย pages = its own binding ∪ inherited. ADDITIVE,
+ *  because holding two pages is holding two — unlike the project SEAT, where
+ *  0092 had to make the nearest binding REPLACE what it inherits. */
+function nodeEffectiveDeptPages(nodeId) {
+  const out = new Set();
+  const node = nodesById.get(nodeId);
+  if (node?.dept_page) out.add(node.dept_page);
+  inheritedDeptPagesFor(nodeId).forEach((t) => out.add(t));
   return out;
 }
 
@@ -674,6 +705,8 @@ function renderNode(node, filter, depth = 0) {
       seatInherited: inheritedSeatsFor(node.id),
       passOwn: passportToken(node.passport_dept_id, node.passport_sub_dept_id),
       passInherited: inheritedPassportScopesFor(node.id),
+      pageOwn: node.dept_page || null,
+      pageInherited: inheritedDeptPagesFor(node.id),
     });
   }
 
@@ -792,6 +825,8 @@ function renderMember(m, filter) {
       seatInherited: inheriting ? nodeEffectiveSeats(m.node_id) : new Set(),
       passOwn: passportToken(m.passport_dept_id, m.passport_sub_dept_id),
       passInherited: inheriting ? nodeEffectivePassportScopes(m.node_id) : new Set(),
+      pageOwn: m.dept_page || null,
+      pageInherited: inheriting ? nodeEffectiveDeptPages(m.node_id) : new Set(),
     });
     li.innerHTML = `
       ${checkbox}
@@ -1771,7 +1806,8 @@ export function permChip(cls, label, { icon = '', title = '' } = {}) {
 export function permChipsHtml({
   own, inherited = new Set(), vsOwn = null, vsInherited = new Set(),
   seatOwn = null, seatInherited = new Set(),
-  passOwn = null, passInherited = new Set(), flat = false,
+  passOwn = null, passInherited = new Set(),
+  pageOwn = null, pageInherited = new Set(), flat = false,
 }) {
   let out = '';
   const hasMaster = own.has('master') || inherited.has('master');
@@ -1837,6 +1873,25 @@ export function permChipsHtml({
       if (t === passOwn) return;
       out += permChip(st('is-pass', false), passportScopeLabel(t),
         { icon: 'bi-airplane', title: `SAMO Passport: ${passportScopeLabel(t)} (รับมาจากตำแหน่งแม่)` });
+    });
+  }
+
+  // หน้าฝ่าย (0177) — its own chip for the SAME reason Passport needed one:
+  // `readPermInputs` DROPS the `dept_pages` key when a ฝ่าย is chosen, so a
+  // scoped grant carries no capability key and the generic loop below renders
+  // NOTHING for it. That is the bug reported on 2026-08-30 about Passport
+  // ("i set samopassport … and it doesn't show"), where the grant was live the
+  // whole time and only the chip was missing. Written here in the same commit
+  // as the grant so this twin does not have to be reported too.
+  if (!hasMaster) {
+    if (pageOwn) {
+      out += permChip(st('is-page', true), DEPT_PAGE_LABEL[pageOwn] || pageOwn,
+        { icon: 'bi-pencil-square', title: `หน้าฝ่าย: ${DEPT_PAGE_LABEL[pageOwn] || pageOwn}` });
+    }
+    [...pageInherited].forEach((t) => {
+      if (t === pageOwn) return;
+      out += permChip(st('is-page', false), DEPT_PAGE_LABEL[t] || t,
+        { icon: 'bi-pencil-square', title: `หน้าฝ่าย: ${DEPT_PAGE_LABEL[t] || t} (รับมาจากตำแหน่งแม่)` });
     });
   }
 
@@ -2103,6 +2158,30 @@ function syncPassVisibility(grid, wrap) {
   wrap.classList.toggle('d-none', !on);
 }
 
+// ---------------------------------------------------------------------------
+// หน้าฝ่าย (0177). Third instance of the SAME scoped-grant shape as VitalSound
+// (0083) and Passport (0087), and written to look like them on purpose: a
+// fourth spelling of one idea is how the three drift apart.
+//   DEPT_PAGE_ALL  → the blanket `dept_pages` permission, every ฝ่าย page
+//   a dept key     → that page ONLY, and the blanket key is DROPPED on save
+// ---------------------------------------------------------------------------
+const DEPT_PAGE_ALL = '__all__';
+
+/** ฝ่าย-page select. "" = not chosen (blocked on save); DEPT_PAGE_ALL = blanket. */
+function fillDeptPageSelect(sel) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— เลือกขอบเขต —</option>'
+    + `<option value="${DEPT_PAGE_ALL}">ทุกฝ่าย (แก้ได้ทุกหน้า)</option>`
+    + DEPT_PAGES.map((d) => `<option value="${escHtml(d.value)}">${escHtml(d.label)}</option>`).join('');
+}
+
+/** Show the ฝ่าย-page block only while the key is ticked and master is off. */
+function syncDeptPageVisibility(grid, wrap) {
+  if (!grid || !wrap) return;
+  const on = !!grid.querySelector(`input[value="${DEPT_PAGES_ALL}"]`)?.checked && !masterOn(grid);
+  wrap.classList.toggle('d-none', !on);
+}
+
 /** Show the VS scope block only while "VitalSound" is ticked and master is off. */
 function syncVsScopeVisibility(grid, wrap) {
   if (!grid || !wrap) return;
@@ -2218,7 +2297,7 @@ function refreshSeatFanout(nodeId, el) {
  *  vs + ทุกแผนก          → `vs` (full), no dept
  *  vs + a dept          → NO `vs`, that dept (scoped — 0083)
  *  vs + nothing chosen  → null (caller must abort; see readPermInputsOrWarn) */
-export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
+export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, pageSel) {
   const perms = [...(grid?.querySelectorAll('input:checked') || [])]
     .map((cb) => cb.value)
     // Never store an implicit key. `input:checked` matches a DISABLED box too,
@@ -2246,10 +2325,16 @@ export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
     // REPORTED 2026-08-18: "i cant select sub of the หนังสือโครงการ … so my
     // friend has to tick manually like 7 tickcheckbox". The select was live and
     // its value was thrown away right here.
+    // หน้าฝ่าย is a SCOPE whose widest value master already is, so it is nulled
+    // here for the same reason as the VS แผนก and the Passport ฝ่าย. ⚠️ Unlike
+    // the project SEAT, nothing else reads this column — it is not a notify
+    // list and not a desk — so "all" really does mean all, and nulling it
+    // costs nothing. That distinction is the whole of 0176's lesson.
     return {
       permissions: ['master'], vs_dept: null,
       project_seat: (seatSel?.value || '') || null,
       passport_dept_id: null, passport_sub_dept_id: null,
+      dept_page: null,
     };
   }
   const vsOn = perms.includes('vs');
@@ -2268,15 +2353,24 @@ export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
   const passDept = scoped ? Number(passScope) : null;
   const passSub = scoped && passSubSel && !passSubSel.classList.contains('d-none')
     ? (Number(passSubSel.value) || null) : null;
+  // หน้าฝ่าย: same rule again — one ฝ่าย means the blanket key must go, or
+  // `current_user_dept_page_scope()` returns NULL (all) and the ฝ่าย that was
+  // chosen is decorative.
+  const pageOn = perms.includes(DEPT_PAGES_ALL);
+  const pageScope = pageOn ? (pageSel?.value || '') : '';
+  if (pageOn && !pageScope) return { missing: 'deptpage' };
+  const pageScoped = pageScope && pageScope !== DEPT_PAGE_ALL;
   const dept = scope === VS_SCOPE_ALL ? '' : scope;
   let out = dept ? perms.filter((p) => p !== 'vs') : perms;
   if (scoped) out = out.filter((p) => p !== 'passport');
+  if (pageScoped) out = out.filter((p) => p !== DEPT_PAGES_ALL);
   return {
     permissions: out,
     vs_dept: dept || null,
     project_seat: seat || null,
     passport_dept_id: passDept,
     passport_sub_dept_id: passSub,
+    dept_page: pageScoped ? pageScope : null,
   };
 }
 
@@ -2289,11 +2383,15 @@ export function readPermInputs(grid, vsSel, seatSel, passSel, passSubSel) {
  *  path, not a delete path — with `window.confirm` suppressed they both
  *  answered "no" instantly and บันทึก did nothing at all, with no message, for
  *  the whole life of the page. */
-async function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, subject) {
-  const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel);
+async function readPermInputsOrWarn(grid, vsSel, seatSel, passSel, passSubSel, pageSel, subject) {
+  const out = readPermInputs(grid, vsSel, seatSel, passSel, passSubSel, pageSel);
   if (!out) {
     alert('กรุณาเลือกขอบเขต VitalSound — "ทุกแผนก" หรือเฉพาะแผนกที่รับผิดชอบ');
     vsSel?.focus();
+    return null;
+  }
+  if (out.missing === 'deptpage') {
+    alert('กรุณาเลือกขอบเขตหน้าฝ่าย — "ทุกฝ่าย" หรือฝ่ายที่ดูแล');
     return null;
   }
   if (out.missing === 'passport') {
@@ -2333,11 +2431,13 @@ function wirePermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamPermVsDept'));
   fillSeatSelect($('teamPermSeat'));
+  fillDeptPageSelect($('teamPermDeptPage'));
   const syncPermGrid = () => {
     syncMasterVisibility(grid);
     syncVsScopeVisibility(grid, $('teamPermVsWrap'));
     syncSeatVisibility(grid, $('teamPermSeatWrap'));
     syncPassVisibility(grid, $('teamPermPassWrap'));
+    syncDeptPageVisibility(grid, $('teamPermDeptPageWrap'));
     // Two notes on this modal: what master already covers, and why the seat is
     // still a real question here. The second must NOT ride on refreshSeatFanout,
     // which hides itself at a head-count of 0 — that is exactly how a ตำแหน่ง
@@ -2405,6 +2505,11 @@ function fillNodePermPane(id) {
   $('teamPermInherit').checked = node.inherit_permissions !== false;
   if ($('teamPermVsDept')) {
     $('teamPermVsDept').value = node.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
+    // Same "the select remembers the scoped grant" rule as the member modal.
+    if ($('teamPermDeptPage')) {
+      $('teamPermDeptPage').value = node.dept_page || (own.has(DEPT_PAGES_ALL) ? DEPT_PAGE_ALL : '');
+    }
+    syncDeptPageVisibility($('teamPermGrid'), $('teamPermDeptPageWrap'));
   }
   if ($('teamPermSeat')) $('teamPermSeat').value = node.project_seat || '';
   loadPassportDepts().then(() => {
@@ -2482,7 +2587,7 @@ async function onPermSubmit(e) {
   const node = nodesById.get(id);
   if (!node) return;
   const grants = await readPermInputsOrWarn($('teamPermGrid'), $('teamPermVsDept'), $('teamPermSeat'),
-    $('teamPermPassDept'), $('teamPermPassSub'), `ตำแหน่ง "${node.name}"`);
+    $('teamPermPassDept'), $('teamPermPassSub'), $('teamPermDeptPage'), `ตำแหน่ง "${node.name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamPermInherit').checked };
   // The สิทธิ์ pane lives inside the ตำแหน่ง modal since 0110.
@@ -3151,8 +3256,10 @@ function wireMemberPermModal() {
   fillPermGrid(grid);
   fillVsScopeSelect($('teamMPermVsDept'));
   fillSeatSelect($('teamMPermSeat'));
+  fillDeptPageSelect($('teamMPermDeptPage'));
   grid?.addEventListener('change', async (e) => {
     syncMasterVisibility(grid);
+    syncDeptPageVisibility(grid, $('teamMPermDeptPageWrap'));
     refreshMemberPermEff();
     if (e.target?.value === 'master') {
       await confirmMaster(e.target);
@@ -3165,6 +3272,7 @@ function wireMemberPermModal() {
     refreshMemberPermEff();
   });
   $('teamMPermVsDept')?.addEventListener('change', refreshMemberPermEff);
+  $('teamMPermDeptPage')?.addEventListener('change', refreshMemberPermEff);
   $('teamMPermSeat')?.addEventListener('change', (e) => {
     // A human touched it, so the value is theirs now and must survive master
     // being turned off again. Marking BEFORE the refresh matters:
@@ -3192,6 +3300,14 @@ function fillMemberPermPane(memberId) {
     $('teamMPermVsDept').value = m.vs_dept || (own.has('vs') ? VS_SCOPE_ALL : '');
   }
   if ($('teamMPermSeat')) $('teamMPermSeat').value = m.project_seat || '';
+  // A SCOPED grant carries no blanket key, so the select — not the checkbox —
+  // is what remembers it. Re-opening the modal with only the checkbox read
+  // would show the grant as absent and SAVE it away (0087's "re-opening the
+  // editor wipes the grant").
+  if ($('teamMPermDeptPage')) {
+    $('teamMPermDeptPage').value = m.dept_page || (own.has(DEPT_PAGES_ALL) ? DEPT_PAGE_ALL : '');
+  }
+  syncDeptPageVisibility($('teamMPermGrid'), $('teamMPermDeptPageWrap'));
   loadPassportDepts().then(() => {
     fillPassDeptSelect($('teamMPermPassDept'));
     const cur = m.passport_dept_id != null ? String(m.passport_dept_id)
@@ -3230,7 +3346,7 @@ function refreshMemberPermEff() {
   // Preview only — a not-yet-chosen scope shows the perms without a VS chip.
   const { permissions, vs_dept: vsDept, project_seat: seat } =
     readPermInputs($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
-      $('teamMPermPassDept'), $('teamMPermPassSub'))
+      $('teamMPermPassDept'), $('teamMPermPassSub'), $('teamMPermDeptPage'))
     || { permissions: [], vs_dept: null, project_seat: null };
   const set = new Set(permissions);
   const vsSet = new Set(vsDept ? [vsDept] : []);
@@ -3271,7 +3387,7 @@ async function onMemberPermSubmit(e) {
   const m = findMember(id);
   if (!m) return;
   const grants = await readPermInputsOrWarn($('teamMPermGrid'), $('teamMPermVsDept'), $('teamMPermSeat'),
-    $('teamMPermPassDept'), $('teamMPermPassSub'), `"${m.full_name}"`);
+    $('teamMPermPassDept'), $('teamMPermPassSub'), $('teamMPermDeptPage'), `"${m.full_name}"`);
   if (!grants) return;
   const payload = { ...grants, inherit_permissions: $('teamMPermInherit').checked };
   // The สิทธิ์ pane lives inside the สมาชิก modal since 0110.

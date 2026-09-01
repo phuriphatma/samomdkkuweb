@@ -116,6 +116,10 @@ export function buildExportJson(nodes, members) {
       tier: n.tier ?? null,
       passport_dept_id: n.passport_dept_id ?? null,
       passport_sub_dept_id: n.passport_sub_dept_id ?? null,
+      // 0177. Same shape as every grant above: an export that drops it
+      // re-imports the tree with nobody able to edit their ฝ่าย page, and the
+      // loss looks like "nobody was granted it" rather than like a loss.
+      dept_page: n.dept_page || null,
     })),
     members: members.map((m) => ({
       id: m.id, node_id: m.node_id, position: m.position ?? 0,
@@ -136,6 +140,7 @@ export function buildExportJson(nodes, members) {
       project_seat: m.project_seat || null,
       passport_dept_id: m.passport_dept_id ?? null,
       passport_sub_dept_id: m.passport_sub_dept_id ?? null,
+      dept_page: m.dept_page || null,
     })),
   };
 }

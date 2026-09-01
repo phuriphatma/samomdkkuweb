@@ -30,6 +30,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { TOOLS, toolsForDept, launcherTools, toolTarget } from '../data/tools.js';
+import { DEPT_KEYS } from '../data/depts.js';
 import { renderToolCard } from './tool-card.js';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
@@ -42,10 +43,14 @@ const main = read('src/js/main.js');
 /** The in-app routes the router actually knows. */
 const spaPaths = new Set([...main.matchAll(/\{\s*path:\s*'([^']+)'/g)].map((m) => m[1]));
 
-/** The ฝ่าย keys the detail page can render. */
-const deptKeys = new Set(
-  [...departments.matchAll(/^  (\w+):\s*\{$/gm)].map((m) => m[1]),
-);
+/** The ฝ่าย keys the detail page can render.
+ *
+ * ⚠️ This used to REGEX `departments.js` for `^  key: {`. When 0177 moved
+ * DEPT_DEFS to its own home in src/data/depts.js — so the admin editor and the
+ * grant picker could read the same list — the regex matched nothing and every
+ * tool's dept read as a typo. That is the guard working, and the fix is to stop
+ * parsing source for a value the module will simply export. */
+const deptKeys = new Set(DEPT_KEYS);
 
 describe('the ฝ่าย tool registry', () => {
   it('has tools, and the fixtures it is checked against are real', () => {

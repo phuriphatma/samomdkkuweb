@@ -331,6 +331,17 @@
             <select class="form-select mt-2 d-none" id="teamPermPassSub"></select>
             <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี) เพื่อให้เห็นและจัดการเฉพาะกิจกรรมของขอบเขตนั้น</div>
           </div>
+          <!-- หน้าฝ่าย scope (0177): appears only when "หน้าฝ่าย (ทุกฝ่าย)" is
+               ticked. Picking ONE ฝ่าย drops the blanket key on save — the two
+               are exclusive, or the narrow choice is decorative (0083). -->
+          <div class="d-none" id="teamPermDeptPageWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamPermDeptPage">
+              <i class="bi bi-pencil-square"></i> หน้าฝ่าย — หน้าที่แก้ไขได้
+            </label>
+            <select class="form-select" id="teamPermDeptPage"></select>
+            <div class="form-text">เลือกฝ่ายเดียวเพื่อให้แก้ได้เฉพาะหน้าของฝ่ายนั้น — เลือก “ทุกฝ่าย” เพื่อให้แก้ได้ทุกหน้า</div>
+          </div>
         </div>
           </form>
         </div>
@@ -706,6 +717,17 @@
             <select class="form-select" id="teamMPermPassDept"></select>
             <select class="form-select mt-2 d-none" id="teamMPermPassSub"></select>
             <div class="form-text">เลือก “ทุกฝ่าย” เพื่อดูแลกิจกรรมทั้งระบบ — หรือเลือกฝ่าย (และแผนกย่อย ถ้ามี)</div>
+          </div>
+          <!-- หน้าฝ่าย scope (0177): appears only when "หน้าฝ่าย (ทุกฝ่าย)" is
+               ticked. Picking ONE ฝ่าย drops the blanket key on save — the two
+               are exclusive, or the narrow choice is decorative (0083). -->
+          <div class="d-none" id="teamMPermDeptPageWrap">
+            <hr class="my-3" />
+            <label class="form-label mb-1" for="teamMPermDeptPage">
+              <i class="bi bi-pencil-square"></i> หน้าฝ่าย — หน้าที่แก้ไขได้
+            </label>
+            <select class="form-select" id="teamMPermDeptPage"></select>
+            <div class="form-text">เลือกฝ่ายเดียวเพื่อให้แก้ได้เฉพาะหน้าของฝ่ายนั้น — เลือก “ทุกฝ่าย” เพื่อให้แก้ได้ทุกหน้า</div>
           </div>
           <div class="d-none" id="teamMPermSeatWrap">
             <hr class="my-3" />

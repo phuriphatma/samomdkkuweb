@@ -158,8 +158,8 @@ describe('buildExportJson round-trip fidelity', () => {
   it('exports every persisted node field', () => {
     const [n] = buildExportJson([NODE], []).nodes;
     expect(Object.keys(n).sort()).toEqual([
-      'color', 'id', 'inherit_permissions', 'is_board', 'is_public', 'kind',
-      'name', 'parent_id', 'passport_dept_id', 'passport_sub_dept_id',
+      'color', 'dept_page', 'id', 'inherit_permissions', 'is_board', 'is_public',
+      'kind', 'name', 'parent_id', 'passport_dept_id', 'passport_sub_dept_id',
       'permissions', 'position', 'project_seat', 'tier', 'vs_dept',
     ]);
     expect(n.tier, 'the rung must survive a round trip, not just the key').toBe(2);
@@ -176,7 +176,7 @@ describe('buildExportJson round-trip fidelity', () => {
       // first_name_th / last_name_th joined in 0135. They are exported BESIDE
       // full_name, not instead of it: a pre-0135 row has only the combined
       // name and dropping it would round-trip those people into nothing.
-      'confirmed', 'first_name_th', 'full_name', 'id', 'inherit_permissions',
+      'confirmed', 'dept_page', 'first_name_th', 'full_name', 'id', 'inherit_permissions',
       'kkumail', 'last_name_th', 'major',
       'nickname', 'node_id', 'passport_dept_id', 'passport_sub_dept_id',
       // NO `year` since 0145 — ชั้นปี is derived, and the ingredients it is

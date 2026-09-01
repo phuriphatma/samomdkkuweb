@@ -15,6 +15,8 @@
 //   • PROJECT_SEATS values   → team_*.project_seat (migration 0086).
 // Labels are display-only and safe to reword.
 
+import { DEPT_OPTIONS } from '../data/depts.js';
+
 export const PERM_CATALOG = [
   { key: 'pr',        label: 'PR', icon: 'bi-megaphone' },
   { key: 'vs',        label: 'VitalSound', icon: 'bi-soundwave' },
@@ -39,6 +41,11 @@ export const PERM_CATALOG = [
   // and that is not what anyone asked for.
   { key: 'claude',    label: 'จองโควตา Claude', icon: 'bi-stars',
     hint: 'จองช่วงเวลาใช้งาน Claude ของสโม และดูว่าใครจองอะไรไว้บ้าง' },
+  // Migration 0177. THE BLANKET RUNG: every ฝ่าย page. Most holders should get
+  // a SCOPE instead (DEPT_PAGES below) — one ฝ่าย, their own. The two are
+  // mutually exclusive by construction, see the ⛔ on DEPT_PAGES.
+  { key: 'dept_pages', label: 'หน้าฝ่าย (ทุกฝ่าย)', icon: 'bi-pencil-square',
+    hint: 'แก้เนื้อหาหน้าฝ่ายได้ทุกฝ่าย — ถ้าต้องการให้แก้ได้ฝ่ายเดียว เลือกฝ่ายด้านล่างแทน' },
   { key: 'master',    label: 'ทุกระบบ (Master)', icon: 'bi-shield-lock-fill',
     hint: 'เข้าถึงทุกระบบทั้งหมด รวมถึงการจัดการสิทธิ์ของทุกคน',
     danger: true },
@@ -163,4 +170,27 @@ export const PROJECT_SEAT_LABEL = byKey(PROJECT_SEATS.map((s) => [s.value, s.lab
 // whole point: they can open ทีม SAMO and look. `team_edit` is listed too so a
 // hypothetical editor who somehow lacks the view rung is not locked out; the
 // list is OR-ed, so naming both costs nothing and cannot fail closed.
-export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house', 'claude'];
+export const ADMIN_FEATURES = ['pr', 'vs', 'samoshop', 'projects', 'creator', 'team', 'team_edit', 'house', 'claude', 'dept_pages'];
+
+// ---------------------------------------------------------------------------
+// หน้าฝ่าย — the per-ฝ่าย page-editing scope (migration 0177).
+//
+// The values are DEPT_DEFS keys, from their one home in src/data/depts.js, so
+// the picker cannot offer a ฝ่าย the site has no page for. Derived, never
+// retyped: a hand-written copy here is the same fact in two files.
+//
+// ⛔ THE SCOPE AND THE BLANKET KEY ARE EXCLUSIVE, AND THAT IS NOT A UI
+// PREFERENCE. `current_user_dept_page_scope()` returns NULL — meaning EVERY
+// ฝ่าย — the moment `dept_pages` is held, so a row carrying both the key and a
+// ฝ่าย grants everything and the ฝ่าย reads as a decision that was never made.
+// This is 0083 exactly: a narrowing scope beside an unconditional permission is
+// dead on arrival, because permissive policies are OR'd and the broad grant
+// wins. `readPermInputs()` drops `dept_pages` when a ฝ่าย is chosen, and
+// team-vocab.test.js pins that.
+// ---------------------------------------------------------------------------
+export const DEPT_PAGES = DEPT_OPTIONS;
+export const DEPT_PAGE_LABEL = byKey(DEPT_PAGES.map((d) => [d.value, d.label]));
+
+/** The permission key that means "every ฝ่าย page". Named so the exclusivity
+ *  rule has one spelling instead of a literal in each caller. */
+export const DEPT_PAGES_ALL = 'dept_pages';

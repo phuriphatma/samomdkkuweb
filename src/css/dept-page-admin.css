@@ -1,0 +1,28 @@
+
+/* ==========================================================
+   หน้าฝ่าย editor (migration 0177) — where a ฝ่าย edits its own page.
+   ========================================================== */
+.dpa-row {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: .6rem;
+  padding: .75rem;
+  margin-bottom: .75rem;
+  background: #fff;
+}
+.dpa-row.dpa-hidden { opacity: .55; background: #f8f9fa; }
+.dpa-row-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.dpa-kind {
+  font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+  padding: .1rem .4rem; border-radius: .35rem;
+  background: var(--brand-primary); color: #fff;
+}
+.dpa-title { font-weight: 600; }
+.dpa-spacer { flex: 1 1 auto; }
+.dpa-html { font-size: .85rem; }
+.dpa-status:empty { display: none; }
+
+/* The preview renders through the SAME functions the public page uses, so it
+   inherits .news-card and .tool-frame. Only the frame needs a shorter floor —
+   70vh of empty space inside a side-by-side preview column reads as broken. */
+.dpa-preview .tool-frame { min-height: 12rem; }
+.dpa-preview .news-grid { display: grid; gap: .75rem; }

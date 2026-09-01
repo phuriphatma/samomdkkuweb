@@ -9,94 +9,54 @@
 //                 the เครื่องมือ tab.
 //
 // TOOLS LIVE IN src/data/tools.js, not here. This file holds only what is
-// specific to the ฝ่าย PAGE — title, icon, colour, and the Guidebook/Canva
-// resource cards. The tool list used to be duplicated by hand into
-// tab-tools.html; both now render from the registry (docs/DEPT-TOOLS.md §2).
+// specific to the ฝ่าย PAGE and cannot change without a deploy: title, icon,
+// colour. The tool list used to be duplicated by hand into tab-tools.html;
+// both now render from the registry (docs/DEPT-TOOLS.md §2).
+//
+// ⛔ THE CARDS ARE NOT HERE ANY MORE (0177). Guidebooks, links, covers and a
+// ฝ่าย's own HTML are ROWS in public.dept_content, edited in the app by the
+// ฝ่าย itself — dept-content.js. Do not add a `cards:` array back: that is the
+// hardcoding §12 of DEPT-TOOLS predicted would have to be undone, and it was.
 // ==============================================
 
 import { escHtml } from './utils.js';
-import { convertDriveUrl } from './uploads.js';
 import { toolsForDept } from '../data/tools.js';
+import { DEPT_DEFS } from '../data/depts.js';
 import { renderToolCards } from './tool-card.js';
+import { loadDeptContent, renderDeptContent, watchDeptHtmlHeights } from './dept-content.js';
 
-const DEPT_DEFS = {
-  admin: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายบริหารองค์กร',
-    icon: 'bi-shield',
-    colorVar: '--dept-admin',
-    // Announcement-style resource cards (cover image/video + title) that open
-    // an external link in a new tab. Covers live in /public/dept-admin/.
-    cards: [
-      { href: 'https://canva.link/vjavei9c6thy5wl', eyebrow: 'Guidebook',
-        title: 'Guidebook เหรัญญิก SAMO69',
-        cover: '/dept-admin/treasurer-guidebook.png', cta: 'เปิดใน Canva' },
-      { href: 'https://canva.link/hlmz649y2e7se85', eyebrow: 'Guidebook',
-        title: 'Guidebook ฝ่ายเอกสาร SAMO69',
-        cover: '/dept-admin/document-guidebook.png', cta: 'เปิดใน Canva' },
-      { href: 'https://canva.link/1ej1lt111zjy079', eyebrow: 'Workflow',
-        title: 'Project Workflow SAMO69',
-        video: '/dept-admin/project-workflow.mp4', cta: 'เปิดใน Canva' },
-      { href: 'https://docs.google.com/forms/d/e/1FAIpQLSc2J4O7sUcUYjNpPeFhbRZMreIBaAAVggUS7U0oFMX7KF_fxQ/viewform?pli=1',
-        eyebrow: 'Google Form', title: 'Project 1st Step SAMO69',
-        desc: 'Google form แจ้งการทำโครงการ',
-        cover: '/dept-admin/project-1st-step.png', cta: 'เปิดฟอร์ม' },
-    ]
-  },
-  digital: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายดิจิทัลและสื่อสารองค์กร',
-    icon: 'bi-megaphone',
-    colorVar: '--dept-digital',
-  },
-  academic: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายวิชาการ',
-    icon: 'bi-book',
-    colorVar: '--dept-academic',
-  },
-  strategy: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายยุทธศาสตร์และพัฒนาองค์กร',
-    icon: 'bi-puzzle',
-    colorVar: '--dept-strategy',
-  },
-  media: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายเวชนิทัศน์',
-    icon: 'bi-camera',
-    colorVar: '--dept-media',
-  },
-  rt: {
-    eyebrow: 'Department',
-    title: 'ฝ่ายรังสีเทคนิค',
-    icon: 'bi-stars',
-    colorVar: '--dept-projects',
-  },
-};
+
 
 let activeDept = null;
 
-// Announcement-style card (cover image OR looping muted video + title) that
-// opens an external link in a new tab. Mirrors renderNewsCard from
-// announcements.js so it reads the same as the ประกาศ listing.
-function renderNewsLinkCard(card) {
-  const media = card.video
-    ? `<video src="${escHtml(card.video)}" muted loop autoplay playsinline preload="metadata" aria-hidden="true"></video>`
-    : `<img src="${escHtml(convertDriveUrl(card.cover))}" alt="" loading="lazy">`;
-  return `
-    <a class="news-card" href="${escHtml(card.href)}" target="_blank" rel="noopener">
-      <div class="news-card-media">${media}</div>
-      <div class="news-card-body">
-        ${card.eyebrow ? `<span class="news-eyebrow">${escHtml(card.eyebrow)}</span>` : ''}
-        <h4 class="news-card-title">${escHtml(card.title)}</h4>
-        ${card.desc ? `<p class="news-card-desc">${escHtml(card.desc)}</p>` : ''}
-        <div class="news-meta">
-          <span class="news-meta-cta">${escHtml(card.cta || 'เปิดลิงก์')} <i class="bi bi-box-arrow-up-right"></i></span>
-        </div>
-      </div>
-    </a>
-  `;
+/**
+ * Paint one ฝ่าย's own content, and say something honest when it is empty or
+ * unreachable.
+ *
+ * ⚠️ The result is dropped if the reader has moved on. `showDept` is called
+ * again the moment they tap another ฝ่าย, and without this check a slow
+ * response for ฝ่าย A lands in ฝ่าย B's page — the classic out-of-order paint.
+ */
+async function paintDeptContent(deptKey) {
+  const root = document.getElementById('deptsDetailCards');
+  if (!root) return;
+  root.innerHTML = '';
+  root.classList.add('d-none');
+  const { rows, error } = await loadDeptContent(deptKey);
+  if (activeDept !== deptKey) return;
+  if (error) {
+    // Say it, rather than showing a page that looks simply empty. An empty
+    // ฝ่าย page and a broken request are indistinguishable to a reader, and
+    // only one of them is worth telling anyone about.
+    root.innerHTML = '<p class="text-muted small mb-0">โหลดเนื้อหาของฝ่ายไม่สำเร็จ ลองรีเฟรชอีกครั้ง</p>';
+    root.classList.remove('d-none');
+    return;
+  }
+  const html = renderDeptContent(rows);
+  if (!html) return;
+  root.innerHTML = html;
+  root.classList.remove('d-none');
+  watchDeptHtmlHeights();
 }
 
 function showDept(deptKey) {
@@ -124,17 +84,11 @@ function showDept(deptKey) {
 
   renderToolCards(document.getElementById('deptsDetailTools'), toolsForDept(deptKey));
 
-  // Announcement-style resource cards (optional, per-dept).
-  const cardsRoot = document.getElementById('deptsDetailCards');
-  if (cardsRoot) {
-    if (def.cards && def.cards.length) {
-      cardsRoot.innerHTML = def.cards.map(renderNewsLinkCard).join('');
-      cardsRoot.classList.remove('d-none');
-    } else {
-      cardsRoot.innerHTML = '';
-      cardsRoot.classList.add('d-none');
-    }
-  }
+  // The ฝ่าย's OWN content — cards and HTML blocks they edit themselves
+  // (0177). Loaded per open rather than at boot: most visitors never open a
+  // ฝ่าย page, and a request for content nobody is looking at is a request
+  // this app should not make.
+  paintDeptContent(deptKey);
 
   // Hash sync — so refresh + share work.
   if (location.hash !== `#dept/${deptKey}`) {

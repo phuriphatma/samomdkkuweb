@@ -123,7 +123,11 @@
             <!-- Announcement-style resource cards (cover + title) that open an
                  external link. Populated per-dept by departments.js from
                  DEPT_DEFS[key].cards; hidden when a dept has none. -->
-            <div class="news-grid news-grid--archive mt-4 d-none" id="deptsDetailCards"></div>
+            <!-- The GRIDS are supplied by renderDeptContent (0177), because a ฝ่าย page
+                 mixes card runs with full-width HTML blocks. This element carrying
+                 `news-grid` itself made every HTML block a grid ITEM: it sat in a
+                 column beside a card and both stretched to the tallest row. -->
+            <div class="dept-content mt-4 d-none" id="deptsDetailCards"></div>
           </section>
 
         </div>

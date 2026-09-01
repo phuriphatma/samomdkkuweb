@@ -10,6 +10,7 @@ import { ADMIN_FEATURES } from './team-vocab.js';
 import { mountEnvRibbon } from './env-ribbon.js';
 import { enterHouseWorkspace } from './house/index.js';
 import { enterClaudeWorkspace } from './claude/index.js';
+import { initDeptPageAdmin } from './dept-page-admin.js';
 // ปีการศึกษา — every ชั้นปี in the admin app is computed against it (0141/0145).
 import { primeAcademicYear } from './house/api.js';
 import { startBuildCheck } from './build-check.js';
@@ -363,6 +364,7 @@ const SECTION_META = {
   house:    { pane: 'house',    title: 'ระบบบ้าน',           sub: 'บ้าน สายรหัส อาจารย์ที่ปรึกษา และข้อมูลนักศึกษา' },
   analytics:{ pane: 'analytics',title: 'สถิติการใช้งาน',    sub: 'ภาพรวมผู้ใช้งาน การเติบโต และกิจกรรมบนพอร์ทัล' },
   claude:   { pane: 'claude',   title: 'จองโควตา Claude',   sub: 'จองช่วงเวลาใช้งาน Claude ของสโม' },
+  deptpage: { pane: 'deptpage', title: 'หน้าฝ่าย',           sub: 'แก้เนื้อหาหน้าฝ่ายของคุณเอง เผยแพร่ทันทีโดยไม่ต้องรอไอที' },
 };
 
 /** Hard-reload after an account switch, dropping the hash on the way out.
@@ -502,6 +504,13 @@ function showAdminSide(which) {
   // จองโควตา Claude (0154): same lazy-on-entry shape as ทีม SAMO / ระบบบ้าน.
   if (which === 'claude') {
     enterClaudeWorkspace();
+  }
+
+  // หน้าฝ่าย (0177): same lazy-on-entry shape. Mounted with the CURRENT user
+  // because the ฝ่าย picker is built from their grant — reading it once at boot
+  // would show the previous account's ฝ่าย after a switch.
+  if (which === 'deptpage') {
+    initDeptPageAdmin(authGetUser());
   }
 
   // ข้อมูลของฉัน, on the landing.
@@ -700,6 +709,11 @@ const SIDE_FEATURE = {
   team:     'team',
   house:    'house',
   claude:   'claude',    // จองโควตา Claude (0154)
+  // หน้าฝ่าย (0177). `userCanAccess` answers true for the BLANKET permission
+  // and, separately, for a per-ฝ่าย scope — a scoped editor holds no
+  // permission key at all, so gating on the key alone would hide their own
+  // page from them while the database happily let them write it.
+  deptpage: 'dept_pages',
   analytics: null,       // usage stats — any admin-dashboard user (0102 widened
                          // analytics_overview to current_user_has_any_grant() to match)
 };

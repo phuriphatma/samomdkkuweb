@@ -404,6 +404,9 @@
           <button type="button" class="workspace-side-item d-none" data-admin-side="house">
             <i class="bi bi-house-heart"></i><span>ระบบบ้าน</span>
           </button>
+          <button type="button" class="workspace-side-item d-none" data-admin-side="deptpage">
+            <i class="bi bi-pencil-square"></i><span>หน้าฝ่าย</span>
+          </button>
 
           <button type="button" class="workspace-side-item d-none" data-admin-side="claude">
             <svg class="claude-mark" viewBox="0 0 24 24" aria-hidden="true"><g stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.4v17.2"/><path d="M3.4 12h17.2"/><path d="M5.9 5.9l12.2 12.2"/><path d="M18.1 5.9L5.9 18.1"/></g></svg><span>จองโควตา Claude</span>
@@ -606,6 +609,17 @@
                   <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
                 </button>
               </div>
+              <div class="col-md-6 col-lg-4 d-none" data-admin-side="deptpage">
+                <button type="button" class="admin-card" style="--admin-card-color: var(--dept-digital);"
+                  onclick="openAdminSection('deptpage')">
+                  <span class="admin-card-icon"><i class="bi bi-pencil-square"></i></span>
+                  <div class="admin-card-body">
+                    <h5>หน้าฝ่าย</h5>
+                    <p>แก้เนื้อหาหน้าฝ่ายของคุณเอง เพิ่มการ์ด ลิงก์ หรือเขียน HTML เอง เผยแพร่ทันที</p>
+                  </div>
+                  <span class="admin-card-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+              </div>
               <div class="col-md-6 col-lg-4 d-none" data-admin-side="claude">
                 <button type="button" class="admin-card" style="--admin-card-color: var(--dept-media);"
                   onclick="openAdminSection('claude')">
@@ -693,6 +707,10 @@
 
           <section data-admin-pane="claude" class="d-none">
             <include src="./src/html/tab-claude.html" />
+          </section>
+
+          <section data-admin-pane="deptpage" class="d-none">
+            <include src="./src/html/tab-dept-page.html" />
           </section>
 
         </main>

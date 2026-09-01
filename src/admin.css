@@ -34,6 +34,7 @@
 /* ระบบบ้าน admin pane. The PUBLIC บ้านของฉัน card lives in my-house.css and is
    imported by main.css only — this file is the admin side. */
 @import './css/house-admin.css';
+@import './css/dept-page-admin.css';
 
 /* จองโควตา Claude (0154). ADMIN-ONLY by import graph — the pane is included
    only from admin/index.html, so this must NOT also go in main.css. */

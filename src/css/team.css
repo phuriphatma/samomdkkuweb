@@ -423,6 +423,11 @@
 .team-perm-chip.is-pass.is-own { background: #7c3aed; color: #fff; }
 .team-perm-chip.is-pass.is-inherited { background: transparent; color: #6d28d9; border: 1px dashed #c4b5fd; }
 .team-perm-chip.is-pass .bi { font-size: 0.62rem; }
+/* หน้าฝ่าย scope (0177) — its own colour so a page grant is not read as a
+   Passport one at a glance. Same three rules as every scope chip above. */
+.team-perm-chip.is-page.is-own { background: #0f766e; color: #fff; }
+.team-perm-chip.is-page.is-inherited { background: transparent; color: #0f766e; border: 1px dashed #99f6e4; }
+.team-perm-chip.is-page .bi { font-size: 0.62rem; }
 .team-perm-chip.is-seat.is-own { background: #475569; color: #fff; }
 .team-perm-chip.is-seat.is-inherited { background: transparent; color: #475569; border: 1px dashed #94a3b8; }
 .team-perm-chip.is-seat .bi { font-size: 0.62rem; }

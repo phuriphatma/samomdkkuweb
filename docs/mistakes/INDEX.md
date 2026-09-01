@@ -69,7 +69,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - "someone could just book 16.40-20.00 kick me out"
 - A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
 
-## `authz-grants.md` — The permission / seat / scope channel *(17)*
+## `authz-grants.md` — The permission / seat / scope channel *(18)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -90,6 +90,7 @@ Open when: adding an access channel, a scope, or a seat.
 - "I set SAMO Passport for the ฝ่าย and it doesn't show"
 - The same bug in three more readers — swept for on purpose, 2026-08-30
 - A scope line under `master` understates it
+- A SIXTH scope dimension — what "thread it through every gate" actually cost, itemised
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(25)*
 
@@ -326,4 +327,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
 
-_269 entries across 9 files._
+_270 entries across 9 files._

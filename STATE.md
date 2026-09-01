@@ -15,28 +15,19 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
-00. ✅ **หนังสือโครงการ — a `master` could change NOTHING but a comment; FIXED
-    by 0176** (proof `proj0176-master-desk.sql`, 22/22; the sweep after it also
-    fixed the two GUEST forms, `rest-error.js`). ⚠️ The rule it bought — a
-    grant folding one account into several identities INVERTS every predicate
-    that DENIES — is class 5 in `.claude/rules/mistakes.md`.
-
-01. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
-    signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
+00. ✅ **Settled and written up, do not re-derive:** the `master` หนังสือ guard
+    (0176) · passport km on signup (0175). Both in `docs/mistakes/`; the rule
+    0176 bought is class 5 in `.claude/rules/mistakes.md`.
 
 02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
     `preview-docs.test.js`). `docs/TEAM-WORKFLOW.md` §9 = the landed-phase checklist.
 
-03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
-    give people. The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY
-    (nginx 301s both) — do not recreate them. Shape and reasoning:
-    `docs/state-archive/2026-08-31-docs-site-restructure.md`; the nginx-config
-    step `deploy.sh` does NOT do lives in `skills/deploy-vm.md`.
+03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`.** The old
+    CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do
+    not recreate them. Why: `docs/state-archive/2026-08-31-docs-site-restructure.md`.
 
-04. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
-    (`tools/repo-identity.mjs`); `npm test` prints every stale reference.
-    **`docs/SUCCESSION.md` + `npm run succession:audit`** map who can recover
-    each system; org runbook `skills/move-the-repo-to-an-organisation.md`.
+04. ✅ **Repo identity has ONE home** (`package.json` `repository.url`, guarded
+    by `npm test`). Recovery map: `docs/SUCCESSION.md` + `npm run succession:audit`.
 
 Everything older was drained on 2026-09-01 — reasoning in
 `docs/state-archive/2026-08-30-status-prune.md`, durable items in
@@ -93,8 +84,8 @@ TRUE. That is what the grep is for.
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
 - ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
   faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
-- **Migrations through 0176. ALL 28 LIVE PROOFS GREEN**, re-run 2026-09-01
-  after 0176 reached production. ⚠️ The proof count is guarded against
+- **Migrations through 0178. ALL 29 LIVE PROOFS GREEN**, re-run 2026-09-01
+  after 0178 reached production. ⚠️ The proof count is guarded against
   `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
   written here — run `npm test` / `npm run proofs`, never quote a remembered
   number.
@@ -143,8 +134,17 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    `<hash>.<project>.pages.dev` serves them — deleting the projects is the only
    complete fix.**
 
-1. ✅ **THE ฝ่าย TOOLS LANE IS BUILT — §13 steps 6 and 9–11 all done.** A ฝ่าย
-   copies `public/embed/starter/` and opens a `tool/*` PR; it lands at
+1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE IN THE APP — no commit, no deploy (0177).**
+   เมนู "หน้าฝ่าย" in /admin/: cards, links, covers, and **their own HTML**.
+   ⛔ The HTML is rendered VERBATIM in an opaque-origin frame and is
+   deliberately NOT sanitised — `innerHTML`-ing it is the vulnerability, not
+   the absence of a filter (`dept-content.test.js`). ⚠️ A page editor can still
+   publish a convincing FAKE sign-in form on a real samo.md.kku.ac.th page;
+   the controls are the grant and `updated_by`. Grant = a 6th scope dimension
+   mirroring vs_dept, EXCLUSIVE with its blanket key (0083). Proof
+   `dept0177-page-scope.sql` 23/23; whole chain driven in a browser.
+   ✅ **AND the ฝ่าย TOOLS LANE — §13 steps 6 and 9–11.** A ฝ่าย copies
+   `public/embed/starter/` and opens a `tool/*` PR; it lands at
    `/tools/<slug>` in a sandboxed frame. `check:embeds` + `check:tool-boundary`
    are steps in the REQUIRED `build` job.
    ⛔ **THE ISOLATION IS ONE MISSING WORD** — `allow-same-origin` is absent

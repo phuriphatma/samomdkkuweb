@@ -26,7 +26,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { recordApplied } from './migrations-lib.mjs';
+import { recordApplied, credentials } from './migrations-lib.mjs';
 
 // ---- tiny .env.local parser (no dependency) ----
 function loadEnvLocal() {
@@ -69,9 +69,9 @@ async function note(file, ref, token) {
 }
 
 async function main() {
-  const file = process.argv[2];
+  const file = process.argv.slice(2).find((a) => !a.startsWith('--'));
   if (!file) {
-    console.error('usage: node tools/apply-migration.mjs <path-to-.sql>');
+    console.error('usage: node tools/apply-migration.mjs <path-to-.sql> [--dev]');
     process.exit(1);
   }
   if (!existsSync(file)) {
@@ -79,17 +79,17 @@ async function main() {
     process.exit(1);
   }
   const sql = readFileSync(file, 'utf8');
-  const env = { ...loadEnvLocal(), ...process.env };
-  const ref = projectRefFromUrl(env.VITE_SUPABASE_URL);
-  if (!ref) {
-    console.error('could not derive project ref from VITE_SUPABASE_URL in .env.local');
-    process.exit(1);
-  }
 
-  const token = env.SUPABASE_ACCESS_TOKEN;
-  const dbUrl = env.SUPABASE_DB_URL;
+  // --dev targets samo-dev. Added 2026-09-01, because until then this script
+  // could ONLY reach production: `migrations-lib.credentials()` had understood
+  // --dev since the dev database was built, and this — the one tool that runs
+  // DDL — did not use it. So "try it on dev first", the whole point of having a
+  // dev database, was not something the standard tooling could do, and every
+  // migration's first execution anywhere was against real student data.
+  const { ref, token, env, dev, label } = credentials();
+  const dbUrl = dev ? env.SUPABASE_DEV_DB_URL : env.SUPABASE_DB_URL;
 
-  console.log(`→ project: ${ref}`);
+  console.log(`→ project: ${ref}  [${label}]`);
   console.log(`→ file:    ${file} (${sql.length} bytes)`);
 
   if (token) {

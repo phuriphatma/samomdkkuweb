@@ -145,8 +145,15 @@ async function buildCurrentUser(session) {
     // from 0027). Fall back step-wise so pre-migration databases still
     // build a usable currentUser.
     let { data, error } = await dbRest(
-      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,has_password,phone&limit=1`,
+      `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,managed_dept_pages,has_password,phone&limit=1`,
     );
+    if (error && error.status === 400 && /managed_dept_pages/i.test(error.message || '')) {
+      // 0177 not applied on this database. Same shape as every column below:
+      // drop it and retry, so an older database still signs people in.
+      ({ data, error } = await dbRest(
+        `/users?id=eq.${idEsc}&select=${baseSelect},permissions,managed_permissions,managed_vs_depts,managed_project_seats,has_password,phone&limit=1`,
+      ));
+    }
     if (error && error.status === 400 && /managed_project_seats/i.test(error.message || '')) {
       if (!window.__samoWarnedAuthSeats) {
         window.__samoWarnedAuthSeats = true;
@@ -224,6 +231,9 @@ async function buildCurrentUser(session) {
         if (Array.isArray(synced.permissions)) profile.managed_permissions = synced.permissions;
         if (Array.isArray(synced.vs_depts)) profile.managed_vs_depts = synced.vs_depts;
         if (Array.isArray(synced.project_seats)) profile.managed_project_seats = synced.project_seats;
+        // 0177. Missing on a database that predates it — the guard is
+        // Array.isArray, so an older RPC simply leaves the profile value.
+        if (Array.isArray(synced.dept_pages)) profile.managed_dept_pages = synced.dept_pages;
       }
     }
   } catch (_) { /* ignore — managed perms fall back to the profile value */ }
@@ -277,6 +287,10 @@ async function buildCurrentUser(session) {
     // Non-empty ⇒ projects access; the seat decides WHICH workflow they get
     // (see projectSeatRole() in projects/index.js).
     managedProjectSeats: Array.isArray(profile?.managed_project_seats) ? profile.managed_project_seats : [],
+    // Which ฝ่าย pages this account may edit (0177). Empty = none, and the
+    // BLANKET grant is the `dept_pages` permission instead — the two are
+    // exclusive, mirroring current_user_dept_page_scope().
+    managedDeptPages: Array.isArray(profile?.managed_dept_pages) ? profile.managed_dept_pages : [],
     // Password field intentionally absent — Supabase manages auth state.
   };
 }
@@ -350,6 +364,14 @@ export function userCanAccess(feature, user = currentUser) {
   // decides which controls render and RLS scopes what they can write.
   if (feature === 'projects' && Array.isArray(user.managedProjectSeats)
       && user.managedProjectSeats.length > 0) return true;
+  // Per-ฝ่าย page editing (0177). Same shape as the two above, and the same
+  // reason: a person scoped to ONE ฝ่าย holds no `dept_pages` permission at
+  // all, so without this line the database would let them edit their page and
+  // the UI would never show it to them. That gap — a new access channel
+  // threaded through the writes but not the gate — is the most repeated bug in
+  // this repo (class 5).
+  if (feature === 'dept_pages' && Array.isArray(user.managedDeptPages)
+      && user.managedDeptPages.length > 0) return true;
   return false;
 }
 

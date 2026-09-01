@@ -65,3 +65,21 @@
   .tool-frame-body { padding-top: 0.75rem; }
   .tool-frame-title { font-size: 1.25rem; }
 }
+
+/* ==========================================================
+   A ฝ่าย's own page content (0177) — card runs and full-width HTML blocks.
+   ========================================================== */
+.dept-content > * + * { margin-top: 1rem; }
+
+/* Cards must size to their CONTENT, not to the tallest cell in the row. A ฝ่าย
+   card often has no cover image, and stretching it to match one that does left
+   ~400px of empty white inside the card — visible only once a real page had
+   both kinds side by side. */
+.dept-content .news-grid { align-items: start; }
+
+/* A ฝ่าย HTML block is the full width of the page, never a grid item. */
+.dept-content > .dept-html {
+  width: 100%;
+  min-height: 8rem;   /* a shorter floor than a full tool page: a block is one
+                         section of a page, not the whole of it */
+}

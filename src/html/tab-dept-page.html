@@ -1,0 +1,39 @@
+<!-- ==========================================================
+     หน้าฝ่าย — a ฝ่าย edits its OWN page (migration 0177).
+
+     Which ฝ่าย the dropdown offers comes from the account's grant,
+     resolved in the database. This markup decides nothing.
+     ========================================================== -->
+<div id="dpaHead" class="d-flex flex-wrap align-items-end gap-2 mb-3">
+  <div>
+    <label class="form-label small mb-1" for="dpaDept">ฝ่าย</label>
+    <select class="form-select" id="dpaDept" style="min-width: 16rem;"></select>
+    <div class="form-text" id="dpaOnly"></div>
+  </div>
+  <span class="flex-grow-1"></span>
+  <button type="button" class="btn btn-outline-secondary" id="dpaAddCard">
+    <i class="bi bi-plus-lg"></i> เพิ่มการ์ด
+  </button>
+  <button type="button" class="btn btn-outline-secondary" id="dpaAddHtml">
+    <i class="bi bi-code-slash"></i> เพิ่ม HTML
+  </button>
+  <button type="button" class="btn btn-primary" id="dpaSave">
+    <i class="bi bi-check-lg"></i> บันทึก
+  </button>
+</div>
+
+<p class="dpa-status small mb-2" id="dpaStatus"></p>
+
+<div id="dpaBody" class="row g-4">
+  <div class="col-12 col-xl-7">
+    <h6 class="text-muted small text-uppercase">เนื้อหา</h6>
+    <div id="dpaRows"></div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <h6 class="text-muted small text-uppercase">ตัวอย่างหน้าจริง</h6>
+    <!-- The preview renders through the SAME function the public page uses,
+         so an HTML block is previewed inside the same sandboxed frame a
+         visitor gets. Never innerHTML — see dept-page-admin.js. -->
+    <div id="dpaPreview" class="dpa-preview"></div>
+  </div>
+</div>
