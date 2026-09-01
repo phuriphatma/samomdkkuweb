@@ -214,6 +214,15 @@ it is the part that generalises to code not yet written.
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
    (`integrations.md`). Two authors of one instruction, neither able to see the
    contradiction from where it sits.
+   **AND THE INSTRUMENT CAN DELETE THE WITNESS.** Four skipped-docs deploys
+   resisted three theories because the invocation piped the script through
+   `grep -E "==>|error"`, discarding everything the failing step said; the
+   documented verdict (`DEPLOY_EXIT=0`) is reachable with the step skipped, and
+   its ABSENCE scored as success because the pipeline's status is `tail`'s.
+   An intermittent fault that survives three theories is usually an EVIDENCE
+   problem: ask what the failing step may say and who is listening, and get a
+   HEALTHY BASELINE — "30 s" showed the two runs that "cleanly" took 7 min were
+   sick too (`deploy-hosting.md`).
    The ways, each paid for here: it cannot SEE the hazard (0146 — and
    `deploy-owed` v1, whose `<sha>..HEAD` could not see the WORKING TREE) ·
    its EXEMPTION outlived the absence ("PLANNED, not written" for a file that
@@ -292,11 +301,11 @@ shaving the classes, which are the only part that generalises.
 - `supabase-client.md` *(19)* — supabase-js, PostgREST & the session lifecycle. Open when: auth.js · db.js · anything calling supabase-js.
 - `authz-rls.md` *(28)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(17)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
-- `postgres-schema.md` *(24)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
+- `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(82)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
-- `deploy-hosting.md` *(15)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
+- `deploy-hosting.md` *(16)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(33)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

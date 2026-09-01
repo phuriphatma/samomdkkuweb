@@ -101,3 +101,17 @@ shows the outcome.
   Cloudflare-1015 per-IP block that plagued the GAS era does not apply here.
 - If the VM is only reachable on-campus/VPN, external students lose access —
   verify public reachability before decommissioning Cloudflare.
+
+## ⚠️ A NEW environment needs the `passport` schema, or สถิติ breaks at runtime
+
+`public.analytics_overview()` reads `passport.activities` and
+`passport.certificates` — Passport shares the Google account, so it shares the
+GAS quota this panel reports. A plpgsql body is not resolved at `CREATE` time,
+so a database without that schema **applies every migration cleanly** and then
+throws the first time someone opens สถิติ.
+
+So when standing up a scratch project or restoring a partial dump, dump and
+restore `--schema=public --schema=passport` (which is what `tools/dev-refresh.mjs`
+does). If you deliberately want a `public`-only environment, guard the two arms
+with `to_regclass('passport.activities') is not null` in a NEW migration rather
+than deleting them. Write-up: `docs/mistakes/postgres-schema.md`.

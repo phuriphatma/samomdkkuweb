@@ -96,11 +96,20 @@ SUDO_KEEPALIVE=$!
 # "<== exit 0 …" means this script really finished the step it stopped at; a log
 # with NO "<==" line at all means the process was killed outright (SIGKILL, the
 # OOM killer, the ssh channel dying) and never got to speak.
+# ⚠️ `BASH_LINENO` inside an EXIT trap names the trap's own call site, not the
+# command that failed — it printed `deploy.sh:1`. The FAILING line has to be
+# captured when it fails, which is what the ERR trap is for.
+DEPLOY_FAIL_LINE=""
 on_exit() {
   local rc=$?
   kill "$SUDO_KEEPALIVE" 2>/dev/null || true
-  echo "<== exit $rc after deploy.sh:${BASH_LINENO[0]:-?} ($(date -u +%H:%M:%SZ))"
+  if [ "$rc" -eq 0 ]; then
+    echo "<== exit 0 — ran to the end ($(date -u +%H:%M:%SZ))"
+  else
+    echo "<== exit $rc at deploy.sh:${DEPLOY_FAIL_LINE:-unknown} ($(date -u +%H:%M:%SZ))"
+  fi
 }
+trap 'DEPLOY_FAIL_LINE=$LINENO' ERR
 trap on_exit EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT

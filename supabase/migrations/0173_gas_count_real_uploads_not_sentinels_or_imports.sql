@@ -30,22 +30,6 @@
 -- simultaneous — 7%. 0172 reported 83% and would have had someone re-architect
 -- a system that is nowhere near its ceiling.
 --
--- THE GENERAL RULE: a derived metric is a claim about the world, and it must be
--- checked against the ROWS before anyone is shown it. Both errors survived
--- writing, review and a green test suite; neither survived `select … limit 26`.
---
--- ⚠️ KNOWN LIMITATION, recorded now rather than discovered later. The `gas`
--- block reads `passport.activities` and `passport.certificates` directly,
--- because Passport shares the same Google account and therefore the same quota.
--- A plpgsql body is NOT resolved at CREATE time, so this migration applies
--- cleanly on a database with NO `passport` schema and then fails AT RUNTIME the
--- first time สถิติ is opened — the worst shape, because the break is far from
--- the change. Production and samo-dev both have the schema, so this affects
--- only a NEW environment (a scratch project, a partial restore). If it ever
--- bites, wrap the two passport arms in a
--- `to_regclass('passport.activities') is not null` guard rather than deleting
--- them: Passport traffic is real, and counting it is the whole point of 0172.
---
 CREATE OR REPLACE FUNCTION public.analytics_overview(days integer DEFAULT 30)
  RETURNS jsonb
  LANGUAGE plpgsql

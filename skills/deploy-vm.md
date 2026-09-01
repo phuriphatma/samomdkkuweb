@@ -26,12 +26,21 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 6 runs, 2 completed the docs step, 4 did not.**
-(4 on 2026-08-31: 2 ok, 2 not. 2 on 2026-09-01: **both skipped docs, both
+**Run tally: 7 runs, 3 completed the docs step, 4 did not.**
+(4 on 2026-08-31: 2 ok, 2 not. 3 on 2026-09-01: two skipped docs and **both
 returned exit 0**, one of them after `pgrep deploy.sh` already showed the
-script gone while ssh had still not returned.) The count only grows — a run
-that works is not evidence, and this file said "the hang did not reproduce"
-once already.
+script gone while ssh had still not returned; the third — the first run with
+the log and trace in place — completed in **30 seconds** and published
+everything.) The count only grows — a run that works is not evidence, and this
+file said "the hang did not reproduce" once already.
+
+✅ **Run 7 is the first one whose evidence survived.** `deploy.sh` now writes
+every run in full to `~/samo-deploy-logs` on the VM, with a separate xtrace
+naming the line it reached, because until then the docs step's own output was
+being discarded by the `grep` in the command below — **the reason six runs
+produced no diagnosis is that nobody was ever shown one.** Run 7 was healthy, so
+it did not catch the fault; what it DID buy is the healthy baseline below, which
+reclassifies the two "clean" runs the hang was declared dead on.
 
 **The stopping point is STABLE across three days.** Run 6's captured output
 ends, verbatim, at the same line the 2026-08-31 failure ended at:
@@ -42,13 +51,15 @@ ends, verbatim, at the same line the 2026-08-31 failure ended at:
 [exited with code 0]
 ```
 
-Nothing after that line has ever been observed from a failing run — no docs
+Nothing after that line had been observed from a failing run — no docs
 rsync, no `fix permissions`, no notify restart, no nginx reload. So the fault
 is INSIDE the docs build step or in what immediately follows it, not anywhere
 earlier, and the exit code is written by the `; echo` in the ssh command rather
-than by the script reaching its own end. **The one diagnostic still not run:
-`set -x` INSIDE the script, after the re-exec** (from outside it cannot work —
-the script `exec`s itself).
+than by the script reaching its own end. ✅ **The diagnostic that was missing —
+`set -x` INSIDE the script, after the re-exec — is now permanent**, writing to
+`~/samo-deploy-logs/latest.trace`. The next failing run names its own line. Read
+the log FIRST, before forming any theory: every theory so far was formed without
+one.
 The two that did not present DIFFERENTLY — three earlier attempts hung and were
 killed; the fourth **returned exit 0 having published the app and skipped
 `/docs` entirely.**
@@ -156,13 +167,29 @@ waiting is `run_in_background: true`: the command returns immediately, the VM
 keeps working, and you are notified when it exits. Then the ceiling costs
 nobody anything and should be generous.
 
-⚠️ **MEASURED, because the old figure here was stale and I trusted it.** This
-file used to say "~90 s", from an era when the deploy built ONE app. It now
-builds three things — samomdkkuweb, samomdkkupassport, and the docs site — each
-with its own `npm ci`. A real run on 2026-08-31 started 12:40:55 and was still
-in the docs build when `timeout 300` killed it at 12:45:56. **A full deploy needs
-MORE than five minutes.** 900 is the ceiling until someone measures a completed
-run and writes the number here.
+⚠️ **MEASURED FROM THE TRACE, 2026-09-01 — and this is the number that matters,
+because it is much smaller than anyone thought.** A complete, healthy run is
+**30 seconds**, start to `==> done`:
+
+| Step | Time |
+|---|---|
+| `git pull` + `npm ci` (web) | 1 s + 6 s |
+| `npm run build` (web) | 7 s |
+| `git pull` + `npm ci` (passport) | 1 s + 3 s |
+| `npm run build` (passport) | 1 s |
+| **`npm run docs:build`** | **10 s** |
+| all four `publish()` rsyncs, chown, nginx reload | under 1 s each |
+
+⛔ **So a run that takes MINUTES is ALREADY the fault, not a slow build.** This
+file previously said "a full deploy needs MORE than five minutes", inferred from
+a run that `timeout 300` killed — but that run was killed *inside a step that
+takes ten seconds*. The two "clean ~7-minute runs" of 2026-08-31 that were used
+to declare the hang not-reproducing were therefore **14× the healthy duration**;
+they were degraded runs that happened to finish, not control runs. **Anything
+past ~2 minutes should be treated as the failure presenting, and the log read.**
+
+The ceiling stays at 900 anyway: `timeout` is a kill limit, and there is no
+reason to make a stuck run fail faster than a person will notice it.
 
 **What a truncated deploy leaves behind** — the reason the ceiling matters. The
 kill landed after the three builds and before `fix permissions`, `restart

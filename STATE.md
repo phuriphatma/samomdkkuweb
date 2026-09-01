@@ -31,18 +31,15 @@ because it held three lifetimes at once. It now holds one: **status**.
     landed phase must correct — treat it as a checklist.**
 
 03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
-    give people. English, task-shaped. The old CONTRIBUTE and STEP-BY-STEP
-    pages were MERGED AWAY (nginx 301s both) — do not recreate them.
-    ⛔ **`deploy.sh` does NOT install nginx config** — that is always a separate
-    `sudo cp … && nginx -t && systemctl reload` (header of
-    `server/nginx-samo.conf`).
-    **Why it is shaped this way: `docs/state-archive/2026-08-31-docs-site-restructure.md`.**
+    give people. The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY
+    (nginx 301s both) — do not recreate them. Shape and reasoning:
+    `docs/state-archive/2026-08-31-docs-site-restructure.md`; the nginx-config
+    step `deploy.sh` does NOT do lives in `skills/deploy-vm.md`.
 
 04. ✅ **THE REPO'S IDENTITY HAS ONE HOME** — `package.json` `repository.url`
-    (`tools/repo-identity.mjs`). Change that one field and `npm test` prints
-    every stale reference. **`docs/SUCCESSION.md` + `npm run succession:audit`**
-    map who can recover each system; the org move runbook is
-    `skills/move-the-repo-to-an-organisation.md`.
+    (`tools/repo-identity.mjs`); `npm test` prints every stale reference.
+    **`docs/SUCCESSION.md` + `npm run succession:audit`** map who can recover
+    each system; org runbook `skills/move-the-repo-to-an-organisation.md`.
 
 ## WHAT CHANGED BEFORE THAT — 2026-08-27 → 29
 
@@ -65,26 +62,26 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `cd6ca11` (2026-09-01)** — app bundles are `90e9259` (nothing
-  since touched `src/`); docs are `cd6ca11`, published BY HAND after
-  `deploy.sh` skipped that step on BOTH runs. Verified from the SERVED
-  artifact, with a string UNIQUE to the change and an old one as control —
-  a shared phrase scored a stale page as fresh earlier today.
-  ⛔ **THE DOCS STEP STILL FAILS — AND IT EXITS 0.** Tally **6 runs, 2 published
-  docs, 4 did not** (both of today's skipped, both returned 0). Publish by hand
-  — `skills/deploy-vm.md`, which keeps the count — and never trust the code.
-  ⚠️ **The only reliable tell** — compare when each root was written:
-  ```bash
-  ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'
-  ```
-  Same minute = docs published. Hours apart = the step was skipped.
-  ⚠️ **FALSE-SKIP direction**: rsync leaves an unchanged directory's mtime
-  alone, so use this to raise suspicion and SETTLE it by curl-grepping a served
-  docs page for a heading you added today, with an old heading as control.
-  ⛔ Falsified, do not re-open: sudo expiry · a ceiling below ~7 min · the PTY.
-  Two clean runs were NOT a root cause; `docs/mistakes/deploy-hosting.md`.
-  ⚠️ Grepping the wrong bundle proves nothing (`docs/INVARIANTS.md`).
-  Previous: `defa9d9`, `f27ebdd`.
+- ✅ **DEPLOYED = `de0168d` (2026-09-01)** — app bundles and docs BOTH published
+  by `deploy.sh` itself, in one 30-second run, no hand step. Verified from the
+  SERVED artifact, with a string UNIQUE to the change and an old one as control
+  — a shared phrase scored a stale page as fresh earlier today.
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **7 runs, 3
+  published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
+  its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
+  in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
+  reached, so the next failure names itself. Read the log before theorising.
+  ⛔ **A HEALTHY RUN IS 30 SECONDS** — measured from that trace, docs build 10 s.
+  So a run taking MINUTES is already the fault, and the two "clean ~7-minute
+  runs" the hang was declared dead on were 14× baseline, not controls.
+  ⚠️ **After every deploy, check the ARTEFACT**: root write times must agree —
+  `ssh samo-vm 'stat -c "%y %n" /var/www/samo-web /var/www/docs'` — then settle
+  it by curl-grepping a SERVED page for a string you added today, with an old
+  one as control (rsync leaves an unchanged dir's mtime alone, so stat alone
+  can read as a false skip; grepping the wrong bundle proves nothing).
+  ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
+  Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
+  the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on

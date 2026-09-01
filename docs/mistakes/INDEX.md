@@ -91,7 +91,7 @@ Open when: adding an access channel, a scope, or a seat.
 - The same bug in three more readers — swept for on purpose, 2026-08-30
 - A scope line under `master` understates it
 
-## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(24)*
+## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(25)*
 
 Open when: writing a migration.
 
@@ -119,6 +119,7 @@ Open when: writing a migration.
 - 11 students' passport totals were higher than their own scans, and nothing could ever subtract
 - "144 students cannot sign in" — a false alarm from reading the function instead of the trigger list
 - A carried passport student would have signed in to 0 km
+- A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
 
 ## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(82)*
 
@@ -264,7 +265,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(15)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(16)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -283,6 +284,7 @@ Open when: deploy.sh, nginx, cache headers.
 - The deploy goes silent after "==> docs site"
 - "After I login on the preview link, it navigates back to samo.md.kku.ac.th"
 - The deploy exited 0, published the app, and silently skipped `/docs`
+- Six runs, four failures, no diagnosis
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(33)*
 
@@ -322,4 +324,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
 
-_265 entries across 9 files._
+_267 entries across 9 files._

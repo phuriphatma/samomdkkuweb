@@ -1069,3 +1069,38 @@ where the trigger fires between the statements**: the re-key is atomic to the
 person reading it and four separate events to Postgres, so a trigger sees the
 row half-moved. Where one operation spans several statements, the invariant has
 to be RESTATED at the end, not maintained incrementally at each step.
+
+## A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change — plpgsql bodies are not resolved at CREATE time
+
+**Symptom (latent — recorded before it bites, not after).** `0173`'s
+`analytics_overview()` reads `passport.activities` and `passport.certificates`
+directly, because Passport shares the same Google account and therefore the same
+GAS quota. Postgres does **not** resolve a plpgsql body at `CREATE FUNCTION`
+time, so on a database with no `passport` schema the migration applies with no
+error at all, and the failure appears the first time someone opens สถิติ.
+
+That is the worst shape a schema fault can take: the break is arbitrarily far
+from the change, in time and in the stack, and the migration that caused it has
+already been recorded as successful.
+
+**Who it affects.** Nobody today — production and `samo-dev` both carry the
+schema. It is a hazard for a **new** environment: a scratch project, a partial
+restore, a per-developer database that dumps only `public`.
+
+**Fix, if it ever bites.** Wrap the two passport arms in
+`to_regclass('passport.activities') is not null`, and leave the arms in place —
+Passport traffic is real, and counting it is the whole point of `0172`. Do not
+"fix" it by deleting them.
+
+**Where it lives now.** Here, and in `docs/SELF-HOST.md`'s notes, where someone
+standing an environment up will meet it. ⚠️ **It used to live as a comment
+appended to `0173` itself, which is what made `npm run migrate:status` report
+`EDITED AFTER RECORDING` for 23 days.** A migration is a record of what ran; the
+checksum guard cannot tell a comment from a `where` clause, and it is right not
+to try. The file has been restored to the bytes that were applied.
+
+**The general rule.** *Anything a migration teaches you AFTER it has run belongs
+somewhere a checksum does not cover.* If the lesson is worth writing, it is
+worth writing where the next person will look — a write-up, the setup doc, a
+comment on the live function — never as an edit to the applied file, which
+trades a real integrity check for a paragraph nobody was going to read there.

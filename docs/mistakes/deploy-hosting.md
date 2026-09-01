@@ -675,3 +675,71 @@ carried the words "one run exited 0 having published nothing" — and the check
 that would have caught it in one second is comparing what is ON DISK to what was
 supposed to be written. Verify the artefact, every time, even when the tool says
 it succeeded.
+
+## Six runs, four failures, no diagnosis — because the failing step's output was being thrown away at the observer
+
+**Symptom.** `./server/deploy.sh` skipped the `/docs` publish on four of six
+runs, presenting sometimes as a hang and sometimes as a clean exit 0. Three
+theories were proposed and falsified. Every write-up of it ends with "cause not
+yet found".
+
+**Cause of the missing DIAGNOSIS** (the fault itself is still open). The command
+in `skills/deploy-vm.md` ends:
+
+```bash
+… ./server/deploy.sh; echo "DEPLOY_EXIT=$?"' 2>&1 \
+  | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|==>|error" | tail -12
+```
+
+That `grep -E` keeps the `==>` headings and discards **everything the failing
+step said about itself** — vitepress's output, npm's error block, any stack
+trace. The only copy of it went through that filter. So "nothing after
+`==> docs site` has ever been observed" was never a fact about the run; it was a
+fact about the *observer*. Six runs produced no evidence because nobody was ever
+shown any.
+
+Two more instruments were lying in the same direction:
+
+- **`DEPLOY_EXIT=0` was documented as "the real verdict".** It is not — the
+  script can publish the app, skip `/docs` and still reach its own last line.
+  And its *absence* is not exit 0 either: the local pipeline's status belongs to
+  `tail`, so a remote shell that died silently scores as success.
+- **`BASH_LINENO` inside an EXIT trap** names the trap's call site, not the
+  failing command. It printed `deploy.sh:1`. The failing line has to be captured
+  when it fails — an `ERR` trap.
+
+**Fix.** `deploy.sh` writes every run in full to `~/samo-deploy-logs` on the VM,
+plus a timestamped xtrace (`BASH_XTRACEFD`, so stdout stays readable) naming
+each line as it runs. Both are outside the filter, survive the ssh stream, and
+survive the process being killed. An `EXIT` trap writes the verdict and
+`HUP`/`INT`/`TERM` are trapped so a signal reaches it, which separates the two
+shapes that looked identical from outside:
+
+| The log ends with | It means |
+|---|---|
+| `<== exit 0 — ran to the end` | a real, complete run |
+| `<== exit N at deploy.sh:<line>` | the script failed and said so |
+| **no `<==` line at all** | killed outright — SIGKILL, the OOM killer, the channel dying. No trap ran |
+
+**What the first instrumented run bought immediately, without even failing.**
+A healthy deploy is **30 seconds**: `npm ci` 6 s + 3 s, the three builds 7 s +
+1 s + 10 s, every rsync under a second. This file and `skills/deploy-vm.md` both
+carried "a full deploy needs MORE than five minutes", inferred from a run that
+`timeout 300` killed — *inside a step that takes ten seconds*. So the two
+"clean ~7-minute runs" that the hang was declared not-reproducing on were **14×
+baseline**: degraded runs that happened to finish, not controls. The tally is
+7 runs / 3 published docs / 4 did not.
+
+**Where it lives now.** `server/deploy.sh` (the logging block and the traps);
+`skills/deploy-vm.md` (the tally, the per-step baseline, how to read the end of
+a log). The duration has ONE home there — five other files were restating a
+"~90 s" from the one-app era that a paragraph in that same file had already
+corrected.
+
+**The general rule, and it is not "add logging".** *An intermittent fault that
+resists three theories is usually an evidence problem, not a hard problem.*
+Before proposing a fourth cause, ask what the failing step is allowed to say and
+who is listening — here, a `grep` in the invocation silently deleted the only
+witness, and two of the three instruments left reported success by construction.
+**A baseline is part of the evidence**: without "healthy = 30 s" there was no way
+to see that the successful runs were sick too.
