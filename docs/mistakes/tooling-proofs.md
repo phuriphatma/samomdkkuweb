@@ -1436,3 +1436,59 @@ a guard that reads one of them is guarding nothing.
 Corollary, for any transfer or migration: **capability is not configuration.**
 The classic flag survived and the capability did not. Test what you can still
 DO, not what the settings still SAY.
+
+---
+
+## `deploy:owed` went blind to a page production serves — again, one directory deeper
+
+**Symptom.** `npm run deploy:owed` printed **"no deploy owed"** while
+`samo.md.kku.ac.th/docs/state/phuriphatma` was serving a page several commits
+stale. The tool exists *specifically* to answer "is production current", and it
+answered wrong in the direction nobody investigates: green.
+
+**Cause.** Two spellings of "what production serves", drifted.
+
+| | says what ships |
+|---|---|
+| `docs/.vitepress/config.mjs` | `collect()` globs **every** `.md` under `docs/`; `srcExclude` names only node_modules, templates, package, demos |
+| `tools/deploy-owed.mjs` | `SHIPPED` carried `':!docs/state/**'`, `':!docs/state-archive/**'` |
+
+The exclusion was reasonable-sounding — a person's session notes are not
+"shipping" in any sense the author cared about — and simply untrue: VitePress
+globs them, the sidebar links them, nginx serves them. Verified with curl, not
+by reading either file.
+
+**This is the SECOND time in two days.** On 2026-08-31 the same tool watched
+only `src/` and answered "production is current" while `/docs` was an entire
+restructure behind. That fix added `docs/` and wrote a header saying *"WHEN THE
+DEPLOY LEARNS TO PUBLISH SOMETHING NEW, ADD IT HERE IN THE SAME COMMIT"* — a
+paragraph, in the file, which did not stop the same class recurring inside the
+directory it had just added.
+
+**Fix.** The exclusions are gone. And because a header saying "keep these in
+step" demonstrably does not keep anything in step,
+`src/js/docs-shipping-parity.test.js` now asserts the PROPERTY at `npm test`
+time: **every page VitePress actually publishes is a page `deploy-owed` can see
+change.** It calls `collect()` — the real publisher — rather than re-reading the
+config's exclusion list, so it cannot be satisfied by two lists that are wrong
+in the same way. Two controls guard it: `docs/` must be watched at all, and
+`collect()` must return a non-empty set. Reintroduced the exclusion, watched it
+name `state/phuriphatma.md`, restored.
+
+If those notes should not be public, the fix is `srcExclude` — and *then* they
+may leave `SHIPPED`. Either arrangement passes; disagreement does not.
+
+**A second, smaller trap from the same hour.** Verifying the by-hand docs
+publish, `grep -c prof_can_see_document` on the served page returned 1 and I
+read that as "the new section shipped". It had not: the phrase occurs in an
+OLDER section of the same page. The control (`Two wrong turns`) was also 1, so
+both halves agreed — on the wrong answer. **A verification string must be unique
+to the change, not merely present in it**; re-grepping for `The sweep
+afterwards` returned 0 and told the truth.
+
+**The general rule.** *When a deploy learns to publish a new path, the tool that
+reports staleness must learn it in the same commit — and the only durable way to
+make that happen is a test that asks the PUBLISHER what it publishes.* Any
+instrument whose subject is a hand-maintained list of paths will go blind the
+first time somebody adds a path; derive the list from the thing that actually
+does the work.

@@ -47,9 +47,24 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // belongs on this list — nginx config included, because a config change also
 // needs a trip to the VM (and one that `deploy.sh` does NOT even perform: see
 // its install line at the top of server/nginx-samo.conf).
+//
+// ⚠️ 2026-09-01 — THE SAME BLINDNESS, ONE DIRECTORY DEEPER. This list carried
+// `:!docs/state/**` and `:!docs/state-archive/**`, on the reasonable-sounding
+// theory that a person's session notes are not "shipping". VitePress does not
+// agree: its `srcExclude` covers node_modules, templates, package and demos and
+// says nothing about `docs/state`, so `collect()` globs those files, the
+// sidebar links them, and `samo.md.kku.ac.th/docs/state/<handle>` serves them —
+// verified by curl. So this tool answered "nothing owed" over a page production
+// was serving stale, which is precisely the failure its own header above
+// describes, failing GREEN again.
+//
+// The exclusions are gone. If those pages should NOT be public, the fix is
+// VitePress `srcExclude` — and then they may come off this list. The two must
+// agree, and `docs-shipping-parity.test.js` now fails the build when they do
+// not, because a comment saying "keep these in step" is not a mechanism.
 const SHIPPED = [
   'src/', ':!src/**/*.test.js', 'index.html', 'admin/index.html',
-  'docs/', ':!docs/state/**', ':!docs/state-archive/**',
+  'docs/',
   'server/nginx-samo.conf', 'server/deploy.sh',
 ];
 

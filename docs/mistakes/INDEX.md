@@ -284,7 +284,7 @@ Open when: deploy.sh, nginx, cache headers.
 - "After I login on the preview link, it navigates back to samo.md.kku.ac.th"
 - The deploy exited 0, published the app, and silently skipped `/docs`
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(32)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(33)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -320,5 +320,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `npm run deploy:owed` said "production is serving current code" while /docs was a whole rebuild behind
 - Dead-link checking on the docs site had been off since the day it was built
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
+- `deploy:owed` went blind to a page production serves
 
-_264 entries across 9 files._
+_265 entries across 9 files._
