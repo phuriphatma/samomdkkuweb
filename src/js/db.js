@@ -11,6 +11,10 @@
 // ==============================================
 
 import { createClient } from '@supabase/supabase-js';
+// One home for "PostgREST error body → something a human can read". The two
+// guest forms fetch PostgREST without this client and share the same helper.
+import { parseRestError } from './rest-error.js';
+export { parseRestError };
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -112,38 +116,6 @@ async function refreshAccessTokenOnce() {
     }
   })();
   return inFlightRefresh;
-}
-
-/**
- * Turn a PostgREST error body into { message, code, details, hint, raw }.
- *
- * WHY: the body is JSON, and this used to hand the WHOLE STRING to callers as
- * `error.message`. Every one of them does `alert(e.message || 'บันทึกไม่สำเร็จ')`,
- * so a refused write showed a Thai-speaking user
- *   {"code":"P0001","details":null,"hint":null,"message":"project_documents_prof_guard: …"}
- * — which is exactly how the 0176 report arrived. The sentence a trigger
- * `raise` writes IS the message; the braces around it are noise.
- *
- * `raw` keeps the original text because isJwtExpiredError() matches on
- * `PGRST303`, which lives in the `code` field and would VANISH if this
- * returned only `message`. That is the seam: narrowing a shared transport's
- * error breaks whoever was reading the part you dropped.
- */
-export function parseRestError(status, text, statusText = '') {
-  const raw = text || statusText || '';
-  let body = null;
-  try { body = JSON.parse(raw); } catch { body = null; }
-  const message = (body && typeof body.message === 'string' && body.message.trim())
-    ? body.message
-    : (raw || statusText);
-  return {
-    status,
-    message,
-    code:    body?.code    ?? null,
-    details: body?.details ?? null,
-    hint:    body?.hint    ?? null,
-    raw,
-  };
 }
 
 /** True when the PostgREST error looks like a JWT-expired rejection

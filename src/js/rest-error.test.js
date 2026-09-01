@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRestError } from './db.js';
+import { parseRestError, restErrorMessage } from './rest-error.js';
 
 // ============================================================
 // A refused write must tell a human what happened, and must not stop
@@ -81,5 +81,49 @@ describe('parseRestError — the machine half', () => {
 
   it('reports the status it was given', () => {
     expect(parseRestError(418, '{}').status).toBe(418);
+  });
+});
+
+// ============================================================
+// restErrorMessage — what actually reaches a student's screen.
+//
+// The two GUEST forms (vs-form, pr-form) fetch PostgREST directly and rendered
+// `PostgREST 400: <the whole JSON body>` into an innerHTML alert. A database
+// sentence is still not a user-facing message, so this draws the line: keep a
+// short server sentence, refuse a wall of SQL, never emit braces.
+// ============================================================
+describe('restErrorMessage — the string a student sees', () => {
+  it('keeps a short server sentence', () => {
+    const body = JSON.stringify({ code: 'P0001', message: 'ต้องเข้าสู่ระบบก่อน' });
+    expect(restErrorMessage(400, body)).toBe('ต้องเข้าสู่ระบบก่อน');
+  });
+
+  it('never emits a JSON blob, even when the body has no `message`', () => {
+    const body = JSON.stringify({ code: 'PGRST116', details: 'Results contain 0 rows' });
+    const out = restErrorMessage(406, body);
+    expect(out).not.toContain('{');
+    expect(out).toContain('406');
+  });
+
+  it('refuses a wall of SQL rather than pasting it into the page', () => {
+    const long = 'x'.repeat(400);
+    const out = restErrorMessage(500, JSON.stringify({ message: long }));
+    expect(out).not.toContain(long);
+    expect(out).toContain('500');
+  });
+
+  it('falls back on an empty body instead of rendering an empty sentence', () => {
+    expect(restErrorMessage(502, '')).toContain('502');
+  });
+
+  it('a non-JSON body still reaches the user when it is short', () => {
+    // nginx/Cloudflare style plain text. Short enough to be informative.
+    expect(restErrorMessage(504, 'Gateway Timeout')).toBe('Gateway Timeout');
+  });
+
+  it('carries the status into the fallback so a report can name it', () => {
+    // The reporter pasting "เกิดข้อผิดพลาดจากระบบ (400)" is still actionable;
+    // pasting "บันทึกไม่สำเร็จ" alone is not.
+    expect(restErrorMessage(400, '{"code":"23505"}')).toMatch(/\(400\)/);
   });
 });

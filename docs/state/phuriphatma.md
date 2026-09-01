@@ -16,6 +16,67 @@ path named here must resolve.
 
 ---
 
+## ▶ SESSION 2026-09-01 — the master/professor guard (0176). CLOSED, nothing owed.
+
+Nothing here is half-done. This block exists for the two things a `git log`
+entry cannot carry: how the bug was FOUND, and the two wrong turns.
+
+**The report** was one sentence — *"my friend has permission master with
+ผู้ส่งคณะ but can't ซ่อนจากเว็บ on each หนังสือ"* — plus, when asked, the
+P0001 text. **The error text was worth more than everything I had read up to
+that point**; it named the trigger, which turned a UI-gate hunt into a
+three-minute answer. Ask for it first, next time.
+
+**The observation that was the whole diagnosis**: the โครงการ-level ซ่อนจากเว็บ
+worked and the per-หนังสือ one did not. `projects` has no prof guard;
+`project_documents` does. A difference between two buttons that *should* behave
+identically is a better lead than either button on its own.
+
+### Two wrong turns, both caught by the repo's own rules
+
+1. **I nearly closed "was any data damaged?" as NO.** I asked for
+   `drive_folder like '%//%'` — a placeholder shape I had guessed rather than
+   derived — and got zero rows. Printing the actual rows instead (the rule in
+   `.claude/rules/mistakes.md`: *print the ROWS behind the extreme value*)
+   showed three paths ending in a bare `_`. The right predicate is
+   "does not end in its own id", which needs no guess at all.
+
+2. **The proof's §B was green for the wrong reason, then red for the right
+   one.** It asserted a prof-only account is refused, and it was — by RLS, not
+   by the guard, because `prof_can_see_document()` needs the หนังสือ to have a
+   sign request and the newest one has none. The tell was §B5, which asserts
+   the professor CAN comment, coming back `deny-rls` too. The instrument now
+   distinguishes `guard` from `deny-rls`, and the proof CREATES the sign
+   request rather than relaxing what it asks.
+
+   Related: `A2. master may change a status` was written as `status = status ||
+   ''`, which is not distinct from the old value, so the guard was never
+   consulted — it passed with the bug reintroduced. Found only by running the
+   reintroduce-the-bug ritual and noticing which assertions did NOT go red.
+   **The ritual's value is in the rows that stay green.**
+
+### What I did not do, on purpose
+
+- **Did not narrow `current_user_project_seats()`.** Removing `prof` from
+  master's seats fixes both triggers and closes five GRANTS
+  (`project_settings` read, `project_doc_types` read, sign-request
+  read/insert, signed-file insert). The guards are the right place.
+- **Did not touch the UI gate.** A master whose STORED seat is `staff`
+  resolves to `uni_staff` in `projectSeatRole()` and never sees the
+  ซ่อนจากเว็บ button at all, on either level, even though the database would
+  let them. That is `projects/index.js`'s stated design — *"under-showing
+  relative to RLS is safe; the reverse is not"* — not a bug. If the owner ever
+  wants master to reach every control, the fix is a desk SWITCHER, not a
+  wider gate.
+
+### One thing for whoever is next, unrelated to this bug
+
+`npm run migrate:status` prints **EDITED AFTER RECORDING** for
+`0173_gas_count_real_uploads_not_sentinels_or_imports.sql`. Not mine, and not
+touched this session. A migration is a record of what ran; if the edit changed
+behaviour it needs a NEW migration, and if it was only a comment the warning
+should be cleared deliberately rather than lived with.
+
 ## ▶ SESSION 2026-08-31 (org move day) — WHAT IS HALF-DONE, AND EXACTLY WHERE
 
 Read `STATE.md` first. This block is the part that does not fit there: the

@@ -11,6 +11,8 @@ import { sendNotify } from './notify.js';
 // Ticket ID generator lives in ./ticket-ids.js so the format contract
 // is shared with vs-form and unit-testable in isolation.
 import { generatePRTicketId } from './ticket-ids.js';
+import { restErrorMessage } from './rest-error.js';
+import { escHtml } from './utils.js';
 import { fillPrDeptSelect } from './pr-depts.js';
 
 // ----------------------------------------------------
@@ -72,13 +74,23 @@ async function insertPRTicketIdempotent(row) {
         return;
       }
       const errText = await res.text().catch(() => '');
-      throw new Error(`PostgREST ${res.status}: ${errText.substring(0, 200)}`);
+      // The body is JSON. Interpolating it whole put
+      // {"code":"…","details":null,…} on the page of a student filling in
+      // this form — see rest-error.js. `raw` is kept on the error so the
+      // console still has everything.
+      const err = new Error(restErrorMessage(res.status, errText));
+      err.raw = errText.substring(0, 300);
+      err.status = res.status;
+      throw err;
     } catch (e) {
       clearTimeout(timer);
       lastErr = e;
       if (attempt === 2) break;
+      // The console keeps the RAW body: restErrorMessage narrowed what the
+      // PAGE shows, and narrowing the debugging surface with it is how a
+      // readable error becomes an undiagnosable one.
       const why = e.name === 'AbortError' ? 'timeout' : (e.message || e);
-      console.warn(`[pr] insert attempt ${attempt} failed (${why}); retrying`);
+      console.warn(`[pr] insert attempt ${attempt} failed (${why}); retrying`, e.raw || '');
     }
   }
   const msg = (lastErr && lastErr.message) || String(lastErr);
@@ -621,7 +633,9 @@ async function handlePrFormSubmit(e) {
     toggleOtherPlatformReason();
   } catch (error) {
     alertBox.classList.remove('d-none'); alertBox.classList.add('alert-danger');
-    alertBox.innerHTML = `<i class="bi bi-wifi-off me-2 fs-5"></i> บันทึกไม่สำเร็จ: ${error.message || error}`;
+    // See vs-form.js: the message can contain server-composed text derived
+    // from the submission, and this is innerHTML.
+    alertBox.innerHTML = `<i class="bi bi-wifi-off me-2 fs-5"></i> บันทึกไม่สำเร็จ: ${escHtml(String(error?.message || error || ''))}`;
     // Error visibility — scroll up to the alert. Success path stays
     // put (showPrSuccessCard surfaces the card right under the submit
     // button so the user doesn't have to look up).
