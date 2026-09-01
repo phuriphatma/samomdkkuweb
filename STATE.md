@@ -51,7 +51,7 @@ TRUE. That is what the grep is for.
   run `npm run deploy:owed`, it will say so. Verified from the
   SERVED artifact, with a string UNIQUE to the change and an old one as control
   — a shared phrase scored a stale page as fresh earlier today.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **11 runs, 7
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **12 runs, 8
   published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
   its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
   in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
@@ -62,7 +62,7 @@ TRUE. That is what the grep is for.
   ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
   (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then settle it by
   curl-grepping a SERVED page for a string added today, with an old one as
-  control. Both traps are in `skills/deploy-vm.md`. Done for `d8bb52d`.
+  control. Both traps are in `skills/deploy-vm.md`. Done for `8630a72`.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
   the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.

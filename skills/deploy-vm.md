@@ -26,7 +26,7 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 11 runs, 7 completed the docs step, 4 did not.**
+**Run tally: 12 runs, 8 completed the docs step, 4 did not.**
 (4 on 2026-08-31: 2 ok, 2 not. 5 on 2026-09-01: the first two skipped docs and
 **both returned exit 0**, one of them after `pgrep deploy.sh` already showed the
 script gone while ssh had still not returned; the last three — every run since
