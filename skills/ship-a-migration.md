@@ -17,7 +17,8 @@ order took production down for ~20 minutes.
    DENY half. A probe that can only print "denied" cannot tell a working guard
    from a broken connection.
 5. **`npm run build && npm test`**, then commit, push `main`.
-6. **Deploy**: `skills/deploy-vm.md`. ~90 s. **Batch commits — do not deploy
+6. **Deploy**: `skills/deploy-vm.md` (which holds the measured duration — do
+   not restate it here). **Batch commits — do not deploy
    per commit.**
 7. **Verify from the SERVED artifact**, never the local file:
    `curl https://samo.md.kku.ac.th/assets/<bundle>.js | grep -c <marker>`.

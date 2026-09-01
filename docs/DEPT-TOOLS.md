@@ -125,7 +125,7 @@ What is actually true today (read from the code on 2026-08-27):
 | Dept tool cards are a hardcoded JS object | `DEPT_DEFS` in `src/js/departments.js` | every card change is a commit |
 | The launcher repeats the same list by hand | `src/html/tab-tools.html` | two copies of one fact — class 6 in `.claude/rules/mistakes.md`, already live |
 | Routes are a hardcoded array | `PATH_ROUTES`, `src/js/main.js:385` | a new page is a code change |
-| Only the owner can deploy | `skills/deploy-vm.md`, needs VPN | merge ≠ live; ~90 s per deploy, batched |
+| Only the owner can deploy | `skills/deploy-vm.md`, needs VPN | merge ≠ live; deploys are batched |
 | No preview URL | `docs/TEAM-WORKFLOW.md` §8 phase 3, not built | a contributor cannot see their work on the real site |
 | Five `write` collaborators, 16 past PRs | GitHub, measured 2026-08-26 | the PR road exists and has been driven |
 | ~~CI is not blocking~~ | **FIXED 2026-08-27** — `build` is now a required check | *was:* a red PR could be merged |

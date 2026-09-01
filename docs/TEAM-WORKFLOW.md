@@ -440,7 +440,8 @@ Where each kind of thing belongs:
 - **`npm test` before every commit.** It runs the whole unit suite *and*
   `check:context` *and* `state-handoff.test.js`, so it catches a bloated rules
   file and a broken pointer in the handoff at the same time.
-- **Batch commits before deploying** — each VM deploy is ~90 s; a `docs/`- or
+- **Batch commits before deploying** — a VM deploy takes minutes (measured
+  figure: `skills/deploy-vm.md`); a `docs/`- or
   `tools/`-only commit needs no deploy at all.
 - **Do not re-read a file you just edited** to confirm the edit landed.
 

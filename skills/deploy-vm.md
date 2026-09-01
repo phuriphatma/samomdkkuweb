@@ -116,10 +116,35 @@ a separate step — see the header of `server/nginx-samo.conf`.
 
 ```bash
 PW=$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')
-{ printf '%s\n' "$PW"; sleep 10; } | timeout 600 ssh -tt -o BatchMode=yes samo-vm \
+{ printf '%s\n' "$PW"; sleep 10; } | timeout 900 ssh -tt -o BatchMode=yes samo-vm \
   'sudo -v && cd "$HOME/samo-projects/samomdkkuweb" && ./server/deploy.sh; echo "DEPLOY_EXIT=$?"' 2>&1 \
-  | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|==>|error" | tail -12
+  | grep -viE 'password|^\[sudo' | grep -E "DEPLOY_EXIT|<==|==>|error" | tail -12
 ```
+
+**THEN READ THE LOG — this stream is not the evidence.** Since 2026-09-01
+`deploy.sh` writes every run in full to the VM's own disk, because this pipeline
+throws away everything a build says about itself: the `grep -E` above keeps only
+the `==>` headings, so four runs skipped the docs publish and nobody ever saw
+what the docs step printed. The stream is a progress bar; the file is the record.
+
+```bash
+ssh samo-vm 'tail -40 ~/samo-deploy-logs/latest.log'      # what it said
+ssh samo-vm 'tail -25 ~/samo-deploy-logs/latest.trace'    # which LINE it reached
+```
+
+**How to read the end of the log**, which is the distinction nobody could make
+from outside before:
+
+| The log ends with | It means |
+|---|---|
+| `==> done. Smoke test:` then `<== exit 0` | a real, complete run |
+| `<== exit <n> after deploy.sh:<line>` | the script FAILED and said so — the trace names the line |
+| **no `<==` line at all** | the process was **killed outright** — SIGKILL, the OOM killer, or the ssh channel dying. No trap ran, so nothing could be written |
+
+⚠️ **`DEPLOY_EXIT` missing from the stream is not "exit 0".** The local exit code
+belongs to `tail`, and the remote `; echo` only runs if the remote shell lived
+long enough. A run with no `DEPLOY_EXIT` line has told you nothing about itself —
+go to the log.
 
 **RUN IT IN THE BACKGROUND, AND GIVE IT A GENEROUS CEILING.** These two go
 together and getting them backwards truncated a real deploy on 2026-08-31.
@@ -136,7 +161,7 @@ file used to say "~90 s", from an era when the deploy built ONE app. It now
 builds three things — samomdkkuweb, samomdkkupassport, and the docs site — each
 with its own `npm ci`. A real run on 2026-08-31 started 12:40:55 and was still
 in the docs build when `timeout 300` killed it at 12:45:56. **A full deploy needs
-MORE than five minutes.** 600 is the ceiling until someone measures a completed
+MORE than five minutes.** 900 is the ceiling until someone measures a completed
 run and writes the number here.
 
 **What a truncated deploy leaves behind** — the reason the ceiling matters. The
@@ -162,8 +187,10 @@ enough for `sudo -v` to read the password — which happens in the first second.
 It is NOT a timeout for the deploy. `sleep` never writes, so it never gets
 SIGPIPE when ssh exits; bash therefore waits for the whole sleep, and a
 `sleep 420` made every deploy sit idle for ~5 minutes after the VM had already
-printed `==> done`. The deploy itself takes ~90 s and is bounded by `timeout`,
-not by the sleep. Reported by the owner: *"you take too long timeout sleep"*.
+printed `==> done`. The deploy is bounded by `timeout`, not by the sleep — and
+**do not restate its duration here**; the measured figure has ONE home, the
+paragraph above, and the "~90 s" that used to sit on this line was the very
+figure that paragraph was written to correct. Reported by the owner: *"you take too long timeout sleep"*.
 
 Then verify — **from the served artifact, never the local file**:
 
@@ -190,10 +217,13 @@ ssh samo-vm 'cd ~/samo-projects/samomdkkuweb && git log --oneline -1
    Put the script in the ssh **argument** and let stdin carry only the password.
    *If this happens, tell the user to rotate the password immediately.*
 
-3. **`sleep` keeps stdin open; the outer `timeout` will kill it.** The deploy
-   itself finishes in ~90 s but the `sleep` holds the pipe, so the command exits
-   143 *after* a successful deploy. **`DEPLOY_EXIT=0` in the output is the real
-   verdict — exit 143 from the wrapper is expected and not a failure.**
+3. **`sleep` keeps stdin open; the outer `timeout` will kill it.** The `sleep`
+   holds the pipe after the deploy has finished, so the command can exit 143
+   *after* a successful deploy — exit 143 from the wrapper is expected and not a
+   failure. ⚠️ **`DEPLOY_EXIT=0` used to be called "the real verdict" here. It is
+   not**, and that sentence is why four skipped-docs runs read as successes:
+   `deploy.sh` can publish the app, skip `/docs` and still reach its own last
+   line. The verdict is the LOG plus the root write times, both above.
 
 ## What deploy.sh does that you must not reimplement
 

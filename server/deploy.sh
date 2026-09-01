@@ -31,6 +31,49 @@ if [ "${SAMO_DEPLOY_REEXEC:-}" != "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# EVERY run writes its FULL output to a file on the VM's own disk.
+#
+# Why this exists: the ssh command in `skills/deploy-vm.md` pipes this script
+# through `grep -E "DEPLOY_EXIT|==>|error"`, so everything a build says about
+# itself — vitepress's stack trace, npm's error block — is DISCARDED AT THE
+# OBSERVER. Four of six runs skipped the docs publish and nobody has ever seen
+# what the docs step said, because the only copy went through that filter and
+# the run's exit code is written by the `; echo` rather than by this script.
+#
+# A file here is outside the filter, survives the process being killed, and can
+# be read afterwards over a fresh ssh. `latest.log` always points at the newest.
+#   ssh samo-vm 'cat ~/samo-deploy-logs/latest.log'
+#   ssh samo-vm 'cat ~/samo-deploy-logs/latest.trace | tail -40'   # which LINE
+DEPLOY_LOG_DIR="$HOME/samo-deploy-logs"
+mkdir -p "$DEPLOY_LOG_DIR"
+DEPLOY_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+DEPLOY_LOG="$DEPLOY_LOG_DIR/$DEPLOY_STAMP.log"
+DEPLOY_TRACE="$DEPLOY_LOG_DIR/$DEPLOY_STAMP.trace"
+ln -sfn "$DEPLOY_LOG" "$DEPLOY_LOG_DIR/latest.log"
+ln -sfn "$DEPLOY_TRACE" "$DEPLOY_LOG_DIR/latest.trace"
+# Keep the last 20 runs of each; a deploy log is ~20 kB.
+ls -1t "$DEPLOY_LOG_DIR"/*.log   2>/dev/null | tail -n +21 | xargs -r rm -f
+ls -1t "$DEPLOY_LOG_DIR"/*.trace 2>/dev/null | tail -n +21 | xargs -r rm -f
+
+exec > >(tee -a "$DEPLOY_LOG") 2>&1
+echo "==> log: $DEPLOY_LOG"
+
+# The xtrace goes to its OWN file, not to stdout: line-numbered and timestamped,
+# so a run that dies silently still records the last line it reached. Keeping it
+# out of stdout keeps the ssh stream readable and keeps the two files from
+# interleaving into something nobody can follow.
+# (The VM runs bash 5.3. The version guard is so a Mac's bash 3.2 degrades to
+# log-only instead of dying on `{fd}>` — BASH_XTRACEFD needs 4.1+.)
+if [ "${BASH_VERSINFO[0]:-0}" -ge 5 ] || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -ge 1 ]; }; then
+  exec {DEPLOY_XTRACE_FD}>>"$DEPLOY_TRACE"
+  export BASH_XTRACEFD="$DEPLOY_XTRACE_FD"
+  PS4='+ $(date -u +%H:%M:%S) deploy.sh:${LINENO}: '
+  set -x
+else
+  echo "==> (bash ${BASH_VERSION} is too old for BASH_XTRACEFD — no trace file)"
+fi
+
+# ---------------------------------------------------------------------------
 # Keep the sudo credential alive for the whole run.
 #
 # ⚠️ THIS DID NOT FIX THE HANG IT WAS WRITTEN FOR. Kept because refreshing a
@@ -46,7 +89,22 @@ sudo -n true 2>/dev/null || {
 }
 while true; do sudo -n true; sleep 45; kill -0 "$$" 2>/dev/null || exit; done &
 SUDO_KEEPALIVE=$!
-trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null || true' EXIT
+
+# The EXIT trap also writes the VERDICT into the log, and HUP/INT/TERM are
+# trapped so a signal reaches it too. This is what separates the two failure
+# shapes that have so far looked identical from outside: a log ending in
+# "<== exit 0 …" means this script really finished the step it stopped at; a log
+# with NO "<==" line at all means the process was killed outright (SIGKILL, the
+# OOM killer, the ssh channel dying) and never got to speak.
+on_exit() {
+  local rc=$?
+  kill "$SUDO_KEEPALIVE" 2>/dev/null || true
+  echo "<== exit $rc after deploy.sh:${BASH_LINENO[0]:-?} ($(date -u +%H:%M:%SZ))"
+}
+trap on_exit EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # ---------------------------------------------------------------------------
 # publish() — add the new build WITHOUT yanking the old one out from under

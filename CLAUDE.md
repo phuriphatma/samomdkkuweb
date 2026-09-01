@@ -170,7 +170,8 @@ This loop keeps cold-start agents from re-walking the bugs we already paid for, 
   project (`tools/apply-migration.mjs`), and **deploy to production**
   (`skills/deploy-vm.md`). This session did all three roughly ten times; the
   expectation is that work ships, not that it waits. Batch commits before
-  deploying — each deploy is ~90 s of VM build.
+  deploying — a deploy builds three apps and takes minutes, not seconds
+  (`skills/deploy-vm.md` holds the measured figure; do not restate it here).
 - **Dropping a COLUMN is allowed when the owner has asked for it** (0129 dropped
   five on their "shouldn't that be gone"), but it is ordered: **deploy the code
   that stopped reading it FIRST**, confirm that bundle is being SERVED, then

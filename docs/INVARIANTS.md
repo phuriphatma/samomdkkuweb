@@ -260,7 +260,10 @@ at 30, polled every 60 s per open tab. Fine at real scale.
   ratchets now. **Falsify each assertion before committing it** — and when a
   deliberate behaviour change reddens an old assertion, that is the guard
   working (0160 reddened `claude0159 §C3`), not a test to silence.
-- **Batch commits before deploying** — each VM deploy is ~90 s. A `tools/`- or
+- **Batch commits before deploying** — a VM deploy builds three apps and takes
+  minutes (the measured figure lives in `skills/deploy-vm.md`, and only there —
+  a "~90 s" from the one-app era outlived its correction in five files at once).
+  A `tools/`- or
   `docs/`-only commit needs no deploy.
 
 ### The decisions already made — do not re-litigate
