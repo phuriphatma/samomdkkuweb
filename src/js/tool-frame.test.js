@@ -26,7 +26,8 @@ import {
   EMBED_SANDBOX, renderToolFrame, embedSrc, embedSlugFromPath,
   clampHeight, HEIGHT_MESSAGE, MIN_HEIGHT_PX, MAX_HEIGHT_PX,
 } from './tool-frame.js';
-import { checkEmbedFolder } from './embed-checks.js';
+import { checkEmbedFolder, filesOutsideToolLane } from './embed-checks.js';
+import { readEmbedFolder } from '../../tools/embed-fs.mjs';
 import { TOOLS, embedTools, toolPath } from '../data/tools.js';
 import { renderToolCard } from './tool-card.js';
 
@@ -142,11 +143,10 @@ describe('an embed route reaches the frame', () => {
 });
 
 describe('every embed folder obeys the rules', () => {
-  const readFolder = (dir) => Object.fromEntries(
-    readdirSync(dir)
-      .filter((f) => !statSync(join(dir, f)).isDirectory())
-      .map((f) => [f, readFileSync(join(dir, f), 'utf8')]),
-  );
+  // Imported, not re-implemented: two readers of one folder is the drift the
+  // registry itself was built to delete, and the CI test reading LESS than the
+  // CLI is the direction that fails green.
+  const readFolder = readEmbedFolder;
 
   it('the registry and the folders agree in BOTH directions', () => {
     // → a routed tool with no folder 404s; ← a folder with no entry is dead
@@ -179,6 +179,45 @@ describe('every embed folder obeys the rules', () => {
     expect(html).toContain(HEIGHT_MESSAGE);
     expect(html).toContain('parent.postMessage(');
     expect(html).toContain('ResizeObserver');
+  });
+});
+
+describe('a tool/* branch can only reach the tool lane', () => {
+  // §8.3. What makes a PEER approval safe is not the review — it is that the
+  // diff CANNOT contain auth.js. Falsified against the CLI on a real tool/*
+  // branch too: legal → pass, one edited auth.js → fail naming it, an
+  // unreadable base ref → exit 1, because UNKNOWN must never read as PASS.
+  it('allows a tool folder at any depth, plus the one registry file', () => {
+    expect(filesOutsideToolLane([
+      'public/embed/golden-period/index.html',
+      'public/embed/golden-period/data.js',
+      'public/embed/golden-period/img/logo.png',
+      'src/data/tools.js',
+    ])).toEqual([]);
+  });
+
+  it('refuses everything else, including the near misses', () => {
+    expect(filesOutsideToolLane([
+      'src/js/auth.js',
+      'package.json',
+      'supabase/migrations/0177_x.sql',
+      'server/deploy.sh',
+      '.github/workflows/build.yml',
+      'src/data/tools.test.js',       // near miss: not the registry
+      'public/embed/index.html',      // near miss: not inside a tool folder
+      'public/robots.txt',
+    ]).length).toBe(8);
+  });
+
+  it('the boundary runs inside the REQUIRED build job, not its own workflow', () => {
+    // A required check with nothing to report on non-tool branches blocks every
+    // OTHER pull request — this repo held main red for a day exactly that way.
+    const ci = read('.github/workflows/build.yml');
+    expect(ci).toContain('npm run check:tool-boundary');
+    expect(ci).toContain('npm run check:embeds');
+    expect(readdirSync(`${ROOT}.github/workflows`),
+      'a separate tool-boundary workflow would not block, and would report nothing on every other PR')
+      .not.toContain('tool-boundary.yml');
   });
 });
 

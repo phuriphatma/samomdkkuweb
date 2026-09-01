@@ -16,6 +16,40 @@ path named here must resolve.
 
 ---
 
+## ▶ SESSION 2026-09-01b — the ฝ่าย tool FRAME (DEPT-TOOLS §13 steps 9–11)
+
+Built and driven. Two things worth carrying forward.
+
+**The bug the browser found and 1,615 tests could not.** The starter reported
+`document.documentElement.scrollHeight` as its height. Inside a frame,
+`documentElement` IS the frame — so the tool measured the box the host had just
+sized and told the host to size the box to that. It could never come out below
+the host's 70vh floor, and every tool shorter than that carried the difference
+as dead space. Unit tests proved the message was SENT; jsdom has no layout
+engine, so nothing could check that the number in it meant anything. **A frame
+is a view you have not opened until you have looked at it.** The property is
+guarded where it is visible: `smoke:browser` reports the height at two viewport
+heights and requires them equal (628/467 with the bug, 467/467 without).
+
+**Two places I deviated from the written §3, on purpose, both recorded there:**
+no 2-second fallback timer (the floor is CSS, so it cannot fire on a
+slow-but-working load and there is nothing to withdraw), and `BRIEF-TEMPLATE.md`
+folded into the starter's README rather than written as a second document about
+the same rules.
+
+**What is left is not code.** §13 step 8 — onboard two people, each ending in a
+merged practice PR. The lane is finished and nobody has been taught it, which is
+the state this whole document exists to prevent. Step 5 (a REAL phone) is also
+still owed; 390px in headless Chrome is driven and clean, and that is not the
+same claim.
+
+📌 If the ฝ่าย's real Golden Period arrives as an embed, it takes the slug
+`golden-period` and the router prefers the EXACT PATH_ROUTES entry — so delete
+the native pane and its entry in the same commit, or the old draft keeps
+winning silently.
+
+---
+
 ## ▶ SESSION 2026-09-01 — the master/professor guard (0176). CLOSED, nothing owed.
 
 Nothing here is half-done. This block exists for the two things a `git log`

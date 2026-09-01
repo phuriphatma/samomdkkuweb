@@ -51,6 +51,7 @@ npm run preview      # serve dist locally on :4173
 | New CSS | `src/css/*.css` (then `@import` from `src/main.css`) |
 | New JS module | `src/js/*.js` (ES module) |
 | A ฝ่าย tool (launcher + ฝ่าย page) | **one entry in `src/data/tools.js`** — never markup in `tab-tools.html`, which is generated |
+| A ฝ่าย's OWN page (they wrote the HTML) | `public/embed/<slug>/` + a `kind:'embed'` entry — copy `public/embed/starter/` |
 | Window-bound function (for `onclick=""`) | Wire in `src/js/main.js` |
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |
@@ -78,9 +79,8 @@ CLASSES + a nine-line directory of which write-up file holds what),
 `.claude/rules/security.md` (key hygiene). Budget enforced in BYTES by
 `npm run check:context`, which `npm test` runs. **Never put a bug write-up, a
 session narrative, or anything that GROWS WITH THE WORK in `.claude/rules/` —
-it is charged to every future session.** The per-entry symptom index used to
-live there and reached 18.5k of its 30k budget before being moved to
-`docs/mistakes/INDEX.md` (2026-08-25); do not move it back.
+it is charged to every future session.** The per-entry symptom index lives in
+`docs/mistakes/INDEX.md`; do not move it back (it reached 18.5k of 30k there).
 
 **READ FIRST, EVERY SESSION — `STATE.md`, then `docs/INVARIANTS.md`.**
 Since the 2026-08-27 split there are four homes and mixing them is what made the

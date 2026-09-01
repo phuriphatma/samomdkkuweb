@@ -208,7 +208,11 @@ it is the part that generalises to code not yet written.
    block-comment regex and `'image/*'` opened a "comment" that blanked 13,839
    chars before any assertion ran (one shared `strip-comments.js` now).
    Two more in `frontend-ui.md`: never measure a container to size the content
-   that sizes it; read the RENDERED dialog — a label is unambiguous only beside
+   that sizes it — **invisible across a FRAME boundary**, where the two halves
+   sit in different documents and neither line looks wrong (a tool reporting
+   `documentElement.scrollHeight` was measuring the iframe the host had just
+   sized, so it could never shrink; tell = dead space that GROWS WITH THE
+   WINDOW, and jsdom has no layout engine to see it); read the RENDERED dialog — a label is unambiguous only beside
    the other buttons. **An ALERT is a dialog too**: a `detail` composed at the
    call site told a human to run `claude setup-token` while the same embed's
    fixed วิธีแก้ said `claude login`, and setup-token is what CAUSES that 403
@@ -302,7 +306,7 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(28)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(17)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(82)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(83)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(17)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.

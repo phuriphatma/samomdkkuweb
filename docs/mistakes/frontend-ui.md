@@ -3302,3 +3302,52 @@ newest instance of: **a change is NOT verified in a view you never opened.**
 Unit tests, a class-existence guard and a bundle grep are all satisfied by a
 page that renders wrong — when the remaining risk is *visual*, the only
 instrument that can see it is a rendered screenshot you actually look at.
+
+## "The tool renders fine" — but ~160px of dead space under it, and every test was green
+
+**Symptom.** The first ฝ่าย tool frame (`/tools/starter`) rendered correctly:
+right chrome, right sandbox, right content, no overflow at any width. Under the
+content, inside the frame's border, sat about 160px of empty white. 24 unit
+tests, `npm run build`, `check:embeds` and the whole 1,615-test suite were
+green. **The screenshot showed it in one look.**
+
+**Cause — the frame was measuring itself.** The host gives a new frame
+`min-height: 70vh` so a tool that never reports a height is still readable. The
+tool reports its height with:
+
+```js
+parent.postMessage({ height: document.documentElement.scrollHeight }, '*');
+```
+
+Inside an iframe, `document.documentElement` **is the frame**. So the tool
+measured the box the host had just sized, and told the host to size the box to
+that — a container sizing the content that sizes it. The number could never
+come out below the 70vh floor, whatever the content was. A tool taller than
+70vh looked perfect; every shorter one carried the difference as dead space.
+
+**Fix.** Measure `document.body.getBoundingClientRect().height` and observe
+`document.body`. The body is laid out by its content and is independent of the
+frame, so the answer is the same at any frame size.
+
+**How it is guarded, and why not where you would expect.** Not by asserting the
+starter uses `body` — that is asserting the fix, not the property, and the next
+tool copied from a different template would slip past it. The property is *the
+same tool reports the same height at two different viewport heights*, and only
+a browser can ask it. `tools/smoke-browser.mjs` now loads the frame at 900px
+and at 400px and requires the two to agree. Falsified: with the old line it
+reports 628 and 467; with the fix, 467 and 467.
+
+**Where it lives now.** `public/embed/starter/index.html` (with the reason, in
+Thai, above the six lines every tool copies), `tools/smoke-browser.mjs` check 9,
+`docs/DEPT-TOOLS.md` §3.
+
+**The general rule — this repo already had it, and I still shipped it.**
+*Never measure a container to size the content that sizes it.* It was written
+here from a different case, and it did not stop this one, because in a
+cross-origin frame the loop is invisible: the two halves are in different
+documents, written by different people, and neither line looks wrong on its own.
+**The tell is that a fault scales with the CONTAINER's size, not the content's**
+— dead space that grows when the window does. And the reason it survived 24
+tests is that a jsdom test has no layout engine at all: it can prove the message
+was sent and cannot prove the number in it means anything. **A frame is a view
+you have not opened until you have looked at it.**

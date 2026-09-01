@@ -254,6 +254,70 @@ await sleep(800);
 const wide = await evalJs('({ s: document.documentElement.scrollWidth, c: document.documentElement.clientWidth })');
 check('no horizontal overflow at 1280px', wide.s <= wide.c + 1, `${wide.s} > ${wide.c}`);
 
+// 9. A ฝ่าย TOOL FRAME, on the DEPLOYED build. docs/DEPT-TOOLS.md §3.
+//
+// Three things no unit test can answer, because all three are properties of a
+// real cross-origin frame in a real layout engine:
+//
+//   · the sandbox that SHIPPED — the unit test asserts the renderer's output,
+//     this asserts the attribute a browser actually parsed out of the bundle;
+//   · the height channel completed — a postMessage crossed an opaque origin
+//     and the host released its CSS floor. In jsdom there is no frame at all;
+//   · **the reported height does not follow the FRAME.** The first version of
+//     the starter reported `documentElement.scrollHeight`, which inside a
+//     frame is the frame's own height — so it measured the container in order
+//     to size the container, could never shrink, and left ~160px of dead space
+//     under short content. Nothing on the DOM side could see it; opening the
+//     page could. The property is that the same tool reports the SAME height
+//     at two viewport heights, and it is falsifiable in one line.
+//
+// The slug comes from the registry, never typed here: a hardcoded subject that
+// rots is one of this repo's named guard failures.
+const { embedTools } = await import('../src/data/tools.js');
+const embed = embedTools()[0];
+if (!embed) {
+  console.log('  note  no kind:\'embed\' tools in the registry — frame checks skipped');
+} else {
+  const frameUrl = `${URL_.replace(/\/$/, '')}/tools/${embed.slug}`;
+  const measure = async (h) => {
+    await send('Emulation.setDeviceMetricsOverride',
+      { width: 1280, height: h, deviceScaleFactor: 1, mobile: false }, sessionId);
+    await send('Page.navigate', { url: frameUrl }, sessionId);
+    await sleep(3000);
+    return evalJs(`(() => {
+      const f = document.getElementById('toolFrame');
+      if (!f) return null;
+      return {
+        sandbox: f.getAttribute('sandbox') || '',
+        src: f.getAttribute('src'),
+        height: Math.round(f.getBoundingClientRect().height),
+        floorReleased: f.style.minHeight === '0' || f.style.minHeight === '0px',
+      };
+    })()`);
+  };
+
+  const tall = await measure(900);
+  check(`the tool frame rendered at /tools/${embed.slug}`, tall !== null,
+    'no #toolFrame in the DOM — the embed route did not reach the frame host');
+
+  if (tall) {
+    check('the SHIPPED frame has no allow-same-origin', !tall.sandbox.includes('allow-same-origin'),
+      `sandbox="${tall.sandbox}" — the frame is back on the site's origin and can `
+      + 'read the session, the parent DOM and cookies. That word is the whole model');
+    check('the frame is sandboxed at all', tall.sandbox.includes('allow-scripts'),
+      `sandbox="${tall.sandbox}"`);
+    check('the height channel crossed the opaque origin', tall.floorReleased === true,
+      'the host never released its CSS floor, so no usable height message arrived — '
+      + 'the tool is stuck at 70vh and scrolls internally');
+
+    const short = await measure(400);
+    check('the reported height follows the CONTENT, not the frame',
+      short !== null && short.height === tall.height,
+      `${tall.height}px in a 900px viewport but ${short?.height}px in a 400px one — `
+      + 'the tool is measuring documentElement (which IS the frame) instead of body');
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${URL_})`);
 ws.close();
 chrome.kill();

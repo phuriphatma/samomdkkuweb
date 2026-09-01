@@ -53,13 +53,20 @@
   document.getElementById('sortBtn').addEventListener('click', function () { desc = !desc; draw(); });
   draw();
 
-  // ---- อย่าลบหกบรรทัดนี้ ---------------------------------------------
+  // ---- อย่าลบส่วนนี้ --------------------------------------------------
   // บอกความสูงของหน้าให้เว็บแม่รู้ ไม่งั้นกรอบจะสูงค้างที่ 70% ของจอ
   // (เว็บแม่วัดความสูงเองไม่ได้ เพราะกรอบนี้ถูกกันออกจากกันด้วย sandbox)
+  //
+  // ⚠️ ต้องวัดจาก body เท่านั้น ห้ามใช้ documentElement.scrollHeight
+  //    เพราะ documentElement สูงเท่ากรอบที่เว็บแม่ตั้งไว้ (70% ของจอ)
+  //    เลยกลายเป็น "วัดกรอบ เพื่อไปตั้งขนาดกรอบ" — ค่าจะไม่มีวันเล็กลง
+  //    และหน้าที่เนื้อหาสั้นจะมีที่ว่างค้างอยู่ข้างล่าง (เจอจริงตอนเปิดดู)
+  //    body สูงตามเนื้อหาเสมอ ไม่ขึ้นกับขนาดกรอบ
   function reportHeight() {
-    parent.postMessage({ type: 'samo-embed-height', height: document.documentElement.scrollHeight }, '*');
+    var h = Math.ceil(document.body.getBoundingClientRect().height);
+    parent.postMessage({ type: 'samo-embed-height', height: h }, '*');
   }
-  new ResizeObserver(reportHeight).observe(document.documentElement);
+  new ResizeObserver(reportHeight).observe(document.body);
   window.addEventListener('load', reportHeight);
 </script>
 

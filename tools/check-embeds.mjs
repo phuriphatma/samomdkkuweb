@@ -14,23 +14,13 @@
 // nobody can open, and miss an entry whose folder was never created.
 // ============================================================
 
-import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { embedTools } from '../src/data/tools.js';
 import { checkEmbedFolder } from '../src/js/embed-checks.js';
+import { readEmbedFolder } from './embed-fs.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-
-/** Read one folder into { name: contents }, recursing one level for assets. */
-export function readEmbedFolder(dir) {
-  const files = {};
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) continue;
-    files[entry] = readFileSync(full, 'utf8');
-  }
-  return files;
-}
 
 const tools = embedTools();
 let problems = [];

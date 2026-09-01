@@ -121,7 +121,7 @@ Open when: writing a migration.
 - A carried passport student would have signed in to 0 km
 - A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(82)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(83)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -207,6 +207,7 @@ Open when: markup, modals, layout, touch, icons.
 - A SyntaxError blamed on the DOCUMENT, in a page whose own scripts all parse
 - A second markup site for the same navigation had no handler, so it full-reloaded
 - The สถิติ quota panels had 29 tests and had never been LOOKED at
+- "The tool renders fine" — but ~160px of dead space under it, and every test was green
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -325,4 +326,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
 
-_268 entries across 9 files._
+_269 entries across 9 files._

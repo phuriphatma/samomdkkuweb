@@ -15,20 +15,17 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
-00. ✅ **หนังสือโครงการ — a `master` could change NOTHING on a หนังสือ but a
-    comment; FIXED by 0176**, and the sweep after it found the same shape in
-    the two GUEST forms (`rest-error.js`). ⚠️ **The rule this bought: a grant
-    that folds one account into several identities widens every predicate that
-    GRANTS and INVERTS every predicate that DENIES.** Enumerate the raising
-    triggers before adding one. Write-ups: `authz-rls.md`,
-    `supabase-client.md`. Proof `proj0176-master-desk.sql` (22/22).
+00. ✅ **หนังสือโครงการ — a `master` could change NOTHING but a comment; FIXED
+    by 0176** (proof `proj0176-master-desk.sql`, 22/22; the sweep after it also
+    fixed the two GUEST forms, `rest-error.js`). ⚠️ The rule it bought — a
+    grant folding one account into several identities INVERTS every predicate
+    that DENIES — is class 5 in `.claude/rules/mistakes.md`.
 
 01. ✅ **PASSPORT — 0174's trigger would have zeroed a carried student's km on
     signup; FIXED by 0175, zero students affected.** `postgres-schema.md`.
 
 02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on** (guard:
-    `preview-docs.test.js`). **`docs/TEAM-WORKFLOW.md` §9 = the checklist of
-    files a landed phase must correct.**
+    `preview-docs.test.js`). `docs/TEAM-WORKFLOW.md` §9 = the landed-phase checklist.
 
 03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`**, the address to
     give people. The old CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY
@@ -111,10 +108,9 @@ TRUE. That is what the grep is for.
   already enabled — **ask the DATABASE, never this file, for runtime state**:
   `select monitoring_enabled, monitoring_changed_at from public.claude_settings`.
 - `monitoring_note` still holds the old pause reason — not shown while
-  measurement is on, and used correctly by the monitor-on notice. Leave it.
-- **`claude_bookings` is still EMPTY** — deployed, granted, unused.
-- ⚠️ **Ask the DATABASE, never this file, for runtime state.** Last checked
-  2026-08-27, healthy. `tools/db-query.mjs` takes a FILE, not an inline string.
+  measurement is on, used correctly by the monitor-on notice. Leave it.
+  `claude_bookings` is deployed and granted but still EMPTY.
+- ⚠️ **Ask the DATABASE for runtime state, never this file.** `db-query.mjs` takes a FILE.
 
 ---
 
@@ -147,11 +143,16 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    `<hash>.<project>.pages.dev` serves them — deleting the projects is the only
    complete fix.**
 
-1. **The ฝ่าย tools slot — HALF BUILT.** ✅ `src/data/tools.js` is the one
-   registry; the launcher and every ฝ่าย page render from it, guarded by
-   `tools-registry.test.js` (§13 step 6). ❌ Still missing: `public/embed/` +
-   the frame, the starter kit (§13 steps 9–11), and step 5's check on a real
-   phone. `docs/DEPT-TOOLS.md` §13 has the order.
+1. ✅ **THE ฝ่าย TOOLS LANE IS BUILT — §13 steps 6 and 9–11 all done.** A ฝ่าย
+   copies `public/embed/starter/` and opens a `tool/*` PR; it lands at
+   `/tools/<slug>` in a sandboxed frame. `check:embeds` + `check:tool-boundary`
+   are steps in the REQUIRED `build` job.
+   ⛔ **THE ISOLATION IS ONE MISSING WORD** — `allow-same-origin` is absent
+   from the sandbox; adding it looks like a fix and deletes the model. Guarded
+   on the rendered markup AND the deployed bundle (`smoke:browser` check 9).
+   ❌ **What is left is NOT code: §13 step 8, onboard two people** — the
+   machinery is finished and nobody has been taught it. Also owed: step 5 on a
+   REAL phone (390px is driven and clean; a device is not the same thing).
 2. ✅ **THE DEPLOY HANG IS NOT REPRODUCING** — two full runs on 2026-08-31,
    both ~7 min, both exit 0. Treat `deploy.sh` as working; give it a 900 s
    ceiling. ⛔ The prescribed diagnostic was BLIND: `deploy.sh` re-execs itself
@@ -196,12 +197,12 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   dev** (owner: §B1).
 - **The docs site is `docs/` RENDERED, not the status.** `STATE.md` stays at the
   repo root on purpose; nothing secret goes in `docs/`.
-- **ฝ่าย tools — THE WORKFLOW IS ON, the REGISTRY IS BUILT, the FRAME IS NOT.**
+- **ฝ่าย tools — THE WORKFLOW, THE REGISTRY AND THE FRAME ARE ALL LIVE.**
   Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
-  re-litigated) — do not work from this bullet. ✅ Live: branch protection,
+  re-litigated) — do not work from this bullet. Also live: branch protection,
   `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
   and **Golden Period at `/tools/golden-period`, which is THEIRS to PR against**.
-  ❌ NOT built: the pieces in A1 above.
+  ⛔ Lane C (a tool that reads real data) is still HARD-BLOCKED on §13 step 15.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
   Read `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still

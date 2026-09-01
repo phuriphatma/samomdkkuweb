@@ -323,9 +323,26 @@ guarded by a test (§8), not by a comment.
 
 Height: the frame posts its height on a `ResizeObserver`; the parent verifies
 `event.source === iframe.contentWindow` (the origin is `null`, so origin cannot
-be the check) and sets the height. If no message arrives within 2 s, the frame
-falls back to `min-height: 70vh` and scrolls internally. **Six lines, in the
-starter template, written once, reused by every tool.**
+be the check) and sets the height. **Six lines, in the starter template, written
+once, reused by every tool.**
+
+⚠️ **TWO CORRECTIONS FROM BUILDING IT (2026-09-01). Both were wrong in the
+paragraph above, and only one was findable without opening the page.**
+
+1. **There is no 2-second fallback timer.** The floor is `min-height: 70vh` in
+   CSS from the first paint, released only when a real height arrives. Same
+   outcome, and it deletes a failure shape this repo has paid for: a
+   timer-driven fallback fires on the slow-but-working case, and one that
+   cannot be withdrawn is worse than none (the boot watchdog,
+   `docs/mistakes/frontend-ui.md`). A late message is simply applied.
+
+2. **The tool must measure `body`, never `documentElement.scrollHeight`** —
+   and the starter did the wrong one first. Inside a frame, `documentElement`
+   IS the frame, so the tool measured the container in order to size the
+   container: the number could never shrink below the 70vh floor, and short
+   content sat above ~160px of dead space. **Every test passed. The screenshot
+   showed it.** The property is now guarded where it is visible — the browser
+   smoke reports the height at two viewport heights and requires them equal.
 
 ### What the frame cannot do — say this in the brief, not in review
 
@@ -814,16 +831,19 @@ Reordered 2026-08-27 for D4–D7. **Framing: this is not a plan beside
 | 6 | `src/data/tools.js` registry + differential test; migrate `DEPT_DEFS` and `tab-tools.html` | ✅ **DONE 2026-08-31.** One renderer (`src/js/tool-card.js`) serves both consumers; `tab-tools.html` ships an empty grid. `dept-tool-mirror.test.js` is GONE, replaced by `tools-registry.test.js`, which keeps both of its properties and ratchets that no card is hand-written beside the registry |
 | 7 | Golden Period **draft** — OPTIONAL (D8). Deliberately plain: วิธีอ่านค่า, the calendar embed, a button to the sheet. Says on the page that it is a placeholder | ~1 session |
 | 8 | **Onboard TWO contributors** — each ending in a merged practice PR (§10.5) | 45 min × 2 |
-| 9 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ~1 session |
-| 10 | Starter kit + `BRIEF-TEMPLATE.md` + `TOKENS.css` | ~1 session |
-| 11 | Boundary CI on `tool/*` branches | ~30 min |
+| 9 | The frame: `/tools/<slug>` host, height channel, sandbox test, `check:embeds` | ✅ **DONE 2026-09-01.** `src/js/tool-frame.js` + one shared pane; `kind:'embed'` in the registry stores NO path (the slug IS the route). Driven in a real browser at 390 and 1200, and the browser is what found the one bug the unit tests could not — see §3 |
+| 10 | Starter kit + `TOKENS.css` | ✅ **DONE 2026-09-01** — `public/embed/starter/`: a working tool, `TOKENS.css`, a Thai `README.md`, and a scoped `CLAUDE.md` (§7's contract, as a file in the folder). It is also a live route at `/tools/starter`, listed nowhere, so the mechanism always has a real subject. ⏳ `BRIEF-TEMPLATE.md` folded into the README rather than written twice |
+| 11 | Boundary CI on `tool/*` branches | ✅ **DONE 2026-09-01** — `npm run check:tool-boundary`, a step inside the REQUIRED `build` job. Not its own workflow: a required check with nothing to report on every non-tool branch blocks every other PR |
 | 12 | ⚙️ Preview builds for `tool/*` (pulled forward from phase 3) | ~2 h |
 | 13 | **Golden Period — THEIRS**, built with Claude, arriving as a pull request | review only |
 | — | **Read-only BI for "we want to see the numbers"** (§1c) | ~half a day, independent — **probably before 15** |
 | 14 | ⚙️ `TEAM-WORKFLOW` phase 1 — the `samo-dev` database | ~2 h + its own blockers |
 | 15 | **Lane C**: `src/js/data/` doors + the first data tool | ~2 sessions. **Hard block on 14 — §10.3** |
 
-Steps 6 + 7 are one batch and one deploy; 9–11 are the second. **Step 15 must
+Steps 6 + 7 were one batch and one deploy; 9–11 were the second (2026-09-01).
+**What is left before a ฝ่าย can actually use this: step 8, onboarding two
+people.** The machinery is finished and nobody has been taught it — which is
+the state this whole document was written to avoid. **Step 15 must
 not start early**: opening the data lane without a dev database points
 contributors at production student records.
 
@@ -834,10 +854,13 @@ contributors at production student records.
 Left alone deliberately until the phase lands — a document that describes a plan
 as though it were real is the failure this repo keeps paying for.
 
-- **`CONTRIBUTING.md`** — "touch zones" gains `public/embed/**` (peer approval)
-  and `src/data/tools.js` (owner).
-- **`CLAUDE.md`** — the file-placement table gains a row: *a ฝ่าย tool →
-  `public/embed/<slug>/`, see `docs/DEPT-TOOLS.md`*.
+- ✅ **The touch-zones table** gains `public/embed/**` (peer approval) and
+  `src/data/tools.js` (owner). **Done 2026-09-01 — in `docs/contributing.md`,
+  which is where that table now lives.** ⚠️ This bullet said `CONTRIBUTING.md`,
+  written when it did; that file has since become a pointer at the docs site
+  and holds no table at all. Edit the page a contributor actually reads.
+- ✅ **`CLAUDE.md`** — the file-placement table gains a row: *a ฝ่าย tool →
+  `public/embed/<slug>/`, see `docs/DEPT-TOOLS.md`*. **Done 2026-09-01.**
 - **`README.md`** — "Key features", when the Golden Period page ships (a student notices it), whether it is the draft or theirs.
 - **`src/data/changelog.js`** — a `PENDING` entry in the same commit as the Golden Period page,
   in plain Thai: what you can now see, and what you no longer have to open a

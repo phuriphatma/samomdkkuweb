@@ -61,22 +61,36 @@ GitHub requests the right reviewer automatically, so you do not need to contact 
 
 A ฝ่าย can build its own tool page using the same process as the development team. The only difference is who approves it.
 
-::: tip Half of this is built now
-**`src/data/tools.js` EXISTS** (since 2026-08-31). It is the one list of ฝ่าย
-tools, and both the เครื่องมือ launcher and every ฝ่าย page are drawn from it.
-Adding a tool that links somewhere — a tab, an in-app route, an external site —
-is **one entry in that file**, and it appears in both places at once.
+::: tip This is built — you can start today
+**Copy `public/embed/starter/`** to a folder named after your tool, edit
+`index.html` and `data.js`, and open a pull request from a branch called
+`tool/<your-tool>`. **Double-click `index.html` to see your work** — there is
+nothing to install and no build step.
 
-**Still not built: the embedded frame.** `public/embed/` does not exist, so a
-page of your own that runs *inside* the site cannot be added yet. If your ฝ่าย
-wants one, say so — a real request is what should decide its shape.
+The folder's own `README.md` is the full guide, and `CLAUDE.md` beside it is
+what to hand Claude if you build it that way.
 :::
+
+Your page runs in an **isolated frame**, which is what lets a teammate approve
+it in thirty seconds instead of the owner reading every line. It means the page
+cannot read the signed-in user, the database, or `localStorage` — so the numbers
+live in `data.js`, in your folder, and updating them is a pull request you can
+see the diff of.
 
 | Location | Approval it needs | Exists? |
 |---|---|---|
-| `src/data/tools.js` — one entry per tool | The project owner | ✅ yes |
-| `public/embed/` — a page in an isolated frame | Any collaborator | ❌ not yet |
-| `src/tools/` — a tool inside the app bundle | The project owner | ❌ not yet |
+| `public/embed/<slug>/` — your page, in an isolated frame | Any collaborator | ✅ yes |
+| `src/data/tools.js` — the one entry that puts it on the site | The project owner | ✅ yes |
+| `src/tools/` — a tool inside the app bundle, able to read app data | The project owner | ❌ not yet |
+
+A `tool/*` branch may change **only** those first two paths, and CI enforces it.
+That limit is the reason the approval can be quick. Check your own branch before
+pushing:
+
+```bash
+npm run check:embeds          # your folder obeys the rules
+npm run check:tool-boundary   # your branch stays inside the lane
+```
 
 Design and decisions — [Department tools](/DEPT-TOOLS).
 

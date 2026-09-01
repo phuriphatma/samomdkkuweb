@@ -98,9 +98,17 @@ export function checkEmbedFolder({ slug, files }) {
 // about the entry. Two different questions, deliberately in two places.
 // ---------------------------------------------------------------------------
 
-/** Paths a `tool/*` branch may change. */
+/** Paths a `tool/*` branch may change.
+ *
+ * ⚠️ The folder pattern reaches to ANY DEPTH on purpose. A first version
+ * allowed exactly one level, which would have rejected a tool that keeps its
+ * images in `img/` — a guard that fires on the healthy case, and the author
+ * would have had no idea why. The matching obligation is that the SCANNER
+ * reaches the same depth: a rule that permits `x/img/evil.js` while
+ * `checkEmbedFolder` only reads the top level is a hole shaped exactly like
+ * the permission. Both walk the whole tree. */
 export const TOOL_LANE = [
-  /^public\/embed\/[a-z0-9][a-z0-9-]*\/[^/]+$/,   // a tool's own folder
+  /^public\/embed\/[a-z0-9][a-z0-9-]*\/.+$/,      // a tool's own folder, at any depth
   /^src\/data\/tools\.js$/,                       // the one registry entry
 ];
 
