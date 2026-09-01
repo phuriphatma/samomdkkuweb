@@ -47,8 +47,7 @@ TRUE. That is what the grep is for.
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
 - ✅ **DEPLOYED = `8630a72` (2026-09-01)** — app and docs BOTH published by
-  `deploy.sh` itself, no hand step. ⚠️ `4490dee` (one JS fix) is NOT deployed;
-  run `npm run deploy:owed`, it will say so. Verified from the
+  `deploy.sh` itself, no hand step. Verified from the
   SERVED artifact, with a string UNIQUE to the change and an old one as control
   — a shared phrase scored a stale page as fresh earlier today.
   ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **12 runs, 8
@@ -65,7 +64,7 @@ TRUE. That is what the grep is for.
   control. Both traps are in `skills/deploy-vm.md`. Done for `8630a72`.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
-  the whole recipe is `skills/deploy-vm.md`. Previous: `cd6ca11`, `defa9d9`.
+  the whole recipe is `skills/deploy-vm.md`. Previous: `d8bb52d`, `cd6ca11`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
@@ -82,8 +81,6 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- ✅ **The สถิติ panels HAVE now been driven** (2026-08-29) and the two layout
-  faults it found are fixed and deployed. `docs/state/phuriphatma.md`.
 - **Migrations through 0178. ALL 29 LIVE PROOFS GREEN**, re-run 2026-09-01
   after 0178 reached production. ⚠️ The proof count is guarded against
   `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
@@ -119,7 +116,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    Protection and Pages survived; `@samomdkku/maintainers` owns all sixteen
    `CODEOWNERS` paths instead of a person; identity repointed; Cloudflare
    reconnected; the VM's remote repointed and proven by a deploy.
-   **`node tools/repo-protection.mjs` — all 13 pass.** ⛔ Org 2FA is OFF by
+   **`node tools/repo-protection.mjs` — all 27 pass** (it was 13 until the
+   Cloudflare check learned to enumerate the whole account). ⛔ Org 2FA is OFF by
    OWNER DECISION. ⚠️ **A transfer WIPES ruleset bypass actors** — it refused
    the next push while the proof read all-green (§5d).
    ❌ **Last box, §10: someone who is NOT the owner must add a person to a team
@@ -134,31 +132,29 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    `<hash>.<project>.pages.dev` serves them — deleting the projects is the only
    complete fix.**
 
-1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE IN THE APP — no commit, no deploy (0177).**
+1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178).**
    เมนู "หน้าฝ่าย" in /admin/: cards, links, covers, and **their own HTML**.
-   ⛔ The HTML is rendered VERBATIM in an opaque-origin frame and is
-   deliberately NOT sanitised — `innerHTML`-ing it is the vulnerability, not
-   the absence of a filter (`dept-content.test.js`). ⚠️ A page editor can still
-   publish a convincing FAKE sign-in form on a real samo.md.kku.ac.th page;
-   the controls are the grant and `updated_by`. Grant = a 6th scope dimension
-   mirroring vs_dept, EXCLUSIVE with its blanket key (0083). Proof
-   `dept0177-page-scope.sql` 23/23; whole chain driven in a browser.
-   ✅ **AND the ฝ่าย TOOLS LANE — §13 steps 6 and 9–11.** A ฝ่าย copies
-   `public/embed/starter/` and opens a `tool/*` PR; it lands at
-   `/tools/<slug>` in a sandboxed frame. `check:embeds` + `check:tool-boundary`
-   are steps in the REQUIRED `build` job.
-   ⛔ **THE ISOLATION IS ONE MISSING WORD** — `allow-same-origin` is absent
-   from the sandbox; adding it looks like a fix and deletes the model. Guarded
-   on the rendered markup AND the deployed bundle (`smoke:browser` check 9).
-   ❌ **What is left is NOT code: §13 step 8, onboard two people** — the
-   machinery is finished and nobody has been taught it. Also owed: step 5 on a
-   REAL phone (390px is driven and clean; a device is not the same thing).
-2. ✅ **THE DEPLOY HANG IS NOT REPRODUCING** — two full runs on 2026-08-31,
-   both ~7 min, both exit 0. Treat `deploy.sh` as working; give it a 900 s
-   ceiling. ⛔ The prescribed diagnostic was BLIND: `deploy.sh` re-execs itself
-   after pulling, so `bash -x` instruments only the first two seconds
-   (`skills/deploy-vm.md`). If it recurs, `set -x` INSIDE the script.
-3. ⏳ **PASSPORT ON THE DEV SERVER — 2 of 4 steps left.** samo-dev
+   ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → a `tool/*` PR →
+   `/tools/<slug>`. Both are LIVE; do not rebuild either.
+   ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** — `allow-same-origin` is
+   absent from the sandbox, so a ฝ่าย's HTML reaches nothing. Adding it looks
+   like a fix and deletes the model. It is why the HTML is deliberately NOT
+   sanitised; `innerHTML`-ing it is the vulnerability, not the missing filter.
+   Guarded on the rendered markup AND the deployed bundle.
+   ⚠️ **OWNER-FACING RISK, not a bug: an editor can publish a convincing FAKE
+   sign-in form on a real page.** Controls = the grant + `updated_by`. Weigh it
+   before widening the grant.
+   ❌ **What is left is NOT code: §13 step 8, teach two people**, and step 5 on
+   a REAL phone. Detail: `docs/state/phuriphatma.md` + `docs/DEPT-TOOLS.md`.
+2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT, and this entry used to say the
+   opposite.** It read "NOT REPRODUCING, treat deploy.sh as working" while the
+   block above it counted four failures; an intermittent fault is never
+   disproven by successes. ✅ The diagnostic it asked for is now PERMANENT:
+   `set -x` inside the script, writing `~/samo-deploy-logs/<stamp>.trace` on the
+   VM. **Read the log before forming any theory — every theory so far was
+   formed without one.** Status, tally and how to read a log live in ONE place,
+   the CURRENT DEPLOY block above; do not restate them here.
+3. ⏳ **PASSPORT ON THE DEV SERVER — steps 1, 3 and 4 remain; step 2 is done.** samo-dev
    now EXPOSES the `passport` schema (it always held the data), so dev answers
    exactly as production. Owner did Part A; **Part B — reconnect the
    `samomdkkupassport` Pages project in the DASHBOARD — is not done.**
@@ -212,8 +208,9 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 - **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
 - `docs/NEXT.md` carries the rest. Genuinely un-started: §0c (two latent
   role-only policies, deliberately not swept), §0a (ทีม SAMO admin model, PARKED
-  by the owner), §0b2 + §1 (the browser pass), §0 (`photo_reference_count()`
-  cannot see `houses.icon_url`).
+  by the owner), §0b2 + §1 (the browser pass). ⚠️ Its §0
+  (`photo_reference_count()` cannot see `houses.icon_url`) is **already FIXED**
+  — read from `pg_get_functiondef`, 2026-09-01. 0178 added the ฝ่าย covers too.
 
 ---
 
@@ -221,8 +218,10 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 1. **This file**, top to bottom. Read all of it.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-3. **`docs/state/phuriphatma.md`** — its newest block names what was found and
-   deliberately NOT fixed; the one below it, the claims most often got wrong.
+3. **`docs/state/phuriphatma.md` — its TOP block, "HANDOFF 2026-09-01, END OF
+   SESSION"**. It names the four things most likely to be misunderstood, what is
+   owed and by whom, and what was deliberately NOT verified. Everything below
+   that block is history.
 4. Only then, the archive file for whatever you are about to touch.
 
 **What waits on the owner is section B above — do not restate it here.** These
@@ -237,14 +236,15 @@ in plain language:
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
 | 6 | ~~Move to a GitHub organisation?~~ ✅ **DONE 2026-08-31 except Cloudflare.** Both repos are in the org, `CODEOWNERS` names a team, Copilot is unaffected (org holds 0 seats — never buy any). ⛔ Do not re-litigate | `skills/move-the-repo-to-an-organisation.md` §0a | **One thing left needs the dashboard: reconnect Cloudflare Pages (§5a), or previews stay dead** |
-| 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. (HOW they get rebuilt is status, not a decision — see the CURRENT DEPLOY block above; `deploy.sh` hangs at that step today.) ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |
+| 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. (HOW they get rebuilt is status, not a decision — the CURRENT DEPLOY block above is its one home; do not restate it here.) ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |
 
 ⛔ **Previews are NOT on this list — they were DECIDED long ago** (§1 + D8:
 per-PR, Cloudflare Pages). A session re-opened them on 2026-08-27 and wasted a
 round trip. **Check `docs/TEAM-WORKFLOW.md` §0/§1 before asking anything.**
 
-One thing to OFFER rather than assume: **build the FRAME for ฝ่าย tools?** (A1 —
-the registry landed 2026-08-31; the frame is the half still missing).
+⛔ **Do not offer to "build the ฝ่าย tools frame" — it is BUILT** (2026-09-01),
+and so is the หน้าฝ่าย editor beside it. What is left there is §13 step 8:
+teaching two people. See A1.
 📌 Golden Period itself is THEIRS — IT only drafted it; hand the route over when
 their version lands. An IT-built page is a page IT owns, which is the bottleneck
 that design removes.

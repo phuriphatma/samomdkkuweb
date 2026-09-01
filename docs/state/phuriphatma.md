@@ -16,6 +16,85 @@ path named here must resolve.
 
 ---
 
+## ▶ HANDOFF 2026-09-01, END OF SESSION — read this before anything else
+
+**Everything below in this file is history. This block is the state.**
+
+### Nothing is half-finished. Nothing is uncommitted. Nothing is undeployed.
+
+`git status` clean · `npm test` 1,636 green · `npm run proofs` 29 green ·
+`npm run deploy:owed` says production is current · `npm run migrate:status`
+0 pending. **Verify these rather than believing them** — that is the point of
+naming the commands instead of the numbers.
+
+### What shipped today, in order
+
+1. **The deploy's docs step finally leaves evidence.** It failed 4 of the first
+   6 runs with no diagnosis, because the ssh command's own `grep` deleted the
+   failing step's output. `deploy.sh` now writes every run to
+   `~/samo-deploy-logs/` on the VM. ⛔ **A healthy run is 30 SECONDS** — so the
+   "clean ~7-minute runs" the hang was once declared dead on were 14× baseline.
+2. **The pages.dev database guard asked ONE project of three.** One of the other
+   two (`refactorsamomdkkuweb`, retired but still branch-connected) held the
+   LIVE production URL and anon key. Guard + `npm run cf:pin-dev` now enumerate
+   the whole Cloudflare account.
+3. **The ฝ่าย tool FRAME** (DEPT-TOOLS §13 steps 9–11) — the GitHub road.
+4. **หน้าฝ่าย, the admin editor** (0177) — the road that removes the owner.
+   0178 taught `photo_reference_count` about ฝ่าย covers.
+
+### ⛔ THE FOUR THINGS MOST LIKELY TO BE MISUNDERSTOOD
+
+1. **"ฝ่าย tools" means TWO different roads and both now exist.** The FRAME is
+   for a ฝ่าย that writes a whole page and sends a pull request. หน้าฝ่าย is for
+   a ฝ่าย that edits content in the app with no deploy. **Neither needs
+   rebuilding.** I built the frame first and the owner's reaction —
+   *"so what have you done, i dont see nothing"* — was correct: the frame does
+   not remove them from the loop, and §13 is an ORDER, not a priority.
+2. **The ฝ่าย HTML is NOT sanitised and MUST NOT BE.** It renders in a frame
+   with no `allow-same-origin`. Anyone "hardening" this by filtering the HTML,
+   or "simplifying" it with `innerHTML`, has inverted it. `dept-content.test.js`
+   goes red both ways.
+3. **`docs/NEXT.md` §0 is ALREADY FIXED** (`photo_reference_count` sees
+   `houses.icon_url`, since 0146 — read from `pg_get_functiondef` today). Do not
+   spend a session on it. NEXT.md has not been corrected; STATE.md says so.
+4. **A scoped grant holds NO permission key.** A person granted one ฝ่าย has
+   `permissions = {}` and only `managed_dept_pages = {that ฝ่าย}`. Every gate
+   must accept both shapes — the eleven of them are itemised in
+   `docs/mistakes/authz-grants.md` under "A SIXTH scope dimension".
+
+### What is genuinely OWED — and by whom
+
+**Needs the owner, cannot be done from here:**
+- Delete the two retired Cloudflare Pages projects. Repointing their variables
+  only affects the NEXT build; existing deployments still serve the old
+  database at `<hash>.<project>.pages.dev`. **Destructive, so it was not done.**
+- Reconnect `samomdkkupassport` in the Cloudflare dashboard (passport-on-dev
+  step 1; steps 3 and 4 are blocked behind it).
+- Reset the Discord bot token; the dev Apps Script deployment; the GitHub
+  project board; eyes on the dev-channel notification test.
+- **§13 step 8 — teach two ฝ่าย people.** The machinery is finished and nobody
+  has been taught it, which is the exact state DEPT-TOOLS was written to avoid.
+- Decisions: password reset · เกี่ยวกับเรา mobile demo · the boot bar branch ·
+  succession step 0 · whether `prof_can_see_document()` should be narrowed.
+
+**Buildable by the next session, nobody blocking:**
+- Step 5: check the ฝ่าย pages on a REAL phone (390px headless is clean; a
+  device is not the same claim).
+- The browser pass: VS staff modal, ประกาศ drafts, อาจารย์ signature queue,
+  shop checkout (`docs/NEXT.md` §1).
+- `docs/NEXT.md` §0c: two latent role-only policies, deliberately not swept.
+
+### ⚠️ What I did NOT verify, so nobody claims I did
+
+- **หน้าฝ่าย was driven on samo-dev, not on production.** The proof ran on both;
+  the BROWSER run was dev only, with a probe account since deleted. Nobody has
+  opened the real editor as a real ฝ่าย member yet.
+- **No ฝ่าย has been given the grant.** `dept_content` holds only the four
+  ฝ่ายบริหารองค์กร cards migrated out of the code. Until someone is granted, the
+  feature is live and unused.
+
+---
+
 ## ▶ SESSION 2026-09-01c — หน้าฝ่าย: a ฝ่าย edits its own page (0177/0178)
 
 **Read the commit `d8bb52d` message first — it is the real handoff.** This block
