@@ -46,7 +46,7 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `d8bb52d` (2026-09-01)** — app and docs BOTH published by
+- ✅ **DEPLOYED = `8630a72` (2026-09-01)** — app and docs BOTH published by
   `deploy.sh` itself, no hand step. ⚠️ `4490dee` (one JS fix) is NOT deployed;
   run `npm run deploy:owed`, it will say so. Verified from the
   SERVED artifact, with a string UNIQUE to the change and an old one as control
