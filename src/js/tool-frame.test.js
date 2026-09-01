@@ -134,6 +134,24 @@ describe('an embed route reaches the frame', () => {
     expect(card).toContain(`href="/tools/${t.slug}"`);
   });
 
+  it('no embed slug is shadowed by an exact PATH_ROUTES entry', () => {
+    // pathToTab matches PATH_ROUTES FIRST, so an embed whose slug collides with
+    // a hand-written route silently never renders — the OLD page keeps winning
+    // and nothing reports it. The live case: /tools/golden-period is a native
+    // pane today, and the ฝ่าย's real version is expected to arrive as an embed
+    // under that exact slug. Delete the pane and its route in the SAME commit.
+    const routes = [...main.matchAll(/\{\s*path:\s*'([^']+)'/g)].map((m) => m[1]);
+    const shadowed = embedTools()
+      .filter((t) => routes.includes(`/tools/${t.slug}`))
+      .map((t) => `/tools/${t.slug}`);
+    expect(shadowed, [
+      'An embed slug collides with an exact route in PATH_ROUTES. The exact',
+      'match wins, so the embed is unreachable and the old page renders in its',
+      'place — with no error anywhere. Remove the PATH_ROUTES entry and its',
+      'pane, or give the embed a different slug.',
+    ].join('\n')).toEqual([]);
+  });
+
   it('an embed stores no path — the slug IS the route', () => {
     for (const t of embedTools()) {
       expect(t.path, `${t.slug} carries a path as well as a slug`).toBeUndefined();
