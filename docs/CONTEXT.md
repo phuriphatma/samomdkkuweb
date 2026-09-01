@@ -1106,6 +1106,43 @@ student's own card on the home page). Permission key `house` is threaded through
 `PERM_CATALOG`, `ADMIN_FEATURES`, `PERM_SECTION`, `SECTION_META`, `SIDE_FEATURE`
 and the sidebar.
 
+## หน้าฝ่าย — a ฝ่าย edits its own page (migrations 0177–0178)
+
+**Why it exists.** Every ฝ่าย page's content used to live in `DEPT_DEFS`, a
+hardcoded object in `src/js/departments.js`: six ฝ่าย, of which exactly ONE had
+any content. Changing a link was a commit plus a deploy by the owner.
+`docs/DEPT-TOOLS.md` §12 predicted the shape and the cost — *content is DATA,
+tools are CODE* — so 0177 moved the cards into a table.
+
+| Piece | Where |
+|---|---|
+| The content | `public.dept_content` — `kind` is `'card'` or `'html'`, ordered by `position`, `visible` hides without deleting |
+| The ฝ่าย list (identity: name, icon, colour) | `src/data/depts.js` — ONE home, read by the page, the editor and the grant picker |
+| The public renderer | `src/js/dept-content.js` |
+| The editor | `src/js/dept-page-admin.js`, pane `data-admin-pane="deptpage"` |
+| The grant | `team_nodes.dept_page` / `team_members.dept_page` → `users.managed_dept_pages` → `current_user_dept_page_scope()` |
+
+⛔ **A `kind='html'` row is rendered VERBATIM into an iframe `srcdoc` with a
+sandbox that omits `allow-same-origin`** — an opaque origin, so it cannot reach
+the session, the parent DOM, cookies or `localStorage`. **It is deliberately not
+sanitised**: isolation is a property of the container, sanitising is a guess
+about the content. Rendering a row's `html` into the page itself is the
+vulnerability, not the absence of a filter. `dept-content.test.js` asserts this
+on the RENDERED markup in both the page and the editor's preview.
+
+⚠️ **What the sandbox does not stop:** an editor can publish a convincing fake
+sign-in form on a real page. The controls are the grant and `updated_by`.
+
+**The grant is the sixth scope dimension** and mirrors `vs_dept` exactly. The
+blanket key `dept_pages` and the per-ฝ่าย list are **mutually exclusive** —
+`current_user_dept_page_scope()` returns NULL (= every ฝ่าย) whenever the key is
+held, so storing both makes the ฝ่าย choice decorative (0083). The eleven gates
+a scope dimension has to be threaded through are itemised in
+`docs/mistakes/authz-grants.md`. Proof: `tools/dept0177-page-scope.sql`.
+
+**0178** taught `photo_reference_count()` about `dept_content.cover_url` and
+`video_url`, so the portrait cleanup cannot delete a file a ฝ่าย page still uses.
+
 ## จองโควตา Claude — migrations 0154–0159
 
 Booking a share of SAMO's ONE Claude Pro subscription. The stored unit is

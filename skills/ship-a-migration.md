@@ -11,7 +11,23 @@ order took production down for ~20 minutes.
    everything since.
 2. **Write the migration** in `supabase/migrations/NNNN_*.sql`, header first:
    what was reported, what the cause was, why THIS shape.
-3. **Apply**: `node tools/apply-migration.mjs supabase/migrations/NNNN_*.sql`.
+3. **Apply to `samo-dev` FIRST**, then production:
+
+   ```bash
+   node tools/apply-migration.mjs supabase/migrations/NNNN_*.sql --dev
+   node tools/apply-migration.mjs supabase/migrations/NNNN_*.sql
+   ```
+
+   ⚠️ **`--dev` only arrived on 2026-09-01.** Until then this — the one tool in
+   the repo that runs DDL — could reach nothing but production, so every
+   migration in the history above was first executed against real student data.
+   `migrations-lib.credentials()` had understood the flag for weeks; the script
+   simply did not use it. If a step here says "run X on dev", check X can.
+   ⛔ **`tools/db-query.mjs` still cannot** — it IGNORES `--dev` and runs on
+   PRODUCTION. Send a proof to dev by overriding the URL instead:
+   `VITE_SUPABASE_URL="$SUPABASE_DEV_URL" SUPABASE_ACCESS_TOKEN="$SUPABASE_DEV_ACCESS_TOKEN" node tools/db-query.mjs …`
+   and READ the `→ project:` line it prints — that is the only thing standing
+   between you and a proof you think ran on dev.
 4. **Prove it live, BOTH directions** — a new `tools/*.mjs` in the shape of
    `house0132-registry.mjs`: a transaction that ROLLS BACK, an ALLOW half and a
    DENY half. A probe that can only print "denied" cannot tell a working guard

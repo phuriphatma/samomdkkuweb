@@ -141,11 +141,23 @@ Backend, UI, grant, guards, browser-driven, deployed, 29/29 proofs green,
 
 ### For whoever is next
 
-- **`4490dee` is not deployed** (a one-line reorder fix). `npm run deploy:owed`.
-- `apply-migration.mjs` and the proofs now take `--dev` / a dev env; the one
-  DDL tool could only reach production until today, so no migration had ever
-  been tried anywhere else first.
-- `npm run migrate:status` still reports nothing outstanding.
+- ⚠️ **`apply-migration.mjs` takes `--dev`. `db-query.mjs` DOES NOT** — and it
+  ignores the flag silently, so `node tools/db-query.mjs x.sql --dev` runs
+  against **PRODUCTION**. It announces its target on stderr, which is the only
+  thing that saves you; READ THAT LINE. To send a proof to samo-dev:
+
+  ```bash
+  VITE_SUPABASE_URL="$SUPABASE_DEV_URL" \
+  SUPABASE_ACCESS_TOKEN="$SUPABASE_DEV_ACCESS_TOKEN" \
+  node tools/db-query.mjs tools/<proof>.sql
+  ```
+
+  (`env-lib` picks the target by comparing REFS, so overriding the URL is what
+  moves it; the flag belongs to `migrations-lib`, a different resolver. Two
+  resolvers, one word — worth unifying, not done.)
+- Before 2026-09-01 the one tool that runs DDL could ONLY reach production, so
+  no migration in this repo's history had ever been tried anywhere else first.
+- `npm run migrate:status` reports nothing outstanding.
 
 ---
 
