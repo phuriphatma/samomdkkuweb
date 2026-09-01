@@ -194,14 +194,16 @@ async function removeRow(root, id) {
   await refresh(root);
 }
 
-async function patchRow(root, id, patch) {
+/** @returns {Promise<boolean>} whether the write actually landed. */
+async function patchRow(root, id, patch, reload = true) {
   const { data, error } = await dbRest(`/dept_content?id=eq.${encodeURIComponent(id)}`,
     { method: 'PATCH', body: patch, prefer: 'return=representation' });
-  if (error) { say(root, errMsg(error, 'บันทึกไม่สำเร็จ')); return; }
+  if (error) { say(root, errMsg(error, 'บันทึกไม่สำเร็จ')); return false; }
   if (!Array.isArray(data) || data.length === 0) {
-    say(root, 'บันทึกไม่สำเร็จ: ไม่มีสิทธิ์แก้เนื้อหาของฝ่ายนี้'); return;
+    say(root, 'บันทึกไม่สำเร็จ: ไม่มีสิทธิ์แก้เนื้อหาของฝ่ายนี้'); return false;
   }
-  await refresh(root);
+  if (reload) await refresh(root);
+  return true;
 }
 
 /** Swap two rows' positions. Reordering by rewriting BOTH keeps the numbers
@@ -212,7 +214,12 @@ async function move(root, id, dir) {
   if (i < 0 || j < 0 || j >= state.rows.length) return;
   const a = state.rows[i], b = state.rows[j];
   const pa = a.position, pb = b.position;
-  await patchRow(root, a.id, { position: pb === pa ? pb + (dir === 'up' ? -1 : 1) : pb });
+  // A swap is TWO writes and it must not half-happen. If the first is refused
+  // — a revoked grant, a dropped connection — firing the second anyway leaves
+  // both rows on one position, which then sorts by created_at and looks like
+  // the reorder silently did the wrong thing. Stop, and let the message stand.
+  const first = await patchRow(root, a.id, { position: pb === pa ? pb + (dir === 'up' ? -1 : 1) : pb }, false);
+  if (!first) { await refresh(root); return; }
   await patchRow(root, b.id, { position: pa });
 }
 
