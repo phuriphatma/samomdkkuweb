@@ -32,6 +32,23 @@ returned exit 0**, one of them after `pgrep deploy.sh` already showed the
 script gone while ssh had still not returned.) The count only grows — a run
 that works is not evidence, and this file said "the hang did not reproduce"
 once already.
+
+**The stopping point is STABLE across three days.** Run 6's captured output
+ends, verbatim, at the same line the 2026-08-31 failure ended at:
+
+```
+==> samomdkkupassport: pull + build (subpath base)
+==> docs site: build with base /docs/
+[exited with code 0]
+```
+
+Nothing after that line has ever been observed from a failing run — no docs
+rsync, no `fix permissions`, no notify restart, no nginx reload. So the fault
+is INSIDE the docs build step or in what immediately follows it, not anywhere
+earlier, and the exit code is written by the `; echo` in the ssh command rather
+than by the script reaching its own end. **The one diagnostic still not run:
+`set -x` INSIDE the script, after the re-exec** (from outside it cannot work —
+the script `exec`s itself).
 The two that did not present DIFFERENTLY — three earlier attempts hung and were
 killed; the fourth **returned exit 0 having published the app and skipped
 `/docs` entirely.**
