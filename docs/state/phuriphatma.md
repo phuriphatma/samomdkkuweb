@@ -86,12 +86,23 @@ naming the commands instead of the numbers.
 
 ### ⚠️ What I did NOT verify, so nobody claims I did
 
-- **หน้าฝ่าย was driven on samo-dev, not on production.** The proof ran on both;
-  the BROWSER run was dev only, with a probe account since deleted. Nobody has
-  opened the real editor as a real ฝ่าย member yet.
-- **No ฝ่าย has been given the grant.** `dept_content` holds only the four
-  ฝ่ายบริหารองค์กร cards migrated out of the code. Until someone is granted, the
-  feature is live and unused.
+- **My BROWSER run of หน้าฝ่าย was on samo-dev, not production** (the SQL proof
+  ran on both). The probe account was deleted afterwards and its absence
+  re-queried.
+- ✅ **But the OWNER then used it on production, unprompted** — created a card
+  on ฝ่ายดิจิทัล at 14:31 and edited it again at 14:41 (`updated_by` =
+  phuriphat.ma@kkumail.com). That is better evidence than my probe was: a real
+  person, a real account, the real site, without being told how.
+- ⚠️ **ONE PLACEHOLDER IS LIVE AND VISIBLE TO STUDENTS.** That card still holds
+  the default title `หัวข้อใหม่` with no link and no cover, `visible = true`, so
+  the public ฝ่ายดิจิทัล page shows an empty card. **It is the owner's content —
+  do not delete it.** Ask; they may be mid-edit. The two ways out are the ซ่อน
+  button (keeps it) and ลบ (does not).
+- 📌 **A design question that row asks, and it is a real one:** a new card is
+  created VISIBLE. Every other authoring surface in this app drafts first. If a
+  ฝ่าย is expected to build a page over several sittings, `visible = false` is
+  the better default — but that is a product decision, not a bug, and it was
+  not made.
 
 ---
 
