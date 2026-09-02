@@ -42,6 +42,22 @@ VERDICT is superseded.** Read it as analysis, not as a decision. This is the
 prose-drift class the repo pays for most; correcting it in one place and not the
 other is what makes a document lie.
 
+### ✅ THE OWNER ALREADY USED 0179 ON PRODUCTION — better evidence than my proof
+
+Queried at end of session: `dept_content` holds a `kind='section'` row on
+ฝ่ายดิจิทัล, created 05:41Z — **three minutes after 0179 was deployed** — with
+`updated_by` set. So a real person, on the real site, pressed เพิ่มหัวข้อ
+without being told how.
+
+⚠️ **And it is `visible = false`.** The draft default shipped the same day did
+its job: unlike the ฝ่ายดิจิทัล card from 2026-09-01, this one did NOT appear on
+the public page half-built. That is the change proving itself on a case nobody
+staged.
+
+📌 The 2026-09-01 placeholder card (`หัวข้อใหม่`, no link, no cover) is **still
+live and visible** — the owner asked for it to be left alone, mid-edit. Do not
+delete it; ask before touching it.
+
 ### What the spike actually proved, and what it did not
 
 ✅ Proved, by looking rather than by reading:
@@ -135,8 +151,10 @@ the same model `dept_content` already had. What separated the two was
 VOCABULARY, not architecture — Moodle has sections and ~20 types; 0177 shipped a
 flat run of two.
 
-⛔ **So a canvas was rejected, and this should not be re-opened.** Reasons, in
-order of weight:
+⚠️ **[SUPERSEDED — a canvas WAS built at 14:00 the same day; see the handoff
+block at the top of this file.]** The reasoning below is why I said no at 12:00,
+and it is still the best account of the trade-off — read it as analysis, not
+as a decision. Reasons, in order of weight:
 
 1. The screenshot the owner chose is evidence FOR the list-of-blocks model.
 2. It is the professional standard for this exact problem. Every mainstream

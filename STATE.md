@@ -81,11 +81,11 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0179. ALL 30 LIVE PROOFS registered**; 0179 applied to
-  samo-dev AND production 2026-09-02, proven 10/10 both directions on each.
-  ⚠️ The other 29 were last run whole on 2026-09-01 — run `npm run proofs`
-  rather than believing this line. The proof count is guarded against
-  `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
+- **Migrations through 0179. ALL 30 LIVE PROOFS GREEN**, whole suite re-run
+  against production at end of session 2026-09-02. 0179 was applied to samo-dev
+  AND production that day, 10/10 both directions on each. ⚠️ Re-run rather than
+  believing this line — the proof count is guarded against `run-proofs.mjs`, but
+  nothing guards whether they still PASS. The TEST count is deliberately not
   written here.
 
 ---
