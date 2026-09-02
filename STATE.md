@@ -212,10 +212,13 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 1. **This file**, top to bottom. Read all of it.
 2. **`docs/INVARIANTS.md`** — the rules. Longer, and it changes slowly.
-3. **`docs/state/phuriphatma.md` — its TOP block, "HANDOFF 2026-09-01, END OF
-   SESSION"**. It names the four things most likely to be misunderstood, what is
-   owed and by whom, and what was deliberately NOT verified. Everything below
-   that block is history.
+3. **`docs/state/phuriphatma.md` — its FIRST `## ▶ HANDOFF` block**, whichever
+   date that is. It names what is owed, what is waiting on the owner, and what
+   was deliberately NOT verified. Everything below it is history, including
+   older handoff blocks.
+   ⚠️ **Do not name a date here.** This step named "HANDOFF 2026-09-01" and a
+   newer block was inserted above it the same day, so the first thing a new
+   session was told to read was the superseded one.
 4. Only then, the archive file for whatever you are about to touch.
 
 **What waits on the owner is section B above — do not restate it here.** These
