@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" width="900" height="340" font-family="system-ui, -apple-system, 'Noto Sans Thai', 'Segoe UI', sans-serif">
+  <title>The four places your change lives, and the command that moves it to the next one</title>
+  <defs>
+    <marker id="gp-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a929b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="340" rx="14" fill="#ffffff" stroke="#d0d4d9"/>
+
+  <text x="24" y="38" font-size="15" font-weight="700" fill="#1f2933">Your change lives in four places. Each git command moves it to the next one.</text>
+
+  <rect x="24" y="62" width="186" height="104" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
+  <text x="117" y="90" text-anchor="middle" font-size="14" font-weight="600" fill="#1f2933">1. The file</text>
+  <text x="117" y="112" text-anchor="middle" font-size="11.5" fill="#5c6773">You just edited it</text>
+  <text x="117" y="130" text-anchor="middle" font-size="11.5" fill="#5c6773">Git sees it changed</text>
+  <text x="117" y="152" text-anchor="middle" font-size="11.5" fill="#5c6773">but is not tracking it</text>
+
+  <rect x="248" y="62" width="186" height="104" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
+  <text x="341" y="90" text-anchor="middle" font-size="14" font-weight="600" fill="#1f2933">2. Staged</text>
+  <text x="341" y="112" text-anchor="middle" font-size="11.5" fill="#5c6773">Chosen to go into</text>
+  <text x="341" y="130" text-anchor="middle" font-size="11.5" fill="#5c6773">the next save</text>
+  <text x="341" y="152" text-anchor="middle" font-size="11.5" fill="#5c6773">Nothing saved yet</text>
+
+  <rect x="472" y="62" width="186" height="104" rx="10" fill="#f6f7f8" stroke="#105922" stroke-width="2.5"/>
+  <text x="565" y="90" text-anchor="middle" font-size="14" font-weight="600" fill="#105922">3. Committed</text>
+  <text x="565" y="112" text-anchor="middle" font-size="11.5" fill="#5c6773">Saved, with a message</text>
+  <text x="565" y="130" text-anchor="middle" font-size="11.5" fill="#5c6773">Still only on your</text>
+  <text x="565" y="152" text-anchor="middle" font-size="11.5" fill="#5c6773">own computer</text>
+
+  <rect x="696" y="62" width="180" height="104" rx="10" fill="#f6f7f8" stroke="#105922" stroke-width="2.5"/>
+  <text x="786" y="90" text-anchor="middle" font-size="14" font-weight="600" fill="#105922">4. On GitHub</text>
+  <text x="786" y="112" text-anchor="middle" font-size="11.5" fill="#5c6773">Other people can</text>
+  <text x="786" y="130" text-anchor="middle" font-size="11.5" fill="#5c6773">see it and the preview</text>
+  <text x="786" y="152" text-anchor="middle" font-size="11.5" fill="#5c6773">site can be built</text>
+
+  <line x1="212" y1="114" x2="244" y2="114" stroke="#8a929b" stroke-width="2" marker-end="url(#gp-ar)"/>
+  <line x1="436" y1="114" x2="468" y2="114" stroke="#8a929b" stroke-width="2" marker-end="url(#gp-ar)"/>
+  <line x1="660" y1="114" x2="692" y2="114" stroke="#8a929b" stroke-width="2" marker-end="url(#gp-ar)"/>
+
+  <rect x="196" y="188" width="96" height="28" rx="7" fill="#fff7f2" stroke="#FF6F30"/>
+  <text x="244" y="207" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2933">git add</text>
+  <line x1="228" y1="130" x2="228" y2="184" stroke="#FF6F30" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <rect x="410" y="188" width="116" height="28" rx="7" fill="#fff7f2" stroke="#FF6F30"/>
+  <text x="468" y="207" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2933">git commit</text>
+  <line x1="452" y1="130" x2="452" y2="184" stroke="#FF6F30" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <rect x="638" y="188" width="100" height="28" rx="7" fill="#fff7f2" stroke="#FF6F30"/>
+  <text x="688" y="207" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2933">git push</text>
+  <line x1="676" y1="130" x2="676" y2="184" stroke="#FF6F30" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <rect x="24" y="244" width="852" height="34" rx="8" fill="#f6f7f8" stroke="#d0d4d9"/>
+  <text x="40" y="266" font-size="12.5" fill="#1f2933">git status  —  asks "where is everything right now?" It is not a step. Run it whenever you are unsure; it changes nothing.</text>
+
+  <text x="24" y="306" font-size="12" fill="#5c6773">Committing is saving. Pushing is sending. They are two separate acts, which is why a commit alone changes nothing anyone else can see.</text>
+  <text x="24" y="326" font-size="12" fill="#5c6773">Nothing here touches the live site — even step 4 only puts your work on GitHub, on your own branch.</text>
+</svg>

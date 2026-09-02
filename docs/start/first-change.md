@@ -4,28 +4,50 @@ From editing a file on your machine to having it merged.
 
 ![Your change travels from your machine to a branch, to a pull request, into main, and only then does a maintainer deploy it](../diagrams/journey.svg)
 
-## 1. Get the latest code first
+Every command on this page is typed into the **terminal**, from inside the `samomdkkuweb` folder. If you have not set that up yet, do [Install and run](/start/install) first.
+
+## The five words you need before you start
+
+You can follow the steps without these, but you will be copying spells. Five minutes here saves an afternoon.
+
+**Repository (repo)** — the project folder, plus its entire history. When you cloned it you got both.
+
+**Commit** — one saved point in that history, with a short message saying what changed and why. Think of it as a labelled save, not a file backup. History is a chain of commits.
+
+**Branch** — a named line of commits. `main` is the line the project ships from. When you start a piece of work you make your own line, do your commits there, and it stays out of everyone's way until it is ready. Branches are cheap; make one per piece of work and delete it afterwards.
+
+**Push / pull** — your machine has a copy of the history and GitHub has a copy. `push` sends your commits up. `pull` brings other people's down. Neither happens on its own.
+
+**Pull request (PR)** — the request to fold your branch into `main`. It is a page on GitHub showing exactly what you changed, where people comment, where the automated checks report, and where the preview site link appears. It is the conversation about the change, not the change itself. "Pull request" is GitHub's word for *please pull my branch in*.
+
+![The four places your change lives, and the command that moves it to the next one](../diagrams/git-places.svg)
+
+## 1. Start from the current code
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
-This takes a few seconds and prevents merge conflicts later.
+`git checkout main` switches you to the `main` line. `git pull origin main` downloads whatever other people have merged since you last looked. (`origin` is git's name for "the copy on GitHub".)
 
-## 2. Create a branch
+Takes a few seconds, and skipping it is the usual reason a change later collides with somebody else's.
+
+## 2. Make a branch
 
 ```bash
 git checkout -b ui/news-card-spacing
 ```
 
-::: warning A branch is required
-`main` is protected. Pushing to it directly is refused — this is a rule the system enforces, not just a convention.
+`checkout -b` means *make a new branch and switch to it*. From now on, commits go onto that branch and `main` is untouched.
+
+::: warning A branch is required, not just polite
+`main` is protected. Pushing to it directly is refused by GitHub — a rule the system enforces, not a convention you could bend in a hurry.
 :::
 
 ![main is one long line; each branch splits off for a single job and merges back](../diagrams/branches.svg)
 
-Name it `<type>/<short-topic>` in lowercase, with hyphens.
+Name it `<type>/<short-topic>`, lowercase, hyphens between words.
 
 | Prefix | Use it for | Example |
 |---|---|---|
@@ -34,108 +56,174 @@ Name it `<type>/<short-topic>` in lowercase, with hyphens.
 | `ui/` | Colours, spacing, layout | `ui/news-card-spacing` |
 | `docs/` | Documentation only | `docs/install-guide` |
 
-**The branch name becomes your preview address.** `ui/news-card-spacing` becomes `https://ui-news-card-spacing.samomdkkuweb.pages.dev`. Keep names short so the address stays readable.
+**The branch name becomes your preview address**, so keep it short: `ui/news-card-spacing` becomes `https://ui-news-card-spacing.samomdkkuweb.pages.dev`.
 
-**Use one branch per change.** If you want to change two unrelated things, create two branches. Smaller pull requests are reviewed faster, and a problem with one does not block the other.
+**One branch per change.** Two unrelated changes means two branches. Small pull requests get reviewed within the day; large ones sit.
+
+::: tip "Which branch am I on?"
+```bash
+git branch --show-current
+```
+Worth running whenever you are unsure. It is the answer to more confusion than any other git command.
+:::
 
 ## 3. Make the change and watch it
 
-Leave a second terminal window running:
+In a second terminal window:
 
 ```bash
 npm run dev
 ```
 
-The page reloads as you edit. Before continuing, confirm both of these pass:
+Edit files in your editor; the page updates itself. Before going further, confirm both of these finish without errors:
 
 ```bash
 npm test
 npm run build
 ```
 
-## 4. Save your work
+These are the same two checks CI will run on your pull request, so running them now turns a twenty-minute round trip into a twenty-second one.
+
+## 4. Save your work — `add`, then `commit`
+
+Two separate acts, and the split is the part that confuses everyone:
 
 ```bash
-git status                       # see what changed before you stage anything
-git add src/css/news.css         # stage only the files you meant to
+git status                       # what changed? run this first, every time
+git add src/css/news.css         # choose which files go into the save
 git commit -m "ui(news): tighten news card spacing on mobile"
+```
+
+`git add` **chooses**. `git commit` **saves what you chose**, with a message. Nothing has left your computer yet.
+
+The message is read later by someone trying to understand why a line looks the way it does. Say what changed and why, in one line: `ui(news): tighten news card spacing on mobile` — not `update` or `fix stuff`.
+
+::: danger Why `git status` before `git add .`
+`git add .` stages *everything that changed*, including things you did not mean to include — a screenshot you saved into the folder, a scratch file, a `.env.local` you renamed while debugging.
+
+This repository is public, and **git history cannot be reliably erased.** Deleting a file tomorrow does not remove it from today's commit. Once a name, a รหัสนักศึกษา, an email address or a photograph is committed, it is in the history permanently, and the only real remedy is rewriting history for everyone.
+
+Naming your files costs three seconds.
+:::
+
+Now send the branch to GitHub:
+
+```bash
 git push -u origin ui/news-card-spacing
 ```
 
-You only need `-u origin <branch>` the first time you push a branch. After that, `git push` is enough.
+`-u origin <branch>` is only needed the **first** time you push a new branch — it tells git where this branch belongs. Afterwards, plain `git push` is enough.
 
-::: danger Why `git status` before `git add .`
-`git add .` stages *everything that changed*, including files you did not mean to add — a screenshot saved into the project folder, or a temporary file you forgot to delete.
-
-This repository is public, and **git history cannot be reliably deleted**. Deleting a file tomorrow does not remove it from today's commit. Once a name, student ID, email address or photo is committed, it stays in the history permanently.
-:::
-
-## 5. Open a pull request
+## 5. Open the pull request
 
 ```bash
 gh pr create --fill --web
 ```
 
-Or open GitHub in a browser — a *Compare & pull request* banner appears after you push.
+Or do it in the browser: go to the repository on GitHub and a **Compare & pull request** banner is sitting at the top, because you pushed a branch a moment ago.
 
-Include three things. None of them need to be long.
+![Sketch of the Compare and pull request banner GitHub shows at the top of the repository after you push](../diagrams/pr-banner.svg)
+
+Write three things. None needs to be long.
 
 1. **What changed** — one sentence
 2. **Why** — what it was like before
 3. **How you tested it** — which screen widths you checked; 390 / 820 / 1280 px is the usual set
 
 ::: tip Open it before you are finished
-Use *Create draft pull request*. Others can see what you are working on, so nobody duplicates it, and you get CI and a preview site while you are still working. Put `[help]` in the title if you are stuck.
+Use **Create draft pull request**. Other people can see what you are working on so nobody duplicates it, and you get the automated checks and a preview site while you are still going. Put `[help]` in the title if you are stuck — that is what it is for.
 :::
 
-## 6. Check the preview site
+## 6. Open your preview site
 
-Every branch gets its own live site automatically. The link appears in the pull request within a few minutes, or ask for it directly:
+Every branch gets a live site, built automatically. Scroll to the bottom of the pull request's **Conversation** tab: the checks box lists the preview alongside the other checks, usually within a couple of minutes of pushing.
+
+![Sketch of the pull request checks box, with the Cloudflare Pages preview link highlighted](../diagrams/pr-checks.svg)
+
+Or ask for the address directly, from the branch:
 
 ```bash
 npm run preview:url
 ```
 
-![Your machine and the preview site both use a copy of the database; only the live site uses the real one](../diagrams/environments.svg)
+**The preview is connected to `samo-dev`, the copy of the database — not the real one.** Click, submit forms, create test records. The address stays the same for the life of the branch, so you can bookmark it, and it rebuilds on every push. Send it to someone in your ฝ่าย for a second opinion; they need to install nothing.
 
-**The preview site is connected to `samo-dev`, a copy of the database — not the real one.** You can click buttons, submit forms and create test records without affecting anyone. Test here, not only on your own machine.
+Test **here**, not only on your own machine. It is a real site on a real phone, which `localhost` can never be. [Where the site runs](/start/where-it-runs) explains all four addresses and which database each one touches.
 
-The address stays the same for the life of the branch, so you can bookmark it once and it will update on every push. You can send it to someone in your ฝ่าย for a second opinion; they do not need to install anything.
-
-## 7. Wait for CI and review
+## 7. Wait for the checks and the review
 
 | Check | Takes | If it is red |
 |---|---|---|
-| **build** — `npm test` and `npm run build` | ~2 min | Click *Details* and read the first red line |
-| **Cloudflare Pages** — builds the preview | ~2 min | Usually means the build failed too |
-| **smoke** — loads the preview in a real browser | ~1 min | The page loads but nothing responds |
+| **build** — `npm test` and `npm run build` | ~2 min | Click *Details* and read the **first** red line; the rest is usually noise from it |
+| **Cloudflare Pages** — builds the preview | ~2 min | Usually means the build failed too — fix that first |
+| **smoke** — loads the preview in a real browser | ~1 min | The page builds but does not run |
 
-To fix something, **do not open a new pull request.** Commit and push again. The existing pull request updates automatically and all checks re-run.
+To fix something, **do not open a second pull request.** Commit and push to the same branch:
+
+```bash
+git add <files>
+git commit -m "ui(news): use the token instead of a literal"
+git push
+```
+
+The pull request updates itself and every check re-runs. That is the normal rhythm — a pull request with several commits on it is expected, not untidy.
 
 Who has to approve depends on which files you touched — see [What you can change](/contributing).
 
 ## 8. Merged is not published
 
-Merging into `main` does not put your change on the live site. A maintainer has to connect to the KKU VPN and deploy, usually batching several pull requests together.
+Merging into `main` does **not** put your change on the live site. A maintainer connects to the KKU VPN and deploys, usually batching several merged pull requests together.
 
-This is intentional. Approving a pull request is low-risk and easy to undo, which keeps review fast. The careful check happens once, at deploy time.
+This is deliberate. Approving a pull request is low-risk and easy to undo, which keeps review fast and friendly. The careful, slow check happens once, at deploy time, by someone who can watch the live site afterwards.
+
+So: your change being merged means it is accepted and queued. Ask a maintainer if you need it live by a particular day.
+
+## 9. Tidy up
+
+Once it is merged:
+
+```bash
+git checkout main
+git pull origin main
+git branch -d ui/news-card-spacing
+```
+
+Back on `main`, up to date, old branch gone. This is also step 1 of your next change.
 
 ## Every command in one place
 
 ```bash
-# starting a new piece of work
+# starting a piece of work
 git checkout main && git pull origin main
 git checkout -b ui/my-topic
 npm run dev
 
-# saving your work
+# saving as you go
 git status
 git add <files>
 git commit -m "ui(scope): short description"
-git push -u origin ui/my-topic
 
 # sending it
 npm test && npm run build
+git push -u origin ui/my-topic
 gh pr create --fill --web
 npm run preview:url
+
+# after it is merged
+git checkout main && git pull origin main
+git branch -d ui/my-topic
 ```
+
+## When something goes wrong
+
+| It says | It means | Do |
+|---|---|---|
+| `not a git repository` | You are not in the project folder | `cd` into `samomdkkuweb` |
+| `Updates were rejected` | GitHub has commits you do not | `git pull origin <your-branch>`, then push again |
+| `protected branch` on push | You are on `main` | `git checkout -b <name>` and push that |
+| `Your local changes would be overwritten` | Uncommitted edits are in the way | Commit them, or `git stash` to set them aside |
+| Nothing to commit, but you did edit | You forgot `git add` | `git status` shows what is unstaged |
+
+More in [Troubleshooting](/start/troubleshooting).
+
+Next — [When your work depends on other work](/start/dependent-work)

@@ -1,45 +1,116 @@
 # Install and run
 
-One-time setup, about 10 minutes.
+One-time setup, about 15 minutes. Do the steps in order — each one assumes the one before it.
 
 ## 1. Sign in to GitHub
 
 ```bash
-gh auth login      # choose GitHub.com → HTTPS → Login with a web browser
+gh auth login
 ```
 
-## 2. Get the project
+Answer the questions: **GitHub.com** → **HTTPS** → **Login with a web browser**. It prints a short code, opens your browser, and you paste the code there.
 
-Pick one, depending on whether you have been invited to the project.
+No `gh`? Skip this step. Step 2 has a plain-git alternative.
+
+## 2. Get the project onto your machine
+
+First move to wherever you keep projects — your Documents folder is fine:
 
 ```bash
-# Option A — you are already a collaborator
+cd ~/Documents
+```
+
+Then copy the project down. **Pick one:**
+
+```bash
+# Option A — you have been invited to the project as a collaborator
 gh repo clone samomdkku/samomdkkuweb
 
-# Option B — you are not (this is the default, and needs nobody's permission)
+# Option B — you have not been (this is the default, and needs nobody's permission)
 gh repo fork samomdkku/samomdkkuweb --clone
 ```
 
-Both options let you open pull requests here. There is one difference: **option B does not get an automatic preview site**, because GitHub does not give forks access to the project's secrets. If you expect to contribute often, ask a maintainer to invite you as a collaborator and use option A.
+Without `gh`, option A is:
 
-## 3. Install dependencies
+```bash
+git clone https://github.com/samomdkku/samomdkkuweb.git
+```
+
+Both options let you open pull requests. One difference matters: **option B does not get an automatic preview site**, because GitHub will not give a fork access to the project's secrets. If you expect to contribute more than once, ask a maintainer to invite you and use option A.
+
+::: tip What just happened
+A folder named `samomdkkuweb` now exists inside the folder you were in. It contains the whole project **and its entire history** — every change anyone has ever made. That is what git is: not just the current files, but how they got that way.
+:::
+
+## 3. Go into the folder and install the dependencies
 
 ```bash
 cd samomdkkuweb
 npm ci
 ```
 
-`npm ci` installs the exact versions recorded in `package-lock.json`. It is slightly slower than `npm install`, and it gives you the same packages that CI uses.
+`npm ci` downloads the exact library versions recorded in `package-lock.json`. It takes a minute or two and prints a lot. Use `npm ci`, not `npm install` — `ci` gives you the same versions CI uses, so "works on my machine" means something.
+
+From here on, **every command on these pages is run from inside this folder.** If a command says "not found" or "no such file", check where you are with `pwd` first.
 
 ## 4. Add the database credentials
 
-Ask a maintainer for the `SUPABASE_DEV_*` block, then create a `.env.local` file in the top folder of the project.
+This is the step people get stuck on, so it is spelled out in full.
 
-::: danger Two rules that matter
-`.env.local` is already in `.gitignore`. **Do not change that.**
+### 4a. What the file is
 
-`samo-dev` is a **copy of real student data**, not fake data. Click and submit freely, but never publish its URL and never copy data out of it.
+You are creating one file called **`.env.local`**, directly inside `samomdkkuweb/` — the same folder that contains `package.json`. Not in `src/`, not in `docs/`.
+
+The leading dot matters. A filename starting with `.` is hidden by default on both macOS and Windows, which is why you may not see it in Finder or Explorer afterwards. That is normal.
+
+### 4b. Create it
+
+The project ships an example with the right names already in it. Copy that, from the terminal, in the project folder:
+
+```bash
+cp .env.local.example .env.local     # macOS / Linux
+```
+
+```powershell
+Copy-Item .env.local.example .env.local    # Windows PowerShell
+```
+
+Then open your new file in an editor:
+
+```bash
+code .env.local         # VS Code
+open -e .env.local      # macOS TextEdit
+notepad .env.local      # Windows
+```
+
+### 4c. Replace the placeholders with what a maintainer sent you
+
+The file you copied already has the four names in it, each with an obvious placeholder value. Replace the values, keeping the names exactly as they are:
+
+- `SUPABASE_DEV_URL` — the address of the development database
+- `SUPABASE_DEV_ANON_KEY` — the public key the browser uses
+- `SUPABASE_DEV_ACCESS_TOKEN` — used by the migration tools
+- `SUPABASE_DEV_DB_URL` — the direct database connection
+
+One `NAME=value` per line. **No spaces around the `=`, and no quotation marks** — a value in quotes is read as a value that includes the quotes. Save the file. Nothing else has to be told about it — the project reads it automatically the next time it starts.
+
+::: danger Two rules, both non-negotiable
+**`.env.local` is already listed in `.gitignore`, so git ignores it. Never change that**, and never move these values into a file that is tracked. A key committed once stays in the history for ever, and this repository is public.
+
+**`samo-dev` is a copy of real student data, not fake data.** Click, submit, and delete freely — that is what it is for. But never publish its URL, never copy records out of it, and never paste its contents into a chat or an issue.
 :::
+
+### 4d. Check it worked
+
+```bash
+npm run dev:check
+```
+
+It tells you whether the credentials are present and whether it can reach the database. If it complains, the usual causes are: the file is in the wrong folder, a line got wrapped across two lines when you pasted it, or a stray space crept in around the `=`.
+
+### 4e. If you do not have the credentials yet
+
+`npm run dev` still starts and the site still loads. You will get the layout, the styling and the navigation, and **empty lists wherever data would be**, sometimes with an error in the browser console. That is enough for a pure CSS or copy change. It is not enough to test a form, a login, or anything that saves.
 
 ## 5. Run it
 
@@ -47,17 +118,52 @@ Ask a maintainer for the `SUPABASE_DEV_*` block, then create a `.env.local` file
 npm run dev
 ```
 
-Open `http://localhost:5174` in a browser. **If the SAMO site loads, you are done.**
+It prints something like:
 
-The page reloads automatically when you edit a file. Press `Ctrl + C` in the terminal to stop the server.
+```
+  VITE v6.3.5  ready in 412 ms
+
+  ➜  Local:   http://localhost:5174/
+```
+
+**Always open the address it printed**, not one you remember. Your browser usually opens it for you.
+
+::: warning The port is 5174 — until it is not
+`5174` is the port the project asks for. If something else on your machine is already using it — most often a second copy of this same project, left running in another terminal window — **Vite quietly moves to the next free port** and tells you:
+
+```
+Port 5174 is in use, trying another one...
+➜  Local:   http://localhost:5175/
+```
+
+Everything works exactly the same on 5175. Read the address off the terminal each time and you will never be caught by this.
+
+To use 5174 instead, find the other process and stop it. The usual fix is to press `Ctrl + C` in whichever terminal window is still running it. If you cannot find it:
+
+```bash
+lsof -ti:5174 | xargs kill      # macOS / Linux
+```
+
+```powershell
+netstat -ano | findstr :5174    # Windows — note the PID, then:
+taskkill /PID <the-pid> /F
+```
+:::
+
+**If the SAMO site loads, you are done.** Edit any file under `src/` and the page updates by itself — no rebuild, no refresh. Press `Ctrl + C` in the terminal to stop the server.
+
+::: tip Two terminal windows is the comfortable setup
+Leave `npm run dev` running in one window and type everything else in a second. Otherwise you are stopping and restarting the server all day.
+:::
 
 ## Commands you will use
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Runs the site locally at `localhost:5174` |
-| `npm test` | Runs the test suite — CI runs the same one on every pull request |
-| `npm run build` | Produces the production files; use it to check nothing is broken |
+| `npm run dev` | Runs the site on your machine, usually at `localhost:5174` |
+| `npm test` | Runs the test suite. CI runs this exact one on your pull request |
+| `npm run build` | Builds the production files — proves nothing is broken before you push |
+| `npm run dev:check` | Checks your `.env.local` credentials work |
 | `npm run preview:url` | Prints the preview address for the branch you are on |
 
 ## Where things live
@@ -67,5 +173,6 @@ The page reloads automatically when you edit a file. Press `Ctrl + C` in the ter
 | Pages, tabs, dialogs | `src/html/` |
 | Colours, spacing, layout | `src/css/` |
 | Behaviour, buttons, forms | `src/js/` |
+| Text of the release notes | `src/data/changelog.js` |
 
-Next — [Your first change](/start/first-change)
+Next — [Where the site runs](/start/where-it-runs)

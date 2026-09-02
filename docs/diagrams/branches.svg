@@ -22,5 +22,5 @@
   <rect x="584" y="102" width="120" height="28" rx="7" fill="#f6f7f8" stroke="#d0d4d9"/>
   <text x="644" y="121" text-anchor="middle" font-size="12.5" fill="#1f2933">fix/pr-upload</text>
 
-  <text x="640" y="62" font-size="12" fill="#FF6F30">Your branch name becomes your preview address</text>
+  <text x="876" y="62" text-anchor="end" font-size="12" fill="#FF6F30">Your branch name becomes your preview address</text>
 </svg>

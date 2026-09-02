@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" font-family="system-ui, -apple-system, 'Noto Sans Thai', 'Segoe UI', sans-serif">
+  <title>Sketch: after you push, a "Compare and pull request" banner appears at the top of the repository page on GitHub</title>
+  <rect x="0" y="0" width="900" height="300" rx="14" fill="#ffffff" stroke="#d0d4d9"/>
+
+  <text x="24" y="34" font-size="13" font-weight="600" fill="#5c6773">A SKETCH OF WHAT YOU WILL SEE — not a screenshot. Only the two labelled parts matter.</text>
+
+  <!-- The browser frame, drawn plainly. This is a wayfinding sketch: enough
+       shape to recognise the real page, deliberately not a facsimile of it. -->
+  <rect x="24" y="52" width="852" height="200" rx="10" fill="#ffffff" stroke="#d0d4d9" stroke-width="1.5"/>
+  <rect x="24" y="52" width="852" height="34" rx="10" fill="#f6f7f8" stroke="#d0d4d9"/>
+  <circle cx="46" cy="69" r="5" fill="#d0d4d9"/>
+  <circle cx="64" cy="69" r="5" fill="#d0d4d9"/>
+  <circle cx="82" cy="69" r="5" fill="#d0d4d9"/>
+  <rect x="104" y="60" width="330" height="18" rx="6" fill="#ffffff" stroke="#d0d4d9"/>
+  <text x="114" y="74" font-size="11" fill="#5c6773">github.com/samomdkku/samomdkkuweb</text>
+
+  <!-- The banner itself. -->
+  <rect x="48" y="104" width="804" height="60" rx="8" fill="#fff7f2" stroke="#FF6F30" stroke-width="2"/>
+  <text x="68" y="128" font-size="13" fill="#1f2933">ui/news-card-spacing had recent pushes 1 minute ago</text>
+  <rect x="646" y="118" width="186" height="30" rx="7" fill="#105922"/>
+  <text x="739" y="138" text-anchor="middle" font-size="12.5" font-weight="600" fill="#ffffff">Compare &amp; pull request</text>
+
+  <text x="190" y="200" font-size="11.5" fill="#8a929b">the rest of the repository page — ignore it</text>
+
+  <text x="140" y="274" text-anchor="middle" font-size="12" fill="#FF6F30">1. The banner appears on its own</text>
+  <line x1="140" y1="256" x2="120" y2="168" stroke="#FF6F30" stroke-width="1.5"/>
+
+  <text x="739" y="274" text-anchor="middle" font-size="12" fill="#105922">2. Press this green button</text>
+  <line x1="739" y1="256" x2="739" y2="152" stroke="#105922" stroke-width="1.5"/>
+</svg>
