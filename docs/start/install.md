@@ -20,23 +20,29 @@ First move to wherever you keep projects — your Documents folder is fine:
 cd ~/Documents
 ```
 
-Then copy the project down. **Pick one:**
+Then copy the project down:
 
 ```bash
-# Option A — you have been invited to the project as a collaborator
 gh repo clone samomdkku/samomdkkuweb
+```
 
-# Option B — you have not been (this is the default, and needs nobody's permission)
+**You should see** a progress line ending in something like `Receiving objects: 100%`, and then your prompt back.
+
+::: warning If it says `Repository not found` or `permission denied`
+That means you have not been invited to the project yet. Nothing is wrong with your setup — take your own copy instead, which needs nobody's permission:
+
+```bash
 gh repo fork samomdkku/samomdkkuweb --clone
 ```
 
-Without `gh`, option A is:
+You can open pull requests either way. The one difference: **a fork does not get an automatic preview site**, because GitHub will not hand a fork the project's secrets. Ask a maintainer to invite you when you get a chance, then re-clone; previews are worth it.
+:::
 
+::: tip No `gh`?
 ```bash
 git clone https://github.com/samomdkku/samomdkkuweb.git
 ```
-
-Both options let you open pull requests. One difference matters: **option B does not get an automatic preview site**, because GitHub will not give a fork access to the project's secrets. If you expect to contribute more than once, ask a maintainer to invite you and use option A.
+:::
 
 ::: tip What just happened
 A folder named `samomdkkuweb` now exists inside the folder you were in. It contains the whole project **and its entire history** — every change anyone has ever made. That is what git is: not just the current files, but how they got that way.
@@ -49,7 +55,11 @@ cd samomdkkuweb
 npm ci
 ```
 
-`npm ci` downloads the exact library versions recorded in `package-lock.json`. It takes a minute or two and prints a lot. Use `npm ci`, not `npm install` — `ci` gives you the same versions CI uses, so "works on my machine" means something.
+`npm ci` downloads the exact library versions recorded in `package-lock.json`. It takes a minute or two and prints a lot.
+
+**You should see** a last line like `added 312 packages in 47s`. Warnings above it are normal and can be ignored; the word `ERR!` is not.
+
+Use `npm ci`, not `npm install` — `ci` installs the exact versions CI uses, so "works on my machine" means something.
 
 From here on, **every command on these pages is run from inside this folder.** If a command says "not found" or "no such file", check where you are with `pwd` first.
 
@@ -103,10 +113,23 @@ One `NAME=value` per line. **No spaces around the `=`, and no quotation marks** 
 ### 4d. Check it worked
 
 ```bash
-npm run dev:check
+npm run env:check
 ```
 
-It tells you whether the credentials are present and whether it can reach the database. If it complains, the usual causes are: the file is in the wrong folder, a line got wrapped across two lines when you pasted it, or a stray space crept in around the `=`.
+**You should see:**
+
+```
+✓ all four SUPABASE_DEV_* values are present and filled in
+✓ the development database answered
+
+You are set up. Run `npm run dev` and open the address it prints.
+```
+
+Anything else names the problem and what to do about it. The three that actually happen: the file is in the wrong folder, one line got wrapped in two when you pasted it, or one value is still the placeholder because you pasted three of the four.
+
+::: warning Not `npm run dev:check`
+That is a different command, for maintainers. It compares the development database against **production**, so it needs production credentials that you do not have and should not be sent — and it fails with `✗ PRODUCTION: URL or anon key missing`, which looks like your keys are wrong when they are fine.
+:::
 
 ### 4e. If you do not have the credentials yet
 
@@ -163,7 +186,7 @@ Leave `npm run dev` running in one window and type everything else in a second. 
 | `npm run dev` | Runs the site on your machine, usually at `localhost:5174` |
 | `npm test` | Runs the test suite. CI runs this exact one on your pull request |
 | `npm run build` | Builds the production files — proves nothing is broken before you push |
-| `npm run dev:check` | Checks your `.env.local` credentials work |
+| `npm run env:check` | Checks your `.env.local` credentials work |
 | `npm run preview:url` | Prints the preview address for the branch you are on |
 
 ## Where things live

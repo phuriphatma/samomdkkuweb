@@ -39,6 +39,8 @@ Takes a few seconds, and skipping it is the usual reason a change later collides
 git checkout -b ui/news-card-spacing
 ```
 
+**You should see** `Switched to a new branch 'ui/news-card-spacing'`.
+
 `checkout -b` means *make a new branch and switch to it*. From now on, commits go onto that branch and `main` is untouched.
 
 ::: warning A branch is required, not just polite
@@ -112,7 +114,13 @@ Now send the branch to GitHub:
 git push -u origin ui/news-card-spacing
 ```
 
+**You should see** a few progress lines and then a block offering a URL to *create a pull request*. That URL is the next step; you can open it directly if you like.
+
 `-u origin <branch>` is only needed the **first** time you push a new branch — it tells git where this branch belongs. Afterwards, plain `git push` is enough.
+
+::: warning If it says `Permission denied` or `403`
+You are pushing to the project itself without being a collaborator. Nothing is lost — your commits are safe on your machine. Take your own copy as described in [Install and run](/start/install), step 2, and push there instead.
+:::
 
 ## 5. Open the pull request
 
@@ -154,9 +162,9 @@ Test **here**, not only on your own machine. It is a real site on a real phone, 
 
 | Check | Takes | If it is red |
 |---|---|---|
-| **build** — `npm test` and `npm run build` | ~2 min | Click *Details* and read the **first** red line; the rest is usually noise from it |
-| **Cloudflare Pages** — builds the preview | ~2 min | Usually means the build failed too — fix that first |
-| **smoke** — loads the preview in a real browser | ~1 min | The page builds but does not run |
+| **build** — runs `npm test` and `npm run build` | ~2 min | Click *Details* and read the **first** red line; the rest is usually noise from it |
+| **Cloudflare Pages: samomdkkuweb** — builds your preview | ~2 min | Usually means `build` failed too — fix that first |
+| **smoke** — loads the finished preview in a real browser | ~1 min | The page builds but does not run. This one only starts once the preview has built |
 
 To fix something, **do not open a second pull request.** Commit and push to the same branch:
 

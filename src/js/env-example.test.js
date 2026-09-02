@@ -87,3 +87,59 @@ describe('the getting-started pages and the example agree', () => {
       .not.toMatch(/if that example file exists/);
   });
 });
+
+// ==============================================
+// THE FIRST COMMAND A CONTRIBUTOR IS TOLD TO RUN MUST WORK FOR A CONTRIBUTOR.
+//
+// docs/start/install.md told a new contributor to verify their setup with
+// `npm run dev:check`. That command compares samo-dev against PRODUCTION
+// (tools/dev-check.mjs reads VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY), which
+// a contributor does not have and must never be sent — so it would exit 1 with
+// "✗ PRODUCTION: URL or anon key missing from .env.local" having proved nothing
+// about the four keys they actually pasted.
+//
+// A verification step that fails on a CORRECT setup is worse than none: it
+// blames the reader for the guide's mistake, at the exact moment they have no
+// way to tell which of the two is wrong.
+// ==============================================
+describe('the contributor-facing setup check', () => {
+  const ENVCHECK = readFileSync(join(ROOT, 'tools', 'env-check.mjs'), 'utf8');
+  const DEVCHECK = readFileSync(join(ROOT, 'tools', 'dev-check.mjs'), 'utf8');
+  const PKG = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+
+  it('is wired up as npm run env:check', () => {
+    expect(PKG.scripts['env:check']).toBe('node tools/env-check.mjs');
+  });
+
+  it('reads NO production credential — that is the whole point', () => {
+    for (const name of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'SUPABASE_ACCESS_TOKEN']) {
+      expect(ENVCHECK, `env-check reads ${name}, which a contributor does not have`)
+        .not.toMatch(new RegExp(`env\\.${name}\\b`));
+    }
+  });
+
+  it('checks every name the example declares (control: the two lists agree)', () => {
+    // Written from the EXAMPLE, not from a list retyped here — a guard built
+    // from the same list as the code cannot see a name missing from both.
+    const checked = [...ENVCHECK.matchAll(/'(SUPABASE_DEV_[A-Z_]+)'/g)].map((m) => m[1]);
+    for (const name of declared) {
+      expect(checked, `env-check never looks at ${name}`).toContain(name);
+    }
+  });
+
+  it('dev:check STILL requires production — do not "simplify" the two into one', () => {
+    // dev:check is a parity guard and its value is that it needs both sides.
+    // Teaching it to skip the production half when credentials are absent would
+    // make it pass in the one case it exists to catch.
+    expect(DEVCHECK).toMatch(/env\.VITE_SUPABASE_URL/);
+    expect(DEVCHECK).toMatch(/env\.VITE_SUPABASE_ANON_KEY/);
+  });
+
+  it('install.md sends contributors to env:check, and warns off the other one', () => {
+    expect(INSTALL).toMatch(/npm run env:check/);
+    expect(INSTALL, 'install.md still tells a contributor to run dev:check as their check')
+      .not.toMatch(/^```bash\nnpm run dev:check\n```/m);
+    expect(INSTALL, 'the warning that dev:check is not theirs has gone')
+      .toMatch(/Not `npm run dev:check`/);
+  });
+});

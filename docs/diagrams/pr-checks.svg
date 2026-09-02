@@ -29,8 +29,8 @@
 
   <rect x="62" y="264" width="778" height="38" rx="7" fill="#fff7f2" stroke="#FF6F30" stroke-width="2"/>
   <circle cx="80" cy="283" r="7" fill="#105922"/>
-  <text x="100" y="288" font-size="12.5" fill="#1f2933">Cloudflare Pages</text>
-  <text x="300" y="288" font-size="11.5" fill="#105922">https://ui-news-card-spacing.samomdkkuweb.pages.dev</text>
+  <text x="100" y="288" font-size="12.5" fill="#1f2933">Cloudflare Pages: samomdkkuweb</text>
+  <text x="346" y="288" font-size="11.5" fill="#105922">https://ui-news-card-spacing.samomdkkuweb.pages.dev</text>
   <text x="828" y="288" text-anchor="end" font-size="11.5" fill="#5c6773">Details</text>
 
   <text x="450" y="358" text-anchor="middle" font-size="12" fill="#FF6F30">This is your preview site. Open it, and send the address to anyone you want an opinion from.</text>
