@@ -44,11 +44,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `0be5303` (2026-09-01)** — app and docs BOTH published by
-  `deploy.sh` itself, no hand step. Verified from the
-  SERVED artifact, with a string UNIQUE to the change and an old one as control
-  — a shared phrase scored a stale page as fresh earlier today.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **14 runs, 10
+- ✅ **DEPLOYED = `a044af6` (2026-09-02)** — app and docs BOTH published by
+  `deploy.sh` itself, no hand step, in **31 s**. Verified from the SERVED
+  artifact with a string UNIQUE to the change and an old one as control.
+  ⚠️ **The control earned its place**: `dept-section-sub` greps 0 in
+  `public-*.js` — and so does the control `news-card-title`, because the
+  renderer lands in a SHARED chunk (`analytics-*.js`) that both entries import.
+  A new-string-only check would have read as a failed deploy. Both are in that
+  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `0be5303`, `6e2d8c8`.
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **15 runs, 11
   published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
   its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
   in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
@@ -62,7 +66,7 @@ TRUE. That is what the grep is for.
   control. Both traps are in `skills/deploy-vm.md`. Done for `0be5303`.
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
-  the whole recipe is `skills/deploy-vm.md`. Previous: `6e2d8c8`, `8630a72`.
+  the whole recipe is `skills/deploy-vm.md`.
 - ✅ **`main` being AHEAD of the deployed sha is the NORMAL state** — tests and
   session notes reach nothing. ⚠️ **`docs/` DOES ship now** (the VM serves
   `/docs`), so "it is only docs" stopped being a reason to skip a deploy on
