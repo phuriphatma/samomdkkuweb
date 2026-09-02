@@ -122,7 +122,7 @@ Open when: writing a migration.
 - A carried passport student would have signed in to 0 km
 - A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(83)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(84)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -209,6 +209,7 @@ Open when: markup, modals, layout, touch, icons.
 - A second markup site for the same navigation had no handler, so it full-reloaded
 - The สถิติ quota panels had 29 tests and had never been LOOKED at
 - "The tool renders fine" — but ~160px of dead space under it, and every test was green
+- "ไม่พบใครที่ตรงกับ …" stayed on screen with the matching rows listed right beneath it
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -327,4 +328,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
 
-_270 entries across 9 files._
+_271 entries across 9 files._

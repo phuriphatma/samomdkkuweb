@@ -3351,3 +3351,54 @@ documents, written by different people, and neither line looks wrong on its own.
 tests is that a jsdom test has no layout engine at all: it can prove the message
 was sent and cannot prove the number in it means anything. **A frame is a view
 you have not opened until you have looked at it.**
+
+## "ไม่พบใครที่ตรงกับ …" stayed on screen with the matching rows listed right beneath it
+
+**Symptom.** In ทีม SAMO → เพิ่ม/แก้ไขสมาชิก → ค้นหาคนจากระบบ, typing a query
+that matches nobody, then typing more, left
+
+```
+ไม่พบใครที่ตรงกับ “<the FIRST query>” — กรอกข้อมูลเองด้านล่างได้เลย
+```
+
+sitting directly above the results for the SECOND query. The hint and the list
+contradicted each other, and the hint is the more authoritative-looking of the
+two because it is a sentence. Noticed while driving the admin UI on 2026-08-10,
+carried in `docs/NEXT.md` §0b as "one line in `renderPersonResults`".
+
+**Cause — the message had an entry and no exit.** `renderPersonResults` wrote
+the verdict on the empty-result branch and never touched the hint on the branch
+that finds rows. Nothing was stale in the sense of a cache: the sentence was
+TRUE when it was written and nothing was responsible for withdrawing it. The
+same hole covered the second outcome, a query dropping below the two-character
+floor, where nothing has been searched and so no verdict is owed at all.
+
+**It was not one line.** The note in NEXT.md was written from the symptom and
+under-counted the work, which is worth recording on its own: fixing it needs a
+sentence to fall BACK to, and that resting sentence is different for เพิ่ม
+(«พิมพ์อย่างน้อย 2 ตัวอักษร …») and แก้ไข («ค้นหาเพื่อเติมข้อมูลจากระบบทับของเดิม …»),
+which only `openMemberModal` knows. Retyping either at the renderer would be one
+rule with two implementations. And `src/html/tab-team.html` holds a THIRD copy —
+what the box says on the first paint, before any modal has opened — which HTML
+cannot import.
+
+**Fix.** `PERSON_SEARCH_HINT_ADD` / `PERSON_SEARCH_HINT_EDIT` are exported
+constants; a module-scope `personSearchResting` holds whichever this open is
+using, and `renderPersonResults` restores it on both non-verdict outcomes. A
+successful pick promotes its own confirmation («เติมข้อมูลของ X แล้ว …») to be
+the resting text, because after a pick that sentence is a true statement about
+the FORM, not about the query — so clearing the search box must not retract it.
+
+**Where it lives now.** `src/js/team/index.js` (the constants, `personSearchResting`,
+`renderPersonResults`, `pickPerson`, and the modal reset), guarded by
+`src/js/person-search-hint.test.js` — four assertions, each reintroduced and
+watched fail before the fix was kept: the rows path, the short-query path, the
+one-home rule, and the HTML copy.
+
+**The general rule.** *A message a renderer can turn ON must be turned OFF by
+every other outcome that renderer can reach.* This is class 4 in a quiet form —
+authorization is per-path, and so is disclosure: enumerate the branches, not the
+one you were looking at. The tell is a UI string written inside an `if` with no
+matching `else`. And the second half is class 6: the moment a message has more
+than one resting value, it has more than one author, so give it a constant
+before the two spellings drift.

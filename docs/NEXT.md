@@ -146,28 +146,29 @@ right fix for drift; check what was WATCHING the thing you extracted.**
 The same treatment is still worth copying for any new policy+RPC pair — it is
 what the VS side has done since 0083 (`current_user_vs_scope()`).
 
-### 0. `photo_reference_count()` cannot see `houses.icon_url` (2026-08-09)
+### 0. ✅ DONE 2026-08-09 (0146) — `photo_reference_count()` sees the crest
 
-The house-crest cleanup in `src/js/house/index.js` (`onHouseSubmit` →
-`deleteTeamPhotoIfUnused(prevIcon)`) decides on `photo_reference_count()`, which
-counts five tables and every one of them on `photo_url`. A crest lives in
-`houses.icon_url`, so the count answers **0 for every crest** and the delete
-always proceeds.
+⛔ **This entry stood open for three weeks after it was fixed**, at the TOP of a
+file whose first line says it is ordered by what bites first. Two sessions were
+told to spend time on it. Kept as a pointer, not reopened.
 
-Safe today only by coincidence — the row is repointed before the count runs, so
-nothing else legitimately references it. It stops being safe the moment two
-houses share a crest URL: replacing one trashes the file the other displays, and
-because GAS deletes now REVOKE SHARING before trashing (2026-08-09), the victim
-breaks *immediately* rather than lingering through the trash window.
+**What it was.** The house-crest cleanup decided on `photo_reference_count()`,
+which counted five tables and every one of them on `photo_url`. A crest lives in
+`houses.icon_url`, so the count answered **0 for every crest** and the delete
+always proceeded — safe only while no two houses shared a file.
 
-⚠️ `src/js/photo-refcount.test.js` is the guard for exactly this class and it
-reports GREEN here, because it scans the migration DDL for tables given a
-`photo_url` — `icon_url` is invisible to it. That false assurance is why the
-crest cleanup was written this way in the first place.
+**Both halves of the fix landed.** Verified 2026-09-02 by reading the LIVE body
+from `pg_get_functiondef`, not the migration that first defined it: the function
+now counts `houses.icon_url` and both `dept_content` media columns (0178). And
+`src/js/photo-refcount.test.js` no longer greps for the literal name `photo_url`
+— it enumerates **every `*_url` column in the migration tree** and forces a
+decision about each, with `houses.icon_url` as the control that must be found.
 
-**Fix**: a new migration adding `houses` to `photo_reference_count()`, and widen
-the guard test to any `*_url` column a delete path can reach. Verify with
-`node tools/team0143-photo-refcount.mjs` (5/5 today) plus a crest case.
+**The transferable part** — the reason this is a pointer and not a deletion — is
+that the guard reported GREEN through the whole bug, because it was built from
+the same list the code was built from. `.claude/rules/mistakes.md` class 7:
+never write a guard from the list the code came from; assert the PROPERTY that
+list was meant to produce.
 
 ### 0b. Three small things seen while driving the admin UI (2026-08-10)
 
@@ -181,10 +182,14 @@ Found during the first signed-in browser pass. None is urgent; all are cheap.
    each other are exactly the cold-load case. Confirm before fixing: it may be a
    race with the permission fetch rather than a missing call.
 
-2. **The ค้นหาคนจากระบบ hint goes stale.** Typing a second query leaves
-   `ไม่พบใครที่ตรงกับ "<old query>"` on screen while the NEW results are listed
-   directly beneath it — the hint is written on the empty path and never cleared
-   when a later reply paints rows. One line in `renderPersonResults`.
+2. ✅ **DONE 2026-09-02 — the ค้นหาคนจากระบบ hint went stale.** Typing a second
+   query left `ไม่พบใครที่ตรงกับ "<old query>"` on screen while the NEW results
+   were listed directly beneath it. It was not one line: the verdict had an
+   entry and no exit, so BOTH other outcomes of `renderPersonResults` had to
+   withdraw it — rows found, and a query too short to have been searched. The
+   resting sentence differs between เพิ่ม and แก้ไข and `tab-team.html` holds a
+   third copy, so it now lives in `PERSON_SEARCH_HINT_ADD` / `_EDIT` and
+   `src/js/person-search-hint.test.js` pins all three.
 
 3. **ตรวจสอบข้อมูล shows 8 findings** on the live tree and nobody has looked at
    them. They are data issues (`team/health.js`), not code, but 8 is small

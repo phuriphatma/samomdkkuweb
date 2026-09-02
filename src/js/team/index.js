@@ -2890,24 +2890,58 @@ function refreshMajorPickers() {
  * anything parked on it outlives the person it describes — the exact shape that
  * leaked a permission grid across rows in 0110.
  */
+// The picker's two RESTING sentences. เพิ่ม asks who this is; แก้ไข has to warn
+// that picking somebody REPLACES what is already typed, because there the same
+// click reassigns an existing posting to a different human.
+//
+// ⚠️ `PERSON_SEARCH_HINT_ADD` is also the literal in `src/html/tab-team.html`
+// (`#teamMemberSearchHint`), which is what the box says before any modal has
+// opened. HTML cannot import a constant, so that copy is pinned by
+// `person-search-hint.test.js` rather than by care.
+export const PERSON_SEARCH_HINT_ADD =
+  'พิมพ์อย่างน้อย 2 ตัวอักษร แล้วเลือกจากรายการเพื่อเติมข้อมูลให้อัตโนมัติ';
+export const PERSON_SEARCH_HINT_EDIT =
+  'ค้นหาเพื่อเติมข้อมูลจากระบบทับของเดิม — หรือแก้ในช่องด้านล่างได้เลย';
+
 let personSearchToken = 0;
 let personSearchTimer = null;
 let personSearchHits = [];
+/**
+ * What the hint says when the picker has nothing to say about a QUERY.
+ *
+ * It is a variable, not two string literals at two call sites, because the
+ * resting sentence differs between เพิ่มสมาชิก and แก้ไขสมาชิก and only
+ * `openMemberModal` knows which one this open is. Retyping it in the renderer
+ * would be one rule with two implementations (class 6): the two would agree
+ * until somebody edited one.
+ *
+ * REPORTED (docs/NEXT.md §0b, item 2): typing a second query left
+ * “ไม่พบใครที่ตรงกับ <old query>” on screen while the NEW results were listed
+ * directly beneath it. The hint was written on the empty path and never
+ * withdrawn on the path that finds rows — a message with an entry but no exit.
+ */
+let personSearchResting = PERSON_SEARCH_HINT_ADD;
 
 function renderPersonResults(hits, q) {
   const box = $('teamMemberSearchResults');
   if (!box) return;
   personSearchHits = hits;
+  const hint = $('teamMemberSearchHint');
   if (!hits.length) {
     box.classList.add('d-none');
     box.innerHTML = '';
-    const hint = $('teamMemberSearchHint');
-    if (hint && q.length >= 2) {
-      hint.textContent = `ไม่พบใครที่ตรงกับ “${q}” — กรอกข้อมูลเองด้านล่างได้เลย`;
+    // Under two characters nothing was SEARCHED, so there is no verdict to
+    // report — and any verdict still on screen is about a query that is gone.
+    if (hint) {
+      hint.textContent = q.length >= 2
+        ? `ไม่พบใครที่ตรงกับ “${q}” — กรอกข้อมูลเองด้านล่างได้เลย`
+        : personSearchResting;
     }
     return;
   }
   box.classList.remove('d-none');
+  // Rows are on screen, so the hint must stop claiming there are none.
+  if (hint) hint.textContent = personSearchResting;
   box.innerHTML = hits.map((p, i) => {
     const name = p.full_name || [p.first_name_th, p.last_name_th].filter(Boolean).join(' ') || '(ไม่มีชื่อ)';
     // WHERE they already are, not just THAT they are. "อยู่แล้ว" alone makes an
@@ -3033,11 +3067,15 @@ async function pickPerson(p) {
 
   const box = $('teamMemberSearchResults');
   if (box) { box.classList.add('d-none'); box.innerHTML = ''; }
+  // The confirmation BECOMES the resting text, so clearing the search box (or
+  // typing one character) falls back to “you filled this from X”, not to the
+  // generic invitation — the form really does hold that person now. Leaving it
+  // out of `personSearchResting` would make an emptied query undo a true
+  // statement about the form.
+  personSearchResting = `เติมข้อมูลของ ${p.full_name || p.kkumail || 'คนนี้'} แล้ว `
+    + '— ตรวจดูอีกครั้งก่อนบันทึก แก้ตรงนี้จะเปลี่ยนในระบบบ้านด้วย';
   const hint = $('teamMemberSearchHint');
-  if (hint) {
-    hint.textContent = `เติมข้อมูลของ ${p.full_name || p.kkumail || 'คนนี้'} แล้ว `
-      + '— ตรวจดูอีกครั้งก่อนบันทึก แก้ตรงนี้จะเปลี่ยนในระบบบ้านด้วย';
-  }
+  if (hint) hint.textContent = personSearchResting;
   $('teamMemberFirstName')?.focus();
 }
 
@@ -3499,12 +3537,9 @@ function fillMemberModal(member, nodeId, tab) {
   if (searchBox) searchBox.value = '';
   const searchResults = $('teamMemberSearchResults');
   if (searchResults) { searchResults.classList.add('d-none'); searchResults.innerHTML = ''; }
+  personSearchResting = member ? PERSON_SEARCH_HINT_EDIT : PERSON_SEARCH_HINT_ADD;
   const searchHint = $('teamMemberSearchHint');
-  if (searchHint) {
-    searchHint.textContent = member
-      ? 'ค้นหาเพื่อเติมข้อมูลจากระบบทับของเดิม — หรือแก้ในช่องด้านล่างได้เลย'
-      : 'พิมพ์อย่างน้อย 2 ตัวอักษร แล้วเลือกจากรายการเพื่อเติมข้อมูลให้อัตโนมัติ';
-  }
+  if (searchHint) searchHint.textContent = personSearchResting;
   $('teamMemberConfirmed').checked = !!member?.confirmed;
   // Same reuse hazard as the pending photo below: a match painted for the LAST
   // row must not still be on screen for this one. Cancel the in-flight lookup
