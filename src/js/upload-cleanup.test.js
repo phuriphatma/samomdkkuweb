@@ -55,6 +55,14 @@ const AUDIT = [
     cleanup: /deleteTeamPhotoIfUnused/, where: 'team/index.js',
   },
   {
+    file: 'dept-page-admin.js',
+    what: 'หน้าฝ่าย card cover image / looping video (0179)',
+    // Both columns are counted by photo_reference_count() — migration 0178 added
+    // dept_content.cover_url and .video_url the day ฝ่าย covers shipped — so the
+    // shared cleanup answers correctly here with no change of its own.
+    cleanup: /deleteTeamPhotoIfUnused/, where: 'dept-page-admin.js',
+  },
+  {
     file: 'my-seat.js',
     what: 'ข้อมูลของฉัน self-service portrait (เปลี่ยนรูป / นำรูปออก)',
     cleanup: /deleteTeamPhotoIfUnused/, where: 'my-seat.js',

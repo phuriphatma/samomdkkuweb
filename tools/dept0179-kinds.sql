@@ -66,14 +66,9 @@ exception when check_violation then
   insert into probe values ('section titled "   "', 'refused', 'refused');
 end $$;
 
-select case_name, expected, got,
-       case when expected = got then 'PASS' else '*** FAIL ***' end as verdict
-from probe order by case_name;
-
-select count(*) filter (where expected = got)  as passed,
-       count(*) filter (where expected <> got) as failed,
-       count(*) filter (where expected = 'accepted') as allow_cases,
-       count(*) filter (where expected = 'refused')  as deny_cases
-from probe;
+select case_name as step,
+       case when expected = got then 'PASS' else 'FAIL' end as result,
+       expected, got
+  from probe order by case_name;
 
 rollback;

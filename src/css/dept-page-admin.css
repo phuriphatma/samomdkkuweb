@@ -66,3 +66,14 @@
   border: 1px solid #dee2e6;
   white-space: nowrap;
 }
+
+/* A media field: the URL box and its picker on one line. The text box keeps the
+   remaining width, because a Drive URL is long and a truncated one cannot be
+   checked by eye. */
+.dpa-media { display: flex; gap: .4rem; align-items: stretch; }
+.dpa-media input[type="text"], .dpa-media .form-control { flex: 1 1 auto; min-width: 0; }
+.dpa-media .dpa-pick { flex: 0 0 auto; white-space: nowrap; }
+
+/* "chosen but not uploaded". Amber rather than red — nothing is wrong, there is
+   just a step left, and a red line here would read as a failed upload. */
+.dpa-pending { color: #8a5a12; }

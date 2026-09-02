@@ -252,6 +252,131 @@ describe('a kind is added in FOUR places or not at all (0179)', () => {
   });
 });
 
+describe('picking a file uploads NOTHING until บันทึก', () => {
+  // THE BUG THIS PREVENTS, already paid for once on the ทีม SAMO portrait:
+  // "when there's already a picture of me uploaded on teamsamo and i press
+  // upload files, and upload it without pressing the นำรูปออก, the drive now
+  // store both files". Uploading on PICK makes every intermediate choice a real
+  // Drive file while only the last is referenced, and the delete path cannot
+  // reach the strays — it trashes the file the row POINTS AT, which is exactly
+  // the one that is not an orphan.
+  const changeHandler = (() => {
+    const i = ADMIN.indexOf("root.addEventListener('change'");
+    expect(i, 'the delegated change handler was renamed — this guard is blind')
+      .toBeGreaterThan(-1);
+    return ADMIN.slice(i, ADMIN.indexOf('root.addEventListener(\'click\'', i));
+  })();
+
+  it('the pick handler never calls the uploader', () => {
+    expect(changeHandler, 'a file is uploaded the moment it is picked — every '
+      + 'intermediate choice becomes an orphaned Drive file')
+      .not.toMatch(/uploadImageToDrive|uploadPending/);
+  });
+
+  it('the pick handler only parks the file', () => {
+    expect(changeHandler).toMatch(/pending\.set\(/);
+  });
+
+  it('the uploader runs from save(), before the write', () => {
+    const saveFn = ADMIN.slice(ADMIN.indexOf('async function save(root)'));
+    const body = saveFn.slice(0, saveFn.indexOf('async function refresh'));
+    const upload = body.indexOf('uploadPending(');
+    const patch = body.indexOf("method: 'PATCH'");
+    expect(upload, 'save() never uploads the pending picks').toBeGreaterThan(-1);
+    expect(upload, 'the row is written BEFORE its file is uploaded, so it would '
+      + 'point at the old one').toBeLessThan(patch);
+  });
+
+  it('a failed upload STOPS the save — null is not the same as {}', () => {
+    // A caller that cannot tell "nothing to upload" from "the upload failed"
+    // writes the row anyway, and the row keeps pointing at the OLD file while
+    // the person is told it saved.
+    const saveFn = ADMIN.slice(ADMIN.indexOf('async function save(root)'));
+    expect(saveFn.slice(0, 1200)).toMatch(/=== null/);
+    const up = ADMIN.slice(ADMIN.indexOf('async function uploadPending'));
+    expect(up.slice(0, up.indexOf('async function save')), 'uploadPending swallows '
+      + 'an upload failure').toMatch(/return null/);
+  });
+
+  it('a pick is consumed only after ITS row is confirmed written', () => {
+    // Clearing every pick at the end of the loop would discard picks already
+    // uploaded to Drive if a later row is refused.
+    const saveFn = ADMIN.slice(ADMIN.indexOf('async function save(root)'));
+    const body = saveFn.slice(0, saveFn.indexOf('async function refresh'));
+    const confirmed = body.indexOf('data.length === 0');
+    const cleared = body.indexOf('clearPending(id)');
+    expect(cleared, 'save() never consumes the pending picks').toBeGreaterThan(-1);
+    expect(cleared, 'picks are cleared before the write is confirmed')
+      .toBeGreaterThan(confirmed);
+  });
+
+  it('every blob URL it creates is revoked somewhere', () => {
+    // A blob URL revoked late is held for the life of the document.
+    const created = (ADMIN.match(/URL\.createObjectURL/g) || []).length;
+    const revoked = (ADMIN.match(/URL\.revokeObjectURL/g) || []).length;
+    expect(created, 'no blob preview is made at all').toBeGreaterThan(0);
+    expect(revoked, 'more blob URLs are created than are ever revoked')
+      .toBeGreaterThanOrEqual(created);
+  });
+
+  it('the preview shows a pending pick, so choosing one is VISIBLE', () => {
+    // Otherwise picking a cover changes nothing on screen until after a save —
+    // the same "I pressed it and nothing happened" the draft badge was for.
+    expect(ADMIN).toMatch(/renderDeptContent\(rowsForPreview\(\)\)/);
+    const fn = ADMIN.slice(ADMIN.indexOf('function rowsForPreview'));
+    expect(fn.slice(0, 600)).toMatch(/previewUrl/);
+  });
+
+  it('images are downscaled before the base64 POST, videos are not', () => {
+    const up = ADMIN.slice(ADMIN.indexOf('async function uploadPending'));
+    const body = up.slice(0, up.indexOf('async function save'));
+    expect(body).toMatch(/downscaleImage/);
+    expect(body, 'a video would be run through an image downscaler')
+      .toMatch(/\^image\\\//);
+  });
+
+  it('every class the media field EMITS has a live CSS rule', () => {
+    for (const cls of ['dpa-media', 'dpa-pick', 'dpa-pending']) {
+      expect(ADMIN, `${cls} is not emitted any more`).toContain(cls);
+      expect(CSS, `.${cls} is emitted with no rule`).toMatch(new RegExp(`\\.${cls}[\\s,{.]`));
+    }
+  });
+
+  it('retires the replaced file only AFTER the write is confirmed', () => {
+    // Retiring first would trash the LIVE file if the PATCH were then refused —
+    // RLS refuses by matching zero rows, not by erroring, so the failure is
+    // silent and the ฝ่าย page is left showing a broken image.
+    const saveFn = ADMIN.slice(ADMIN.indexOf('async function save(root)'));
+    const body = saveFn.slice(0, saveFn.indexOf('async function refresh'));
+    const confirmed = body.indexOf('data.length === 0');
+    const retired = body.indexOf('photoToRetire');
+    expect(retired, 'save() never retires the file a new upload replaces')
+      .toBeGreaterThan(-1);
+    expect(retired, 'the old file is trashed before the write is confirmed')
+      .toBeGreaterThan(confirmed);
+  });
+
+  it('deleting a row retires its media too', () => {
+    // The row is the only thing that held those URLs, so a delete orphans them
+    // permanently — and a Drive upload is shared "anyone with the link".
+    const rm = ADMIN.slice(ADMIN.indexOf('async function removeRow'));
+    const body = rm.slice(0, rm.indexOf('\n}'));
+    expect(body).toMatch(/deleteTeamPhotoIfUnused/);
+    // It can only read them from what the DELETE handed back.
+    expect(body, 'the URLs are read from somewhere other than the deleted row')
+      .toMatch(/data\[0\]/);
+    expect(body, 'the DELETE no longer asks for the row back, so the URLs are gone')
+      .toMatch(/return=representation/);
+  });
+
+  it('a pasted URL still works — the picker is an addition, not a replacement', () => {
+    // A ฝ่าย with an existing Drive link must not have to re-upload, and it is
+    // the only way to point at something this app did not upload.
+    const mf = ADMIN.slice(ADMIN.indexOf('function mediaField'));
+    expect(mf.slice(0, 1200)).toMatch(/data-dpa-field="\$\{field\}"/);
+  });
+});
+
 describe('the admin preview and the public page share one stylesheet path', () => {
   it('the preview container carries dept-content, like the live one', () => {
     // The page CSS is scoped under `.dept-content`. Without the class the
