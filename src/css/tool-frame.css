@@ -83,3 +83,54 @@
   min-height: 8rem;   /* a shorter floor than a full tool page: a block is one
                          section of a page, not the whole of it */
 }
+
+/* ==========================================================
+   SECTIONS AND PARAGRAPHS (0179) — the vocabulary a flat run of cards lacked.
+   Modelled on a Moodle course page: a titled band groups everything after it
+   until the next one, so twelve undifferentiated cards become named groups.
+   ========================================================== */
+
+/* The heading needs to read as a DIVIDER, not as another card. A rule above it
+   does that with no box: the group below belongs to it, and the whitespace is
+   what separates one group from the next. The first section on a page must not
+   carry that rule — there is nothing above it to divide from. */
+.dept-content > .dept-section {
+  border-top: 1px solid rgba(0, 0, 0, 0.09);
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+}
+.dept-content > .dept-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.dept-section-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--brand-primary, #105922);
+}
+
+.dept-section-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: #6c757d;
+}
+
+/* A paragraph a ฝ่าย typed into a form. `pre-line` honours the line breaks they
+   pressed Enter for WITHOUT parsing anything — the alternative is a second,
+   unsandboxed markup path, which is what "just allow a little HTML here" builds
+   by accident. Text is escaped at the renderer; this only affects whitespace. */
+.dept-text {
+  margin: 0;
+  max-width: 68ch;
+  white-space: pre-line;
+  color: #3f4854;
+  line-height: 1.7;
+}
+
+@media (max-width: 575.98px) {
+  .dept-content > .dept-section { margin-top: 1.5rem; padding-top: 1.15rem; }
+  .dept-section-title { font-size: 1.08rem; }
+}

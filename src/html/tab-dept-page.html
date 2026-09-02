@@ -11,8 +11,14 @@
     <div class="form-text" id="dpaOnly"></div>
   </div>
   <span class="flex-grow-1"></span>
+  <button type="button" class="btn btn-outline-secondary" id="dpaAddSection">
+    <i class="bi bi-type-h2"></i> เพิ่มหัวข้อ
+  </button>
   <button type="button" class="btn btn-outline-secondary" id="dpaAddCard">
-    <i class="bi bi-plus-lg"></i> เพิ่มการ์ด
+    <i class="bi bi-card-heading"></i> เพิ่มการ์ด
+  </button>
+  <button type="button" class="btn btn-outline-secondary" id="dpaAddText">
+    <i class="bi bi-text-paragraph"></i> เพิ่มข้อความ
   </button>
   <button type="button" class="btn btn-outline-secondary" id="dpaAddHtml">
     <i class="bi bi-code-slash"></i> เพิ่ม HTML
@@ -33,7 +39,15 @@
     <h6 class="text-muted small text-uppercase">ตัวอย่างหน้าจริง</h6>
     <!-- The preview renders through the SAME function the public page uses,
          so an HTML block is previewed inside the same sandboxed frame a
-         visitor gets. Never innerHTML — see dept-page-admin.js. -->
-    <div id="dpaPreview" class="dpa-preview"></div>
+         visitor gets. Never innerHTML — see dept-page-admin.js.
+
+         ⚠️ `dept-content` IS LOAD-BEARING, not decoration. The public page's
+         container carries it (tab-departments.html #deptsDetailCards) and the
+         page CSS is scoped under it — `.dept-content > .dept-section` and the
+         card-grid rules. Without this class the preview renders the same HTML
+         through a DIFFERENT stylesheet path, so a section heading would look
+         right on the live page and wrong here, which is precisely the thing
+         the preview exists to rule out. Guarded by dept-content.test.js. -->
+    <div id="dpaPreview" class="dpa-preview dept-content"></div>
   </div>
 </div>

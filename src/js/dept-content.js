@@ -84,20 +84,55 @@ export function renderContentHtml(row) {
     + ` title="เนื้อหาของฝ่าย" loading="lazy"></iframe>`;
 }
 
+/**
+ * A SECTION HEADING (0179) — the thing a page of twelve cards was missing.
+ *
+ * Modelled on a Moodle course page, which the owner named as the reference:
+ * a titled band with an optional line of summary, grouping everything that
+ * follows it until the next one. It is a LABEL, never a link — a heading that
+ * navigates somewhere is a different promise.
+ */
+export function renderContentSection(row) {
+  return `<div class="dept-section">
+      <h3 class="dept-section-title">${escHtml(row.title || '')}</h3>
+      ${row.description ? `<p class="dept-section-sub">${escHtml(row.description)}</p>` : ''}
+    </div>`;
+}
+
+/**
+ * A PARAGRAPH (0179) — the missing middle between a form and writing HTML.
+ *
+ * Before this, a ฝ่าย wanting two sentences of explanation had to jump straight
+ * to kind='html'. Newlines are honoured (`white-space: pre-line` in the CSS)
+ * rather than parsed, so a ฝ่าย gets paragraphs without this becoming a second,
+ * unsandboxed markup path — which is what "just let them use a bit of HTML
+ * here" would quietly build.
+ */
+export function renderContentText(row) {
+  return `<p class="dept-text">${escHtml(row.description || '')}</p>`;
+}
+
 export function renderDeptContent(rows) {
   const visible = (rows || []).filter((r) => r.visible !== false);
   if (!visible.length) return '';
-  // Consecutive cards share one grid; an HTML block is full width and breaks
-  // the run. Rendering every card into its own grid would collapse the layout
-  // to one column, which is what the first version did.
+  // Consecutive cards share one grid; anything full width breaks the run.
+  // Rendering every card into its own grid would collapse the layout to one
+  // column, which is what the first version did.
   const out = [];
   let run = [];
   const flush = () => {
     if (run.length) out.push(`<div class="news-grid news-grid--archive dept-cards">${run.join('')}</div>`);
     run = [];
   };
+  // ⚠️ The default branch draws an UNKNOWN kind as a card. That is deliberate:
+  // it is what makes 0179-style additions safe in either order against a
+  // running app — a row of a kind this bundle has never heard of looks wrong,
+  // never blank and never broken. Adding a kind means adding a case HERE, and
+  // dept-content.test.js fails if the DDL knows a kind this function does not.
   for (const r of visible) {
     if (r.kind === 'html') { flush(); out.push(renderContentHtml(r)); }
+    else if (r.kind === 'section') { flush(); out.push(renderContentSection(r)); }
+    else if (r.kind === 'text') { flush(); out.push(renderContentText(r)); }
     else run.push(renderContentCard(r));
   }
   flush();

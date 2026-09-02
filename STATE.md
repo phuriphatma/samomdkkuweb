@@ -15,18 +15,16 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
-00. ✅ **Settled and written up, do not re-derive:** the `master` หนังสือ guard
-    (0176) · passport km on signup (0175). Both in `docs/mistakes/`; the rule
-    0176 bought is class 5 in `.claude/rules/mistakes.md`.
-
-02. ✅ **Previews exist, point at `samo-dev`, safe to submit forms on.**
+00. ✅ **Settled, written up, do not re-derive:** the `master` หนังสือ guard
+    (0176) · passport km on signup (0175), both in `docs/mistakes/` (0176's rule
+    is class 5 in `.claude/rules/mistakes.md`) · previews exist, point at
+    `samo-dev`, safe to submit forms on · repo identity has ONE home
+    (`package.json` `repository.url`, guarded by `npm test`; recovery map is
+    `docs/SUCCESSION.md` + `npm run succession:audit`).
 
 03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`.** The old
     CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do
     not recreate them. Why: `docs/state-archive/2026-08-31-docs-site-restructure.md`.
-
-04. ✅ **Repo identity has ONE home** (`package.json` `repository.url`, guarded
-    by `npm test`). Recovery map: `docs/SUCCESSION.md` + `npm run succession:audit`.
 
 Everything older was drained on 2026-09-01 — reasoning in
 `docs/state-archive/2026-08-30-status-prune.md`, durable items in
@@ -81,11 +79,12 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0178. ALL 29 LIVE PROOFS GREEN**, re-run 2026-09-01
-  after 0178 reached production. ⚠️ The proof count is guarded against
+- **Migrations through 0179. ALL 30 LIVE PROOFS registered**; 0179 applied to
+  samo-dev AND production 2026-09-02, proven 10/10 both directions on each.
+  ⚠️ The other 29 were last run whole on 2026-09-01 — run `npm run proofs`
+  rather than believing this line. The proof count is guarded against
   `run-proofs.mjs`; the TEST count is not, which is why it is deliberately not
-  written here — run `npm test` / `npm run proofs`, never quote a remembered
-  number.
+  written here.
 
 ---
 
@@ -113,27 +112,22 @@ its restructure (02 above). ⛔ **No polling timer for the docs** — one was
 built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 0. ✅ **THE ORG MOVE IS DONE — `samomdkku/samomdkkuweb` since 2026-08-31.**
-   Protection and Pages survived; `@samomdkku/maintainers` owns all sixteen
-   `CODEOWNERS` paths instead of a person; identity repointed; Cloudflare
-   reconnected; the VM's remote repointed and proven by a deploy.
-   **`node tools/repo-protection.mjs` — all 27 pass** (it was 13 until the
-   Cloudflare check learned to enumerate the whole account). ⛔ Org 2FA is OFF by
-   OWNER DECISION. ⚠️ **A transfer WIPES ruleset bypass actors** — it refused
-   the next push while the proof read all-green (§5d).
-   ❌ **Last box, §10: someone who is NOT the owner must add a person to a team
-   once.** Until that happens the bottleneck has not moved.
-   ⛔ **NOTHING on `*.pages.dev` may reach the production database.** ⚠️ The
-   guard for this asserted it of ONE project and read 18/18 green while the
-   account held THREE — `refactorsamomdkkuweb` still carried the LIVE
-   production URL + anon key with `VITE_ENV_NAME` unset. Both the guard and
-   `npm run cf:pin-dev` now enumerate the ACCOUNT; all 27 pass
-   (`deploy-hosting.md`). ⛔ **Still open, OWNER + destructive: the two retired
-   projects' EXISTING deployments keep the old URL in their bundle and
-   `<hash>.<project>.pages.dev` serves them — deleting the projects is the only
+   `node tools/repo-protection.mjs` — all 27 pass. Detail and every trap:
+   `skills/move-the-repo-to-an-organisation.md`. ⛔ Org 2FA is OFF by OWNER
+   DECISION. ❌ **Last box, §10: someone who is NOT the owner must add a person
+   to a team once.** Until that happens the bottleneck has not moved.
+   ⛔ **NOTHING on `*.pages.dev` may reach the production database** — the guard
+   once asserted this of ONE project while the account held THREE, and the other
+   two carried the LIVE URL (`deploy-hosting.md`). ⛔ **Still open, OWNER +
+   destructive: the two retired projects' EXISTING deployments still serve the
+   old bundle at `<hash>.<project>.pages.dev`; deleting the projects is the only
    complete fix.**
 
-1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178).**
-   เมนู "หน้าฝ่าย" in /admin/: cards, links, covers, and **their own HTML**.
+1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
+   เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
+   HTML**, and a new row is a DRAFT. ⛔ **A free-position CANVAS was considered
+   and REJECTED — do not re-open it**; the reasoning, and the three things still
+   owed (file upload first), are in `docs/state/phuriphatma.md`.
    ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → a `tool/*` PR →
    `/tools/<slug>`. Both are LIVE; do not rebuild either.
    ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** — `allow-same-origin` is

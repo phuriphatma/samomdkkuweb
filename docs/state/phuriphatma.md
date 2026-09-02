@@ -16,6 +16,74 @@ path named here must resolve.
 
 ---
 
+## ▶ 2026-09-02 — the หน้าฝ่าย editor: why NOT a canvas (0179)
+
+**The report.** *"the current is having to fill in each card then it'll appear
+on ui. i think it's too bland, like there isn't many component for user to can
+do it, they can't position where they want, it's hard to use not like wyswyg …
+i want it to be like this web [a screenshot of KKU Moodle], my university can
+have professor who isn't so much technical to adjust the e-learning page for
+their subject to put what ever they want"*
+
+**The finding that decided it: the reference contradicts the request.** A Moodle
+course page is NOT WYSIWYG and has NO free positioning. It is an ordered list of
+TYPED items grouped under section headings, each edited through a form. That is
+the same model `dept_content` already had. What separated the two was
+VOCABULARY, not architecture — Moodle has sections and ~20 types; 0177 shipped a
+flat run of two.
+
+⛔ **So a canvas was rejected, and this should not be re-opened.** Reasons, in
+order of weight:
+
+1. The screenshot the owner chose is evidence FOR the list-of-blocks model.
+2. It is the professional standard for this exact problem. Every mainstream
+   editor aimed at a non-technical author is an ordered list of typed blocks —
+   WordPress Gutenberg, Notion, Ghost, Confluence. The free-position canvases
+   (Webflow, Framer, Wix) are aimed at DESIGNERS.
+3. Free positioning breaks on phones, which is most of this site's traffic, and
+   it breaks in a way the author cannot see from the laptop they built it on.
+4. It would need a second layout engine beside the one the app already has.
+
+**What 0179 shipped.** Two new kinds — `section` (a heading that groups
+everything after it, with an optional summary) and `text` (a full-width
+paragraph, `white-space: pre-line`, escaped, so a ฝ่าย gets line breaks without
+this becoming a second unsandboxed markup path). Plus per-kind coloured chips
+with icons in the editor, and the card `description` widened from a
+single-line `<input>` to a `<textarea>` — that input was why any ฝ่าย wanting
+two sentences had to jump straight to writing HTML.
+
+### ❌ Still owed from that review, in order of payoff
+
+1. **FILE UPLOAD.** `cover_url` and `video_url` are text boxes you paste a URL
+   into. A ฝ่าย member has a poster on their laptop. `uploadImageToDrive()`
+   exists in `src/js/uploads.js` and is already wired into `admin-main.js` for
+   ทีม SAMO photos — this is reuse, not new surface. **I think this is the
+   concrete thing behind "hard to use".**
+2. **Drag to reorder.** Today it is up/down buttons, one position per click:
+   eleven clicks to move the last of twelve to the top. `Sortable` is already a
+   dependency, used by the ทีม SAMO tree.
+3. **An add-picker.** Four buttons in a row do not show what is possible the way
+   Moodle's "Add an activity or resource" modal does.
+
+### ⚠️ What I did NOT verify
+
+- **The editor was never opened in a browser this session.** The four kinds are
+  proven by the live SQL proof (`tools/dept0179-kinds.sql`, 10/10 both
+  directions on dev and on production) and by a STATIC render of
+  `renderDeptContent` against the real built stylesheet at 1200px and 390px.
+  Nobody has clicked เพิ่มหัวข้อ.
+- ⚠️ **An unresolved question, and it is NOT from 0179.** In that static render
+  the card grid overflowed horizontally at 390px. **The control — the same cards
+  with the section and text rows stripped out, i.e. the pre-0179 page — overflows
+  identically**, so this is not something 0179 introduced. It may also be an
+  artefact of the probe page rather than the real one: `.news-grid--archive` is
+  `repeat(2, minmax(0, 1fr))` below 576px, which cannot overflow, and the real
+  ฝ่าย page nests its container inside Bootstrap columns that the probe did not
+  reproduce. **Measure the COMPUTED grid on the real page before believing
+  either answer.** I ran out of session before doing that.
+
+---
+
 ## ▶ HANDOFF 2026-09-01, END OF SESSION — read this before anything else
 
 **Everything below in this file is history. This block is the state.**

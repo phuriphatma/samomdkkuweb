@@ -60,12 +60,31 @@ async function load(dept) {
   return { rows: Array.isArray(data) ? data : [], error: null };
 }
 
+/**
+ * What each kind is CALLED and how its chip looks, in one place (0179).
+ *
+ * Named for what a ฝ่าย sees on the page, not for the value in the column:
+ * "หัวข้อ", not "section". The chip colour is the only thing that makes a list
+ * of twenty rows scannable, which is the job Moodle's per-type icons do on the
+ * page the owner pointed at.
+ *
+ * ⛔ A kind missing from here still renders — `KIND_META[r.kind] ?? CARD` — so
+ * adding a kind to the DDL and forgetting this file gives a mislabelled row,
+ * never a broken editor. dept-content.test.js fails if the two lists disagree.
+ */
+export const KIND_META = {
+  section: { label: 'หัวข้อ',   icon: 'bi-type-h2',        cls: 'dpa-kind--section' },
+  card:    { label: 'การ์ด',    icon: 'bi-card-heading',   cls: 'dpa-kind--card' },
+  text:    { label: 'ข้อความ',  icon: 'bi-text-paragraph', cls: 'dpa-kind--text' },
+  html:    { label: 'HTML',     icon: 'bi-code-slash',     cls: 'dpa-kind--html' },
+};
+
 function rowEditor(r) {
-  const isHtml = r.kind === 'html';
+  const meta = KIND_META[r.kind] || KIND_META.card;
   return `
   <div class="dpa-row${r.visible === false ? ' dpa-hidden' : ''}" data-dpa-row="${escHtml(r.id)}">
     <div class="dpa-row-head">
-      <span class="dpa-kind">${isHtml ? 'HTML' : 'การ์ด'}</span>
+      <span class="dpa-kind ${meta.cls}"><i class="bi ${meta.icon}"></i> ${escHtml(meta.label)}</span>
       <!-- The badge already says HTML, so repeating it in the title read
            "HTML บล็อก HTML" on screen. An html row shows its own title if the
            ฝ่าย gave it one, and otherwise nothing. -->
@@ -81,7 +100,20 @@ function rowEditor(r) {
       <button type="button" class="btn btn-sm btn-outline-secondary" data-dpa-toggle>${r.visible === false ? 'แสดง' : 'ซ่อน'}</button>
       <button type="button" class="btn btn-sm btn-outline-danger" data-dpa-delete>ลบ</button>
     </div>
-    ${isHtml ? `
+    ${r.kind === 'section' ? `
+      <div class="row g-2 mt-1">
+        <div class="col-12"><label class="form-label small">หัวข้อกลุ่ม</label>
+          <input class="form-control" data-dpa-field="title" value="${escHtml(r.title || '')}" placeholder="เช่น คู่มือสำหรับน้องปี 1"></div>
+        <div class="col-12"><label class="form-label small">คำอธิบายใต้หัวข้อ (ไม่ใส่ก็ได้)</label>
+          <input class="form-control" data-dpa-field="description" value="${escHtml(r.description || '')}"></div>
+      </div>
+      <p class="form-text">ทุกอย่างที่อยู่ใต้หัวข้อนี้จะถูกจัดเป็นกลุ่มเดียวกัน จนกว่าจะเจอหัวข้อถัดไป</p>`
+    : r.kind === 'text' ? `
+      <label class="form-label small mt-2">ข้อความ</label>
+      <textarea class="form-control" rows="4" data-dpa-field="description"
+        placeholder="พิมพ์ได้เลย ขึ้นบรรทัดใหม่ได้">${escHtml(r.description || '')}</textarea>
+      <p class="form-text">ขึ้นบรรทัดใหม่ได้ตามที่พิมพ์ ไม่ต้องใส่แท็ก HTML</p>`
+    : r.kind === 'html' ? `
       <label class="form-label small mt-2">HTML ของฝ่าย</label>
       <textarea class="form-control font-monospace dpa-html" rows="10" data-dpa-field="html">${escHtml(r.html || '')}</textarea>
       <p class="form-text">
@@ -94,7 +126,7 @@ function rowEditor(r) {
         <div class="col-12 col-md-9"><label class="form-label small">หัวข้อ</label>
           <input class="form-control" data-dpa-field="title" value="${escHtml(r.title || '')}"></div>
         <div class="col-12"><label class="form-label small">คำอธิบาย</label>
-          <input class="form-control" data-dpa-field="description" value="${escHtml(r.description || '')}"></div>
+          <textarea class="form-control" rows="2" data-dpa-field="description">${escHtml(r.description || '')}</textarea></div>
         <div class="col-12 col-md-8"><label class="form-label small">ลิงก์</label>
           <input class="form-control" data-dpa-field="href" value="${escHtml(r.href || '')}" placeholder="https://…"></div>
         <div class="col-12 col-md-4"><label class="form-label small">ข้อความปุ่ม</label>
@@ -199,11 +231,25 @@ async function refresh(root) {
  * importer or migration creates. The draft rule belongs to the BUTTON a person
  * presses, so it is stated here, explicitly, in the row this button writes.
  */
+/**
+ * What a NEW row of each kind starts as.
+ *
+ * Every one must satisfy `dept_content_has_body` (0177/0179) — a row that
+ * carries nothing its kind renders is refused by the database, and the refusal
+ * would surface as "เพิ่มไม่สำเร็จ" with no hint that the fault is here.
+ */
+const NEW_ROW = {
+  section: { title: 'หัวข้อใหม่' },
+  card:    { title: 'หัวข้อใหม่' },
+  text:    { description: 'พิมพ์ข้อความของฝ่ายที่นี่' },
+  html:    { html: '<p>เขียนเนื้อหาของฝ่ายที่นี่</p>' },
+};
+
 async function addRow(root, kind) {
+  const seed = NEW_ROW[kind];
+  if (!seed) return;
   const max = state.rows.reduce((m, r) => Math.max(m, r.position || 0), 0);
-  const body = kind === 'html'
-    ? { dept: state.dept, kind: 'html', position: max + 10, visible: false, html: '<p>เขียนเนื้อหาของฝ่ายที่นี่</p>' }
-    : { dept: state.dept, kind: 'card', position: max + 10, visible: false, title: 'หัวข้อใหม่' };
+  const body = { dept: state.dept, kind, position: max + 10, visible: false, ...seed };
   const { data, error } = await dbRest('/dept_content',
     { method: 'POST', body, prefer: 'return=representation' });
   if (error) { say(root, errMsg(error, 'เพิ่มไม่สำเร็จ')); return; }
@@ -281,7 +327,9 @@ export function initDeptPageAdmin(user) {
   root.dataset.dpaWired = '1';
 
   picker?.addEventListener('change', () => { state.dept = picker.value; refresh(root); });
+  root.querySelector('#dpaAddSection')?.addEventListener('click', () => addRow(root, 'section'));
   root.querySelector('#dpaAddCard')?.addEventListener('click', () => addRow(root, 'card'));
+  root.querySelector('#dpaAddText')?.addEventListener('click', () => addRow(root, 'text'));
   root.querySelector('#dpaAddHtml')?.addEventListener('click', () => addRow(root, 'html'));
   root.querySelector('#dpaSave')?.addEventListener('click', () => save(root));
 

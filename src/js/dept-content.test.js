@@ -126,15 +126,18 @@ describe('a new row is a DRAFT, and the editor says so', () => {
   // such card was live on ฝ่ายดิจิทัล. The premise of หน้าฝ่าย is that a ฝ่าย
   // builds their page over several sittings; a default that publishes each
   // sitting's half-finished state contradicts the feature it belongs to.
-  it('addRow writes visible:false for BOTH kinds', () => {
-    const body = ADMIN.slice(ADMIN.indexOf('async function addRow('));
-    const insert = body.slice(0, body.indexOf('dbRest('));
-    const kinds = insert.match(/visible:\s*false/g) || [];
+  it('every row addRow creates is a draft, whatever the kind', () => {
+    const fn = ADMIN.slice(ADMIN.indexOf('async function addRow('));
+    const insert = fn.slice(0, fn.indexOf('dbRest('));
     expect(
-      kinds.length,
+      insert,
       'a row created from หน้าฝ่าย is public the moment it is added, before it '
       + 'has a title, a link or a cover',
-    ).toBe(2);
+    ).toMatch(/visible:\s*false/);
+    // The seeds must not be able to override it back. `{ ...seed }` spread
+    // AFTER visible:false would let one kind quietly opt out of the rule.
+    expect(insert, 'a seed is spread after visible:false and could override it')
+      .toMatch(/visible:\s*false,\s*\.\.\.seed/);
   });
 
   it('the column default stays true — the draft rule belongs to the BUTTON', () => {
@@ -172,6 +175,99 @@ describe('a new row is a DRAFT, and the editor says so', () => {
     // them is published yet.
     expect(ADMIN).toMatch(/hasDrafts/);
     expect(ADMIN).toMatch(/ยังไม่มีอะไรขึ้นหน้าเว็บ/);
+  });
+});
+
+describe('a kind is added in FOUR places or not at all (0179)', () => {
+  // Adding a kind touches the DDL check constraint, the public renderer, the
+  // editor's label map and the editor's new-row seeds. Miss one and the failure
+  // is quiet and different each time: an unknown kind renders as a CARD
+  // (deliberately — that is what makes the migration safe in either order), a
+  // missing label shows the wrong chip, a missing seed posts a row the database
+  // refuses with a message that blames the ฝ่าย.
+  //
+  // So the list is derived from the DDL — the one place that DECIDES what is
+  // legal — and every other site is checked against it. Never written from the
+  // same list the code came from.
+  const DDL179 = read('supabase/migrations/0179_a_dept_page_has_sections.sql');
+  const RENDER = read('src/js/dept-content.js');
+
+  const kinds = (() => {
+    const m = DDL179.match(/check \(kind in \(([^)]*)\)\)/);
+    expect(m, 'the kind constraint was renamed — this guard is now blind').toBeTruthy();
+    return [...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]);
+  })();
+
+  it('reads the legal kinds out of the DDL (control)', () => {
+    expect(kinds.sort()).toEqual(['card', 'html', 'section', 'text']);
+  });
+
+  it('the public renderer has a branch for every kind but the default one', () => {
+    // `card` is the else-branch on purpose, so it is the one kind that must NOT
+    // appear as an explicit test — and every other one must.
+    for (const k of kinds.filter((k) => k !== 'card')) {
+      expect(RENDER, `renderDeptContent has no branch for kind='${k}', so it would `
+        + 'be drawn as a card').toMatch(new RegExp(`r\\.kind === '${k}'`));
+    }
+  });
+
+  it('the editor can label every kind', () => {
+    for (const k of kinds) {
+      expect(ADMIN, `KIND_META has no entry for '${k}' — its chip would say การ์ด`)
+        .toMatch(new RegExp(`^\\s*${k}:\\s*\\{\\s*label:`, 'm'));
+    }
+  });
+
+  it('the editor can CREATE every kind, with a body the constraint accepts', () => {
+    const seeds = ADMIN.slice(ADMIN.indexOf('const NEW_ROW = {'));
+    const block = seeds.slice(0, seeds.indexOf('};'));
+    for (const k of kinds) {
+      expect(block, `NEW_ROW has no seed for '${k}' — the add button would post a `
+        + 'row the database refuses').toMatch(new RegExp(`${k}:\\s*\\{`));
+    }
+    // And each seed must carry the field its kind renders, or the insert is
+    // refused by dept_content_has_body with a message that reads as a
+    // permission problem.
+    expect(block).toMatch(/section:\s*\{\s*title:/);
+    expect(block).toMatch(/card:\s*\{\s*title:/);
+    expect(block).toMatch(/text:\s*\{\s*description:/);
+    expect(block).toMatch(/html:\s*\{\s*html:/);
+  });
+
+  it('has an add button for every kind', () => {
+    const HTML = read('src/html/tab-dept-page.html');
+    for (const k of kinds) {
+      const id = `dpaAdd${k[0].toUpperCase()}${k.slice(1)}`;
+      expect(HTML, `no ${id} button, so '${k}' can never be created`).toContain(id);
+      expect(ADMIN, `${id} is in the markup but nothing listens to it`).toContain(id);
+    }
+  });
+
+  it('every class the row chip EMITS has a live CSS rule', () => {
+    // CSS fails silently: a chip with no rule is not a broken build, it is a
+    // grey box that looks like a feature nobody finished.
+    for (const cls of [...ADMIN.matchAll(/cls:\s*'(dpa-kind--[a-z]+)'/g)].map((m) => m[1])) {
+      expect(CSS, `.${cls} is emitted with no rule`).toMatch(new RegExp(`\\.${cls}\\s*\\{`));
+    }
+  });
+});
+
+describe('the admin preview and the public page share one stylesheet path', () => {
+  it('the preview container carries dept-content, like the live one', () => {
+    // The page CSS is scoped under `.dept-content`. Without the class the
+    // preview renders identical HTML through a different path, so a section
+    // heading would look right live and wrong in the editor — which is exactly
+    // what the preview exists to rule out.
+    const ADMIN_HTML = read('src/html/tab-dept-page.html');
+    const PUBLIC_HTML = read('src/html/tab-departments.html');
+    expect(PUBLIC_HTML, 'the public container lost dept-content').toMatch(
+      /id="deptsDetailCards"|class="dept-content/);
+    expect(ADMIN_HTML).toMatch(/id="dpaPreview"[^>]*class="[^"]*dept-content/);
+  });
+
+  it('the section rules are scoped somewhere BOTH containers match', () => {
+    const TF = read('src/css/tool-frame.css');
+    expect(TF).toMatch(/\.dept-content\s*>\s*\.dept-section/);
   });
 });
 

@@ -18,9 +18,27 @@
 .dpa-row.dpa-hidden > :not(.dpa-row-head) { opacity: .55; }
 .dpa-row-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .dpa-kind {
+  flex: 0 0 auto;
   font-size: .7rem; font-weight: 700; letter-spacing: .04em;
-  padding: .1rem .4rem; border-radius: .35rem;
+  padding: .15rem .45rem; border-radius: .35rem;
   background: var(--brand-primary); color: #fff;
+  white-space: nowrap;
+}
+.dpa-kind i { font-size: .78rem; vertical-align: -1px; }
+
+/* A row is identified by COLOUR before it is read. Each of the four is a
+   different hue, not four greens — the point is telling them apart at a
+   glance down a long list. */
+.dpa-kind--section { background: #1f2933; }
+.dpa-kind--card    { background: var(--brand-primary, #105922); }
+.dpa-kind--text    { background: #4a5a6a; }
+.dpa-kind--html    { background: #8a4b12; }
+
+/* A section is the one row that is ABOUT the rows under it, so it reads as a
+   divider in the editor too — the same relationship the public page draws. */
+.dpa-row:has(.dpa-kind--section) {
+  border-left: 3px solid #1f2933;
+  background: #fbfbfc;
 }
 .dpa-title { font-weight: 600; }
 .dpa-spacer { flex: 1 1 auto; }
