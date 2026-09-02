@@ -318,6 +318,45 @@ if (!embed) {
   }
 }
 
+// ── THE ADMIN ENTRY ────────────────────────────────────────────────────────
+//
+// ⚠️ ADDED 2026-09-02 AFTER NOTICING NOTHING COVERED IT. Everything above loads
+// the PUBLIC entry. The admin entry is a separate bundle — 537 KB, most of this
+// app's code — and no browser check touched it, so a module-level throw there
+// would have been invisible to every guard in the repo: `npm test` runs in
+// jsdom with no bundle, `npm run build` only proves it COMPILES, and grepping
+// the served file only proves a string is present.
+//
+// That gap was found the day a static import was added to `dept-page-admin.js`
+// and the honest answer to "did you load the page?" was no.
+//
+// It is checked SIGNED OUT, which is the point: the entry module must parse and
+// run before the sign-in gate can render, so a boot failure shows up here
+// without any credential. If the module throws, `__samoBooted` stays false and
+// the gate never appears — the "dead and animated" page this repo has shipped
+// before, where Bootstrap's CDN keeps the menus opening while every handler is
+// gone.
+{
+  const adminUrl = `${URL_.replace(/\/$/, '')}/admin/`;
+  await send('Emulation.setDeviceMetricsOverride',
+    { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
+  await send('Page.navigate', { url: adminUrl }, sessionId);
+  await sleep(6000);
+  const admin = await evalJs(`(() => ({
+    booted: !!window.__samoBooted,
+    gate: !!document.querySelector('#authGate, #signinModal'),
+    overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+  }))()`);
+  check('the ADMIN entry module ran (window.__samoBooted)',
+    admin !== null && admin.booted === true,
+    'the admin bundle did not finish executing — signed out or not, a page whose '
+    + 'entry module threw is dead while Bootstrap keeps it looking alive');
+  check('the admin sign-in gate rendered', admin !== null && admin.gate === true,
+    'no gate and no session: the shell booted but painted nothing to act on');
+  check('no horizontal overflow on the admin shell',
+    admin !== null && admin.overflow === false);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${URL_})`);
 ws.close();
 chrome.kill();

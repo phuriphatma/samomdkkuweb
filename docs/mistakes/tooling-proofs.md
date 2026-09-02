@@ -1631,3 +1631,47 @@ false alarm, because the fastest way to make it green again is to change the
 number, which is how a guard quietly stops meaning anything. Ask what must be
 TRUE, not how many times it is currently written down. Related and already here:
 never write a guard from the same list the code came from.
+
+## The browser smoke covered the smaller entry, and nobody noticed for months
+
+**Symptom.** None — that is the point. Found on 2026-09-02 by asking a question
+nothing in the repo asks: *after adding a static import to `dept-page-admin.js`,
+did anyone actually LOAD the admin page?* The answer was no, and there was no
+way to have done it, because `tools/smoke-browser.mjs` only ever loaded `/`.
+
+**The asymmetry.** This app has two entries. The public one is 226 KB. The admin
+one is **537 KB — most of the code in the project** — and it had zero browser
+coverage. Everything that looked like coverage stops short of the thing that
+breaks:
+
+| What it proves | What it cannot see |
+|---|---|
+| `npm test` (jsdom, no bundle) | a module-level throw in a built entry |
+| `npm run build` | that it COMPILES, not that it RUNS |
+| `curl \| grep <string>` | a string is present in a file that never executed |
+
+So a `dept-visual-editor.js` with a top-level error would have passed 1,712
+tests, a clean build, a served-artefact grep and a 13/13 smoke — and left every
+admin page dead. This repo has already shipped that exact failure once: the
+entry module never ran, Bootstrap's CDN kept every menu opening, and ~90 inline
+`onclick="global()"` handlers were silently gone.
+
+**Fix.** Three checks appended to `smoke-browser.mjs`: the admin entry's
+`__samoBooted`, that the sign-in gate rendered, and no horizontal overflow.
+Deliberately run **signed out** — the entry module must parse and run before the
+gate can paint, so a boot failure is visible with no credential, which keeps the
+smoke safe for CI on a public repo. `.github/workflows/smoke.yml` already runs
+this file on every preview, so the new checks came with a trigger attached.
+
+Falsified before being kept: asking for a flag that is never set turns it red
+with the right message (15 passed, 1 failed); restored, 16/16.
+
+**Where it lives now.** `tools/smoke-browser.mjs`, the block after the tool-frame
+checks.
+
+**The general rule.** *Coverage is a claim about a SURFACE, and a suite that
+grew up around one entry point will quietly exclude the other.* Count the
+entries — bundles, binaries, routes, workers — and ask which ones your smoke
+actually visits. The tell here was that the number nobody could answer was not
+"is it broken" but "has anyone looked", and the honest answer to the second is
+what surfaced the first.

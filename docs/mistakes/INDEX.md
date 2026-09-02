@@ -293,7 +293,7 @@ Open when: deploy.sh, nginx, cache headers.
 - Six runs, four failures, no diagnosis
 - The guard said "nothing on pages.dev reaches production"
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(36)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(37)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -333,5 +333,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A proof that was GREEN by hand and RED under its own runner
 - A check whose own audience could not run it
 - A guard that asserted the implementation, and went red on a refactor
+- The browser smoke covered the smaller entry, and nobody noticed for months
 
-_277 entries across 9 files._
+_278 entries across 9 files._
