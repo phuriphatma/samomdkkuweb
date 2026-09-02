@@ -3402,3 +3402,105 @@ one you were looking at. The tell is a UI string written inside an `if` with no
 matching `else`. And the second half is class 6: the moment a message has more
 than one resting value, it has more than one author, so give it a constant
 before the two spellings drift.
+
+## "the orange highlight box is not aligned" — it was not an alignment error
+
+**Symptom.** Reported of a diagram on the docs site: *"the picture on When your
+work depends on other work — the orange highlight box is not aligned"*.
+
+**Cause — the box was too NARROW, and x was right all along.**
+
+```svg
+<rect x="472" y="52" width="212" height="27" .../>
+<text x="578" y="70" text-anchor="middle" font-size="12.5">
+  feat/b — branched off feat/a, not off main</text>
+```
+
+The box spans 472→684, its centre is 578, and the text is centred on 578 —
+correct. But that sentence needs ~268px at 12.5px and the chip is 212px, so it
+hung out of both ends. **The obvious remedy — move `x` — would have made it
+worse**, which is what the word "aligned" invites you to do.
+
+**The instrument, and what it found on its own.** `tools/svg-text-fit.mjs`
+measures every `<text>` against the `<rect>` it sits in. It immediately caught a
+SECOND one nobody had reported: a caption in `branches.svg` started at x=640,
+needed 289px, and ran 29px past the 900px frame — its last two words were simply
+not on the picture.
+
+It is an ESTIMATE and says so: no font metrics, a per-character width table,
+built to err wide so anything it passes has room. Thai vowels and tone marks are
+counted as zero-width, or every Thai label over-estimates by about a third and
+pushes each box wider than it needs to be.
+
+⚠️ **It cannot see two shapes OVERLAPPING, and both halves were present.** An
+orange caption crossing a green curve, and a leader line struck through a
+caption — found by rendering the files and looking at them. The test narrows
+what you have to look for; it does not replace looking.
+
+**Where it lives now.** `tools/svg-text-fit.mjs`, `src/js/docs-diagrams.test.js`
+(with both controls, plus `<title>` and "is referenced by a page" checks).
+
+**The general rule.** *When a report says "not aligned", measure the box before
+you move the thing inside it.* A label that overflows is centred perfectly and
+still looks wrong, and SVG will not tell you: overflowing text is valid, renders
+without warning, and passes every test in a repo that has no layout engine.
+
+## A block styled with Bootstrap looked perfect in the editor and unstyled on the page
+
+**Symptom.** Caught before shipping, while building the ฝ่าย visual-editor spike
+— and it would have been invisible until a student opened a real ฝ่าย page.
+
+**Cause.** A `kind='html'` block is rendered into an iframe via `srcdoc` with a
+sandbox that omits `allow-same-origin`. **That document is BLANK**: no
+Bootstrap, no site stylesheet, no Google Font. But the EDITOR runs inside the
+admin page, which has all three. So a block written as
+`<div class="row"><div class="col-md-6">` looks exactly right where it is
+authored and collapses to unstyled markup where it is read.
+
+The same trap in reverse bit the first render of the editor's own rows: a static
+probe that did NOT load Bootstrap showed every layout broken and the "hidden"
+file inputs visible. That was the probe, not the code — the control is to check
+whether an already-shipped view has the same symptom before believing it.
+
+**Fix.** Every block carries its own inline layout, and the saved document is
+wrapped with its own `<style>` (font, colours, `box-sizing`) plus the
+`samo-embed-height` reporter. Columns stack by `flex: 1 1 260px` + `flex-wrap`
+with **no media query**, so a non-designer cannot ship a laptop-only layout.
+
+**Where it lives now.** `src/js/dept-visual-editor.js` (`wrapDocument`, `BLOCKS`)
+and `src/js/dept-visual-editor.test.js`, which asserts no block uses a Bootstrap
+class and no block carries `@media`.
+
+**The general rule.** *An isolated frame inherits NOTHING — check what the
+document your markup lands in actually has, not what the page you authored it in
+has.* Generalises past sandboxes: an email body, a PDF renderer, a
+`srcdoc` preview and a web component's shadow root all have their own idea of
+what CSS exists. **The place a thing is composed is not the place it is read**,
+and the only instrument that can tell you is the rendered destination.
+
+## GrapesJS hid its own block panel, and the empty canvas WAS the complaint
+
+**Symptom.** The visual-editor spike loaded, imported the existing content, and
+opened at phone width — and the right-hand panel read *"Select an element before
+using Style Manager"* over an empty canvas. The blocks were behind an icon.
+
+**Cause.** GrapesJS's default panel layout opens on the Style Manager, not the
+Block Manager. Nothing was broken; the one thing on screen that tells a person
+what to do next was one unlabelled click away.
+
+**Why it matters more than a default usually would.** This spike exists to
+answer *"it is untuitive"*. Shipping it with the blocks hidden would have
+reproduced the exact complaint inside the thing built to fix it, and the owner
+would reasonably have judged the whole approach on it.
+
+**Fix.** `editor.Panels.getButton('views', 'open-blocks')?.set('active', true)`
+after init, wrapped in a try/catch so a renamed panel id degrades to the icon
+rather than throwing.
+
+**Where it lives now.** `src/js/dept-visual-editor.js`.
+
+**The general rule.** *A library's defaults are tuned for its own demo, not for
+your least technical user* — and the gap is only visible in a screenshot. This
+was found by rendering the editor and looking at it, after unit tests, a build,
+and a bundle-isolation check had all passed. **A UI you have not looked at is a
+UI you have not tested**, and that is now three separate entries in this file.

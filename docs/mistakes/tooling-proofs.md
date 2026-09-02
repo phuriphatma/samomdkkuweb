@@ -1492,3 +1492,142 @@ make that happen is a test that asks the PUBLISHER what it publishes.* Any
 instrument whose subject is a hand-maintained list of paths will go blind the
 first time somebody adds a path; derive the list from the thing that actually
 does the work.
+
+## A proof that was GREEN by hand and RED under its own runner
+
+**Symptom.** `tools/dept0179-kinds.sql` passed 10/10 when run directly through
+`node tools/db-query.mjs`. Registered in `run-proofs.mjs` and run by
+`npm run proofs`, the same file against the same database reported:
+
+```
+dept0179-kinds.sql   ✗ FAIL   FAIL in blob
+```
+
+**Cause — the runner reads the LAST result set, and mine was a summary.**
+`run-proofs.mjs` looks for a per-case verdict column. My script ended with
+
+```sql
+select count(*) filter (where expected = got) as passed, ...
+```
+
+which has no verdict column, so the runner fell through to its blob branch:
+`if (/FAIL|DENIED_UNEXPECTED/i.test(text)) return FAIL`. That branch scans the
+raw output text — and found the word `FAIL` **inside the file's own CASE
+expression**, `case when expected = got then 'PASS' else '*** FAIL ***' end`.
+
+So the proof was failed by a string it printed while describing how it would
+report a failure. Nothing was wrong with the assertions or the database.
+
+**Fix.** Shaped like `dept0177-page-scope.sql`, which was already correct: one
+row per case, a `result` column, and **nothing after it**.
+
+```sql
+select case_name as step,
+       case when expected = got then 'PASS' else 'FAIL' end as result,
+       expected, got
+  from probe order by case_name;
+```
+
+**Where it lives now.** `tools/dept0179-kinds.sql`, with the reason in a comment
+above the final select so the next person does not "improve" it by appending a
+summary again.
+
+**The general rule.** *A proof is only as good as the runner's ability to READ
+it, and the runner's contract is a shape, not a sentence.* Two things generalise
+beyond SQL. First, **a trailing summary row hides the cases** — anything that
+aggregates after the per-case output moves the answer out of the shape the
+harness parses. Second, and worse, **a fallback that scans raw text for a word
+will find that word in the code that produces it**; a heuristic branch cannot
+distinguish a verdict from a string literal describing verdicts. If you write
+such a fallback, it must be the last resort and it must say so loudly — which
+this one does, and the fix is on the proof's side, not the runner's.
+
+⚠️ **The tell is the one that matters: green by hand, red under the runner, same
+subject.** That difference is never the database. It is the instrument.
+
+## A check whose own audience could not run it
+
+**Symptom.** `docs/start/install.md` told a brand-new contributor to verify their
+setup with:
+
+```bash
+npm run dev:check
+```
+
+Run by the person it was written for, that exits 1 with
+
+```
+✗ PRODUCTION: URL or anon key missing from .env.local
+```
+
+having proved nothing about the four keys they had just pasted.
+
+**Cause.** `tools/dev-check.mjs:51` reads `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` — it is a PARITY guard, comparing `samo-dev` against
+**production**, and needs both sides by design. A contributor has neither
+production value and must never be sent them (`.claude/rules/security.md`).
+
+The command was correct. The audience was wrong, and nothing in either the
+script or the guide connected the two.
+
+**Why this is worse than a missing check.** A verification step that fails on a
+CORRECT setup blames the reader for the guide's mistake, at the exact moment
+they have no way to tell which of the two is at fault. A newcomer's first
+five minutes is the worst possible place to spend that confusion.
+
+**Fix.** A second, contributor-facing command — `npm run env:check`
+(`tools/env-check.mjs`) — which asks only what its reader can answer: the file
+exists, the four `SUPABASE_DEV_*` names are present, none is still the
+placeholder from `.env.local.example`, no value got wrapped in quotes, and the
+dev database answers. Each failure says what to do about it.
+
+⛔ **The two were deliberately NOT merged.** Teaching `dev:check` to skip the
+production half when credentials are absent would make it pass in the one case
+it exists to catch — a guard that fails GREEN. `env-example.test.js` pins both
+directions: `env-check` reads no production name, `dev-check` still reads two.
+
+**Where it lives now.** `tools/env-check.mjs`, `docs/start/install.md` §4d (with
+a warning naming the other command), `README.md`'s script table, and
+`src/js/env-example.test.js`.
+
+**The general rule.** *Before telling someone to run a command, check it works
+with the credentials THEY have.* A tool's requirements are part of its contract
+and are invisible in its name; `dev:check` sounds like it checks your dev setup.
+The wider shape: **a diagnostic must be runnable by the person the diagnosis is
+for**, or it converts a solvable problem into a mysterious one.
+
+## A guard that asserted the implementation, and went red on a refactor
+
+**Symptom.** `dept-content.test.js` failed with
+*"a row created from หน้าฝ่าย is public the moment it is added"* — a real and
+serious-sounding message — while the property it names was perfectly intact.
+
+**Cause.** The assertion counted string literals:
+
+```js
+const kinds = insert.match(/visible:\s*false/g) || [];
+expect(kinds.length).toBe(2);   // one per kind
+```
+
+It was written when `addRow` had two branches, one per kind. 0179 added two more
+kinds and folded all four seeds into one insert with a single `visible: false`,
+so the count went to 1. Nothing regressed; the guard was pinned to the SHAPE of
+the code rather than to what the code must be true of.
+
+**Fix.** Assert the property, plus the one way it could be undone:
+
+```js
+expect(insert).toMatch(/visible:\s*false/);
+// a seed spread AFTER visible:false could override it back
+expect(insert).toMatch(/visible:\s*false,\s*\.\.\.seed/);
+```
+
+**Where it lives now.** `src/js/dept-content.test.js`, "every row addRow creates
+is a draft, whatever the kind".
+
+**The general rule.** *A guard written against today's shape fails on a
+refactor and says nothing about a real regression* — and it costs more than the
+false alarm, because the fastest way to make it green again is to change the
+number, which is how a guard quietly stops meaning anything. Ask what must be
+TRUE, not how many times it is currently written down. Related and already here:
+never write a guard from the same list the code came from.

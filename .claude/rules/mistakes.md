@@ -44,7 +44,17 @@ it is the part that generalises to code not yet written.
    surface supports; release on `pointercancel`).
    **DISCLOSURE has input paths too**: text truncated with `text-overflow` and
    "recovered" via a `title` tooltip DOES NOT EXIST on a phone — `แยกตามระบบ`
-   cut the one thing its panel exists to say (`frontend-ui.md`).
+   cut the one thing its panel exists to say (`frontend-ui.md`). **A message a
+   renderer can turn ON must be turned OFF by every other outcome it reaches**:
+   `ไม่พบใครที่ตรงกับ "<old query>"` was written on the empty branch and
+   withdrawn on neither rows-found nor query-too-short, so it sat above the
+   results contradicting it. The tell is a UI string inside an `if` with no
+   `else`.
+   **AN ISOLATED FRAME INHERITS NOTHING** — a `srcdoc` sandbox is a BLANK
+   document, so a block styled with Bootstrap looks perfect in the editor (which
+   sits in the styled admin page) and unstyled where it is read. The place a
+   thing is COMPOSED is not the place it is READ; same for email, PDF and shadow
+   DOM (`frontend-ui.md`).
    **A rule held in every MESSAGE instead of at the transport is the same
    shape**: `@here` was removed from three VS builders and two branches kept
    no test, while `data.role` / a display name could still carry `@everyone`
@@ -249,7 +259,19 @@ it is the part that generalises to code not yet written.
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
    assertion you expect, restore.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
-   wrong list passes itself.
+   wrong list passes itself. **Nor against today's SHAPE**: an assertion that
+   COUNTED `visible:false` literals ("one per kind") went red when four seeds
+   folded into one insert, while the property held — and the fastest way to
+   green is to edit the number, which is how a guard stops meaning anything.
+   **A PROOF IS ONLY AS GOOD AS ITS RUNNER'S ABILITY TO READ IT**: a proof
+   ending in a COUNT summary instead of per-case rows sent `run-proofs` to its
+   text-scanning fallback, which found `FAIL` inside the proof's own
+   `else '*** FAIL ***'` — green by hand, red under the runner, same database.
+   That difference is never the subject; it is the instrument.
+   **AND A DIAGNOSTIC MUST BE RUNNABLE BY THE PERSON IT DIAGNOSES** — the
+   getting-started guide told contributors to run `dev:check`, which needs
+   PRODUCTION credentials they must never be sent, so it failed on a CORRECT
+   setup and blamed the reader (`tooling-proofs.md`).
 
    Pair every DENY with an ALLOW over the same rows — a table with policies but
    no GRANT denies everyone and reads like the policy working (0138); a deny-only
@@ -306,10 +328,10 @@ shaving the classes, which are the only part that generalises.
 - `authz-rls.md` *(28)* — RLS policies, SECURITY DEFINER & read paths. Open when: any policy, `current_user_*` helper, or definer RPC.
 - `authz-grants.md` *(18)* — The permission / seat / scope channel. Open when: adding an access channel, a scope, or a seat.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
-- `frontend-ui.md` *(84)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
+- `frontend-ui.md` *(87)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
 - `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(17)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
-- `tooling-proofs.md` *(33)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
+- `tooling-proofs.md` *(36)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 
 <!-- END GENERATED INDEX -->

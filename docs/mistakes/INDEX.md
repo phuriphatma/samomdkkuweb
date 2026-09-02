@@ -122,7 +122,7 @@ Open when: writing a migration.
 - A carried passport student would have signed in to 0 km
 - A migration that applies cleanly on a fresh database and then fails at RUNTIME, far from the change
 
-## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(84)*
+## `frontend-ui.md` — Bootstrap, CSS, DOM & the browser *(87)*
 
 Open when: markup, modals, layout, touch, icons.
 
@@ -210,6 +210,9 @@ Open when: markup, modals, layout, touch, icons.
 - The สถิติ quota panels had 29 tests and had never been LOOKED at
 - "The tool renders fine" — but ~160px of dead space under it, and every test was green
 - "ไม่พบใครที่ตรงกับ …" stayed on screen with the matching rows listed right beneath it
+- "the orange highlight box is not aligned"
+- A block styled with Bootstrap looked perfect in the editor and unstyled on the page
+- GrapesJS hid its own block panel, and the empty canvas WAS the complaint
 
 ## `app-state.md` — Routing, read-state, caches & serialization *(20)*
 
@@ -290,7 +293,7 @@ Open when: deploy.sh, nginx, cache headers.
 - Six runs, four failures, no diagnosis
 - The guard said "nothing on pages.dev reaches production"
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(33)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(36)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -327,5 +330,8 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - Dead-link checking on the docs site had been off since the day it was built
 - `git push` to main refused with GH013 right after the org transfer, while the protection proof was all green
 - `deploy:owed` went blind to a page production serves
+- A proof that was GREEN by hand and RED under its own runner
+- A check whose own audience could not run it
+- A guard that asserted the implementation, and went red on a refactor
 
-_271 entries across 9 files._
+_277 entries across 9 files._

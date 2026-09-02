@@ -377,3 +377,68 @@ render for the role that is supposed to have it, and it caught that the
 `ย้ายปีงบ` button correctly appears for a `staff` seat while `แก้ไขโครงการ`
 (sender-only) correctly does not — a distinction no unit test in this repo can
 make, because there is no DOM environment configured.
+
+---
+
+## 9. The STATIC RENDER — looking at markup without signing in
+
+The cheapest useful check in this repo, and it found four bugs on 2026-09-02
+that a green `npm test`, `npm run build` and a bundle-isolation check all
+missed. Use it whenever the thing you changed is *drawn* rather than decided:
+a diagram, a card grid, an editor row, a sandboxed block.
+
+**The recipe.** Render the real function's output against the real BUILT
+stylesheet, then screenshot it at desktop and phone width.
+
+```bash
+# 1. Get the fragment from the REAL renderer, not a copy. A throwaway vitest
+#    file is the easiest way in — the modules import import.meta.env, so plain
+#    `node` cannot load them.
+cat > src/js/_probe.test.js <<'JS'
+import { it } from 'vitest'; import { writeFileSync } from 'node:fs';
+import { renderDeptContent } from './dept-content.js';
+it('w', () => writeFileSync(process.env.OUT, renderDeptContent(rows)));
+JS
+OUT=/tmp/frag.html npx vitest run src/js/_probe.test.js
+
+# 2. Build, then wrap the fragment in the SERVED stylesheet + the container
+#    class the live page uses.
+npm run build            # dist/assets/public-*.css
+# 3. Serve and shoot at both widths.
+python3 -m http.server 8098 &
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+  --disable-gpu --screenshot=/tmp/wide.png --window-size=1200,1400 \
+  --hide-scrollbars "http://localhost:8098/_probe.html"
+```
+
+Then **delete `_probe.test.js` and the html** — a probe left behind is a test
+that will fail on somebody else's machine.
+
+### ⛔ The four traps, each paid for on the same day
+
+1. **Load Bootstrap, or every layout looks broken.** `row`, `col-md-*`,
+   `form-control`, `d-none` all come from the CDN (`admin/index.html` line 270),
+   not from the built CSS. A probe without it showed hidden file inputs visible
+   and every label overlapping its field — the PROBE was wrong, not the code.
+   **Run the control first: does an already-shipped view have the same symptom?**
+2. **`<meta charset="utf-8">`, or Thai renders as mojibake** and you spend ten
+   minutes on an encoding bug that is in your harness.
+3. **Pick the RIGHT stylesheet.** `dist/assets/` holds `public-*.css` AND
+   `admin-*.css`. Grabbing `ls dist/assets/*.css | head -1` gets whichever sorts
+   first, which is usually the wrong one.
+4. **A sandboxed block inherits NOTHING.** To check a `kind='html'` row or a
+   Lane-B tool, render it through `srcdoc` + `EMBED_SANDBOX` into a BLANK
+   document — that is what the visitor gets. Anything that looked right because
+   the surrounding page supplied it will disappear, which is the point.
+
+### What it catches that a unit test cannot
+
+Two shapes OVERLAPPING (a caption crossing a curve, a leader line struck through
+text), a label wider than the box it is centred in, a panel a library opened on
+the wrong tab, and dead space that grows with the window. jsdom has no layout
+engine, so none of these are visible to `npm test` — and every one of them is
+obvious in one look at a picture.
+
+⚠️ **This does NOT replace signing in (§4).** It renders markup; it cannot
+exercise a click handler, a permission gate, or anything that needs a session.
+Use it to check what a thing LOOKS like, and §4 to check what it DOES.
