@@ -33,6 +33,10 @@ import { downscaleImage } from './image-resize.js';
 // .video_url — migration 0178 added them the day ฝ่าย covers shipped — so it
 // answers correctly for these two columns without any further change.
 import { deleteTeamPhotoIfUnused, photoToRetire } from './team/api.js';
+// The visual editor (the spike). This import is the small wrapper; GrapesJS
+// itself is loaded inside it, on first open, so it never enters a bundle
+// anybody downloads before pressing the button.
+import { openVisualEditor } from './dept-visual-editor.js';
 
 /** One Thai sentence for a failed call. `restErrorMessage` takes the RAW
  *  response, not the parsed object dbRest hands back, so the unwrapping happens
@@ -121,7 +125,13 @@ function rowEditor(r) {
         placeholder="พิมพ์ได้เลย ขึ้นบรรทัดใหม่ได้">${escHtml(r.description || '')}</textarea>
       <p class="form-text">ขึ้นบรรทัดใหม่ได้ตามที่พิมพ์ ไม่ต้องใส่แท็ก HTML</p>`
     : r.kind === 'html' ? `
-      <label class="form-label small mt-2">HTML ของฝ่าย</label>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <label class="form-label small mb-0">HTML ของฝ่าย</label>
+        <span class="flex-grow-1"></span>
+        <button type="button" class="btn btn-sm btn-primary" data-dpa-visual>
+          <i class="bi bi-columns-gap"></i> แก้แบบเห็นภาพ
+        </button>
+      </div>
       <textarea class="form-control font-monospace dpa-html" rows="10" data-dpa-field="html">${escHtml(r.html || '')}</textarea>
       <p class="form-text">
         เขียน HTML/CSS/JavaScript ได้ตามต้องการ หน้านี้ถูกกันออกจากระบบหลัก
@@ -526,6 +536,25 @@ export function initDeptPageAdmin(user) {
     const pick = e.target.closest('[data-dpa-pick]');
     if (pick) {
       rowEl.querySelector(`[data-dpa-file="${pick.dataset.dpaPick}"]`)?.click();
+      return;
+    }
+    // The visual editor writes into the TEXTAREA and stops. It performs no
+    // database write of its own: the existing บันทึก path persists it, so this
+    // whole feature adds no second way for a row to be saved.
+    if (e.target.closest('[data-dpa-visual]')) {
+      openVisualEditor(rowEl.querySelector('[data-dpa-field="html"]')?.value || '')
+        .then((html) => {
+          if (html == null) return;
+          const ta = rowEl.querySelector('[data-dpa-field="html"]');
+          if (ta) ta.value = html;
+          // Repaint so the preview beside them shows it immediately, then say
+          // what is still owed — the row is edited, not yet saved.
+          const row = state.rows.find((r) => r.id === id);
+          if (row) row.html = html;
+          paint(root);
+          say(root, 'แก้เรียบร้อย — กดบันทึกเพื่อให้ขึ้นหน้าเว็บ', true);
+        })
+        .catch((err) => say(root, `เปิดตัวแก้แบบเห็นภาพไม่สำเร็จ: ${err?.message || ''}`));
       return;
     }
     if (e.target.closest('[data-dpa-delete]')) {

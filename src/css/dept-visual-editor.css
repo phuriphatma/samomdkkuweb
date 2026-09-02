@@ -1,0 +1,31 @@
+/* ==========================================================
+   The visual editor overlay (the spike). Full-screen, above everything,
+   because GrapesJS wants a viewport and a ฝ่าย editing a page should not be
+   doing it in a 300px column.
+   ========================================================== */
+.dve-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; flex-direction: column;
+  background: #fff;
+}
+/* The admin page behind must not scroll while this is open — a background
+   scroll under a full-screen editor reads as the editor having lost focus. */
+body.dve-open { overflow: hidden; }
+
+.dve-bar {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .75rem;
+  border-bottom: 1px solid #dee2e6;
+  background: #f8f9fa;
+  flex: 0 0 auto;
+}
+.dve-title { font-size: .95rem; }
+.dve-hint { font-size: .78rem; color: #6c757d; }
+.dve-spacer { flex: 1 1 auto; }
+
+.dve-body { flex: 1 1 auto; min-height: 0; }
+.dve-canvas { height: 100%; }
+
+@media (max-width: 575.98px) {
+  .dve-hint { display: none; }   /* the bar's buttons win the space on a phone */
+}
