@@ -125,23 +125,20 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
    HTML**, a new row is a DRAFT, and covers UPLOAD from your machine (the file
-   they replace is retired). 🧪 **A VISUAL-EDITOR SPIKE IS LIVE AND AWAITS THE
-   OWNER'S VERDICT** — "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6,
-   admin-only, lazy, its own 1.15 MB chunk, zero refs from the public entry).
-   ⛔ **Build NOTHING more on it until the owner answers**; if the feel is wrong
-   it deletes cleanly. ⚠️ An earlier note today said a canvas was REJECTED —
-   superseded, and `docs/state/phuriphatma.md` says so at both ends.
+   they replace is retired).
    ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → a `tool/*` PR →
    `/tools/<slug>`. Both are LIVE; do not rebuild either.
    ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** (`allow-same-origin`), and
    the three changes that delete it are now a rule in `docs/INVARIANTS.md` —
    with the owner-facing fake-sign-in risk. Read it before touching the frame.
    🧪 **A VISUAL EDITOR SPIKE IS LIVE AND AWAITS THE OWNER'S VERDICT** —
-   "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6, admin-only, lazy, 1.15 MB in
-   its own chunk). ⛔ It is a SPIKE: if the feel is wrong, delete
-   `dept-visual-editor.js` + the dep; nothing else knows it exists. Why GrapesJS
-   and not Puck/Craft.js (React-only), and the block-set work that comes next:
-   `docs/state/phuriphatma.md`.
+   "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6, admin-only, lazy, its own
+   1.15 MB chunk, zero refs from the public entry). ⛔ **Build NOTHING more on
+   it until the owner answers**; if the feel is wrong, delete
+   `dept-visual-editor.js` + the dep and nothing else knows it existed.
+   ⚠️ An earlier note the SAME DAY said a canvas was REJECTED — superseded, and
+   `docs/state/phuriphatma.md` says so at both ends. Why GrapesJS and not
+   Puck/Craft.js (React-only), plus the block-set work next: same file.
    ❌ **What is left is NOT code: §13 step 8, teach two people**, and step 5 on
    a REAL phone. Detail: `docs/state/phuriphatma.md` + `docs/DEPT-TOOLS.md`.
 2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT, and this entry used to say the
