@@ -70,6 +70,11 @@ function rowEditor(r) {
            "HTML บล็อก HTML" on screen. An html row shows its own title if the
            ฝ่าย gave it one, and otherwise nothing. -->
       <span class="dpa-title">${escHtml(r.title || '')}</span>
+      <!-- Hidden is now the state a row is BORN in, so it cannot be signalled by
+           opacity and a button label alone — a ฝ่าย who adds a card, does not
+           find it in the preview beside them, and has no word for why, concludes
+           the feature is broken. Say it. -->
+      ${r.visible === false ? '<span class="dpa-draft">ยังไม่แสดง</span>' : ''}
       <span class="dpa-spacer"></span>
       <button type="button" class="btn btn-sm btn-outline-secondary" data-dpa-move="up"   title="เลื่อนขึ้น"><i class="bi bi-arrow-up"></i></button>
       <button type="button" class="btn btn-sm btn-outline-secondary" data-dpa-move="down" title="เลื่อนลง"><i class="bi bi-arrow-down"></i></button>
@@ -112,7 +117,16 @@ function paint(root) {
     list.innerHTML = state.rows.map(rowEditor).join('');
   }
   if (preview) {
-    preview.innerHTML = renderDeptContent(state.rows) || '<p class="text-muted mb-0">หน้านี้จะว่าง</p>';
+    // `renderDeptContent` drops hidden rows, which is correct — this preview is
+    // the PUBLIC page. But "หน้านี้จะว่าง" beside a list of rows the ฝ่าย just
+    // wrote reads as data loss, when the true answer is that none of them is
+    // published yet. Two different emptinesses, two different sentences.
+    const hasDrafts = state.rows.some((r) => r.visible === false);
+    const emptyMsg = hasDrafts
+      ? '<p class="text-muted mb-0">ยังไม่มีอะไรขึ้นหน้าเว็บ — เนื้อหาที่เพิ่มไว้ยังไม่แสดง '
+        + 'กดปุ่ม "แสดง" ที่รายการทางซ้ายเมื่อพร้อม</p>'
+      : '<p class="text-muted mb-0">หน้านี้จะว่าง</p>';
+    preview.innerHTML = renderDeptContent(state.rows) || emptyMsg;
     watchDeptHtmlHeights();
   }
 }
@@ -168,11 +182,28 @@ async function refresh(root) {
   paint(root);
 }
 
+/**
+ * A NEW ROW IS A DRAFT. `dept_content.visible` defaults to `true` in the DDL,
+ * so the first version of this created every card PUBLIC — it was on the ฝ่าย's
+ * public page the instant the button was pressed, carrying the placeholder
+ * title `หัวข้อใหม่`, no link and no cover. That really happened: one such card
+ * stood on the live ฝ่ายดิจิทัล page.
+ *
+ * Every other authoring surface in this app drafts first (ประกาศ, หนังสือ), and
+ * the whole premise of หน้าฝ่าย is that a ฝ่าย builds their page over several
+ * sittings without asking IT. A default that publishes each sitting's
+ * half-finished state contradicts the feature it belongs to.
+ *
+ * ⚠️ The column default stays `true` ON PURPOSE. It is what an INSERT from
+ * anywhere else means, and flipping it would silently hide rows a future
+ * importer or migration creates. The draft rule belongs to the BUTTON a person
+ * presses, so it is stated here, explicitly, in the row this button writes.
+ */
 async function addRow(root, kind) {
   const max = state.rows.reduce((m, r) => Math.max(m, r.position || 0), 0);
   const body = kind === 'html'
-    ? { dept: state.dept, kind: 'html', position: max + 10, html: '<p>เขียนเนื้อหาของฝ่ายที่นี่</p>' }
-    : { dept: state.dept, kind: 'card', position: max + 10, title: 'หัวข้อใหม่' };
+    ? { dept: state.dept, kind: 'html', position: max + 10, visible: false, html: '<p>เขียนเนื้อหาของฝ่ายที่นี่</p>' }
+    : { dept: state.dept, kind: 'card', position: max + 10, visible: false, title: 'หัวข้อใหม่' };
   const { data, error } = await dbRest('/dept_content',
     { method: 'POST', body, prefer: 'return=representation' });
   if (error) { say(root, errMsg(error, 'เพิ่มไม่สำเร็จ')); return; }

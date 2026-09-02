@@ -9,7 +9,13 @@
   margin-bottom: .75rem;
   background: #fff;
 }
-.dpa-row.dpa-hidden { opacity: .55; background: #f8f9fa; }
+/* A hidden row is tinted, and its CONTENT is faded — but never its head. The
+   head carries the one word that explains the fade ("ยังไม่แสดง") and the button
+   that undoes it, and `opacity` on the row would take those down with it: a
+   child cannot be more opaque than the group it is painted in. Hidden is the
+   state a new row is BORN in, so this is the first thing a ฝ่าย sees. */
+.dpa-row.dpa-hidden { background: #f8f9fa; }
+.dpa-row.dpa-hidden > :not(.dpa-row-head) { opacity: .55; }
 .dpa-row-head { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .dpa-kind {
   font-size: .7rem; font-weight: 700; letter-spacing: .04em;
@@ -26,3 +32,19 @@
    70vh of empty space inside a side-by-side preview column reads as broken. */
 .dpa-preview .tool-frame { min-height: 12rem; }
 .dpa-preview .news-grid { display: grid; gap: .75rem; }
+
+/* "ยังไม่แสดง" — the word beside a draft row. A new row is created hidden, so
+   this is the state a ฝ่าย meets FIRST; the .dpa-hidden fade alone does not
+   tell anyone what the fade means. Neutral, not a warning: a draft is the
+   normal, intended place to be. */
+.dpa-draft {
+  flex: 0 0 auto;
+  font-size: .75rem;
+  line-height: 1;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  color: #6c757d;
+  background: #e9ecef;
+  border: 1px solid #dee2e6;
+  white-space: nowrap;
+}

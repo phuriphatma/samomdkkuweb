@@ -21,6 +21,9 @@ import { DEPT_PAGES, DEPT_PAGE_LABEL, DEPT_PAGES_ALL, ADMIN_FEATURES, PERM_CATAL
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const read = (f) => readFileSync(`${ROOT}${f}`, 'utf8');
+const ADMIN = read('src/js/dept-page-admin.js');
+const CSS   = read('src/css/dept-page-admin.css');
+const DDL   = read('supabase/migrations/0177_a_dept_edits_its_own_page.sql');
 
 describe("a ฝ่าย's HTML is isolated, not sanitised", () => {
   it('renders into a sandbox WITHOUT allow-same-origin', () => {
@@ -114,6 +117,61 @@ describe('the page renders what a ฝ่าย put on it', () => {
   it('renders nothing at all when a ฝ่าย has added nothing', () => {
     expect(renderDeptContent([])).toBe('');
     expect(renderDeptContent([{ id: '1', kind: 'card', title: 'x', visible: false }])).toBe('');
+  });
+});
+
+describe('a new row is a DRAFT, and the editor says so', () => {
+  // A card used to be created VISIBLE, so it stood on the ฝ่าย's PUBLIC page the
+  // instant the button was pressed — placeholder title, no link, no cover. One
+  // such card was live on ฝ่ายดิจิทัล. The premise of หน้าฝ่าย is that a ฝ่าย
+  // builds their page over several sittings; a default that publishes each
+  // sitting's half-finished state contradicts the feature it belongs to.
+  it('addRow writes visible:false for BOTH kinds', () => {
+    const body = ADMIN.slice(ADMIN.indexOf('async function addRow('));
+    const insert = body.slice(0, body.indexOf('dbRest('));
+    const kinds = insert.match(/visible:\s*false/g) || [];
+    expect(
+      kinds.length,
+      'a row created from หน้าฝ่าย is public the moment it is added, before it '
+      + 'has a title, a link or a cover',
+    ).toBe(2);
+  });
+
+  it('the column default stays true — the draft rule belongs to the BUTTON', () => {
+    // Flipping the DDL default would hide rows a future import or migration
+    // creates, silently. The rule is about a person pressing a button, so it is
+    // stated at that button, in the row it writes.
+    expect(DDL).toMatch(/visible\s+boolean\s+not null default true/);
+  });
+
+  it('a hidden row carries a WORD, not just a fade', () => {
+    // Hidden is now the state a ฝ่าย meets first. Opacity and a button reading
+    // "แสดง" do not tell anyone what the fade means; someone who adds a card,
+    // cannot find it in the preview, and has no word for why concludes the
+    // feature is broken.
+    expect(ADMIN).toMatch(/dpa-draft/);
+    expect(ADMIN, 'the draft badge is painted on VISIBLE rows too').toMatch(
+      /r\.visible === false \? '<span class="dpa-draft">/);
+    expect(
+      CSS,
+      'the .dpa-draft class is emitted with no rule to render it — CSS fails '
+      + 'silently, so a dead rule looks like a feature nobody built',
+    ).toMatch(/\.dpa-draft\s*\{/);
+  });
+
+  it('the fade never covers the head that explains it', () => {
+    // `opacity` on the row would take the badge and the แสดง button down with
+    // the content: a child cannot be more opaque than its group.
+    expect(CSS).not.toMatch(/\.dpa-row\.dpa-hidden\s*\{[^}]*opacity/);
+    expect(CSS).toMatch(/\.dpa-row\.dpa-hidden\s*>\s*:not\(\.dpa-row-head\)/);
+  });
+
+  it('an all-draft page says so instead of "หน้านี้จะว่าง"', () => {
+    // Two different emptinesses. "This page will be empty" beside a list of rows
+    // the ฝ่าย just wrote reads as data loss; the true answer is that none of
+    // them is published yet.
+    expect(ADMIN).toMatch(/hasDrafts/);
+    expect(ADMIN).toMatch(/ยังไม่มีอะไรขึ้นหน้าเว็บ/);
   });
 });
 
