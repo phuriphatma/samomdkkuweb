@@ -52,14 +52,13 @@ TRUE. That is what the grep is for.
   renderer lands in a SHARED chunk (`analytics-*.js`) that both entries import.
   A new-string-only check would have read as a failed deploy. Both are in that
   chunk; `dpaAddSection` is in `admin-*.js`. Previous: `90965fe`, `a044af6`.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **17 runs, 13
-  published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
-  its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
-  in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
-  reached, so the next failure names itself. Read the log before theorising.
-  ⛔ **A HEALTHY RUN IS 30 SECONDS** — measured from that trace, docs build 10 s.
-  So a run taking MINUTES is already the fault, and the two "clean ~7-minute
-  runs" the hang was declared dead on were 14× baseline, not controls.
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
+  `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
+  writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the
+  line reached. Read the log before theorising.
+  ⛔ **A HEALTHY RUN IS ~30 SECONDS.** A run taking MINUTES is already the fault
+  — the two "clean ~7-minute runs" the hang was once declared dead on were 14×
+  baseline, not controls.
   ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
   (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then curl-grep a SERVED
   page for a string added today, with an old one as control (`skills/deploy-vm.md`).
@@ -114,33 +113,29 @@ TRUE. That is what the grep is for.
 its restructure (02 above). ⛔ **No polling timer for the docs** — one was
 built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
-0. ✅ **THE ORG MOVE IS DONE — `samomdkku/samomdkkuweb` since 2026-08-31.**
-   `node tools/repo-protection.mjs` — all 27 pass. Detail and every trap:
-   `skills/move-the-repo-to-an-organisation.md`. ⛔ Org 2FA is OFF by OWNER
+0. ✅ **ORG MOVE DONE** (2026-08-31); `node tools/repo-protection.mjs` — 27 pass.
+   Traps: `skills/move-the-repo-to-an-organisation.md`. Org 2FA OFF by OWNER
    DECISION. ❌ **Last box, §10: someone who is NOT the owner must add a person
-   to a team once.** Until that happens the bottleneck has not moved.
-   ⛔ **NOTHING on `*.pages.dev` may reach the production database** — the guard
-   once asserted this of ONE project while the account held THREE, and the other
-   two carried the LIVE URL (`deploy-hosting.md`). ⛔ **Still open, OWNER +
-   destructive: the two retired projects' EXISTING deployments still serve the
-   old bundle at `<hash>.<project>.pages.dev`; deleting the projects is the only
-   complete fix.**
+   to a team once.** ⛔ **NOTHING on `*.pages.dev` may reach the production
+   database** — the guard once asserted this of ONE project of THREE
+   (`deploy-hosting.md`). ⛔ **Open, OWNER + destructive: the two retired Pages
+   projects still serve the old bundle at `<hash>.<project>.pages.dev`;
+   deleting them is the only complete fix.**
 
 1. ✅ **A ฝ่าย NOW EDITS ITS OWN PAGE — no commit, no deploy (0177/0178/0179).**
    เมนู "หน้าฝ่าย" in /admin/. **Four kinds since 0179: หัวข้อ · การ์ด · ข้อความ ·
-   HTML**, and a new row is a DRAFT. ⛔ **A free-position CANVAS was considered
-   and REJECTED — do not re-open it**; the reasoning, and the three things still
-   owed (file upload first), are in `docs/state/phuriphatma.md`.
+   HTML**, a new row is a DRAFT, and covers UPLOAD from your machine (the file
+   they replace is retired). 🧪 **A VISUAL-EDITOR SPIKE IS LIVE AND AWAITS THE
+   OWNER'S VERDICT** — "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6,
+   admin-only, lazy, its own 1.15 MB chunk, zero refs from the public entry).
+   ⛔ **Build NOTHING more on it until the owner answers**; if the feel is wrong
+   it deletes cleanly. ⚠️ An earlier note today said a canvas was REJECTED —
+   superseded, and `docs/state/phuriphatma.md` says so at both ends.
    ✅ **AND the ฝ่าย tools lane** — `public/embed/starter/` → a `tool/*` PR →
    `/tools/<slug>`. Both are LIVE; do not rebuild either.
-   ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** — `allow-same-origin` is
-   absent from the sandbox, so a ฝ่าย's HTML reaches nothing. Adding it looks
-   like a fix and deletes the model. It is why the HTML is deliberately NOT
-   sanitised; `innerHTML`-ing it is the vulnerability, not the missing filter.
-   Guarded on the rendered markup AND the deployed bundle.
-   ⚠️ **OWNER-FACING RISK, not a bug: an editor can publish a convincing FAKE
-   sign-in form on a real page.** Controls = the grant + `updated_by`. Weigh it
-   before widening the grant.
+   ⛔ **THE ISOLATION OF BOTH IS ONE MISSING WORD** (`allow-same-origin`), and
+   the three changes that delete it are now a rule in `docs/INVARIANTS.md` —
+   with the owner-facing fake-sign-in risk. Read it before touching the frame.
    🧪 **A VISUAL EDITOR SPIKE IS LIVE AND AWAITS THE OWNER'S VERDICT** —
    "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6, admin-only, lazy, 1.15 MB in
    its own chunk). ⛔ It is a SPIKE: if the feel is wrong, delete
@@ -195,11 +190,11 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on
   dev** (owner: §B1).
 - **The docs site is `docs/` RENDERED.** Nothing secret goes in `docs/`.
-- **ฝ่าย tools — THE WORKFLOW, THE REGISTRY AND THE FRAME ARE ALL LIVE.**
-  Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
-  re-litigated) — do not work from this bullet. Also live: branch protection,
-  `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
-  and **Golden Period at `/tools/golden-period`, which is THEIRS to PR against**.
+- **ฝ่าย tools — WORKFLOW, REGISTRY AND FRAME ARE ALL LIVE.** Read
+  `docs/DEPT-TOOLS.md` (§0a = owner decisions, do not re-litigate). Also live:
+  branch protection, `CODEOWNERS`, the Thai request template,
+  `skills/onboard-a-contributor.md`, and **Golden Period at
+  `/tools/golden-period`, THEIRS to PR against**.
   ⛔ Lane C (a tool that reads real data) is still HARD-BLOCKED on §13 step 15.
 - **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK.** Read
   `docs/demos/about-3d/README.md`, not a bullet.
@@ -236,6 +231,7 @@ in plain language:
 | 2 | Should the Claude usage reporter poll more often than every 15 min? | `docs/NEXT.md` | **leave it at 15** |
 | 3 | Build the boot bar's first-failure branch? | ⏸ above | offered, not urgent |
 | 4 | เกี่ยวกับเรา on mobile — which of the demos? | above | read `docs/demos/about-3d/README.md`, do not summarise it |
+| 4b | **Merge `samomdkkupassport` into this repo?** ✅ **ANSWERED: yes — but as its own session, it is a one-way door.** They already deploy ATOMICALLY (`deploy.sh` builds both), so the split pays every polyrepo cost for the one benefit — independent cadence — this project does not use. Production is already one link. ⛔ Do NOT reconnect the passport Pages project, and ⛔ do NOT have Cloudflare `git clone` passport at `main`: that makes a preview that is not reproducible from a commit | `docs/state/phuriphatma.md` | `git subtree`, npm workspaces, then retire the second repo's protection + Pages project |
 | 5 | **SUCCESSION.** The two role gmails (studbeta, samomdkku.ai) handed down each year are the RIGHT shape — ⛔ decided, do not re-litigate. But **studbeta alone holds prod Supabase + the Google sign-in OAuth client + Cloudflare**, its Cloudflare member is Super Administrator with **2FA OFF**, and the VM ssh key is on one Mac | `docs/SUCCESSION.md`, `npm run succession:audit` | **step 0 is the recovery settings on both gmails** — "it does not graduate" is a property of those, not of the address. Then cross-add each account to the other's systems. The GitHub move is step 7 of 8 |
 | 6 | ~~Move to a GitHub organisation?~~ ✅ **DONE 2026-08-31 except Cloudflare.** Both repos are in the org, `CODEOWNERS` names a team, Copilot is unaffected (org holds 0 seats — never buy any). ⛔ Do not re-litigate | `skills/move-the-repo-to-an-organisation.md` §0a | **One thing left needs the dashboard: reconnect Cloudflare Pages (§5a), or previews stay dead** |
 | 7 | ~~What URL should the docs site have?~~ ✅ **ANSWERED AND BUILT 2026-08-31 — nothing owed.** `https://samo.md.kku.ac.th/docs` serves the real pages from the VM. (HOW they get rebuilt is status, not a decision — the CURRENT DEPLOY block above is its one home; do not restate it here.) ⛔ **Do not re-open this and do not ask KKU for a subdomain** — the owner confirmed KKU gives one VM and one hostname, so `docs.samo.md.kku.ac.th` was never available and the CNAME plan that stood here was dead on arrival | `server/nginx-samo.conf`, `server/deploy.sh` | Serving docs at a PATH is mainstream, not a compromise: nextjs.org/docs, tailwindcss.com/docs, supabase.com/docs and kubernetes.io/docs all answer 200 at the path (measured). ⛔ **And do not re-add a polling timer.** One was built and removed the same day: its whole justification was "otherwise publishing needs someone on VPN", and the owner's answer was that deploy-time updates are fine. Pull-based deploy is a real pattern (ArgoCD, Flux) but it is for keeping an app current, not a docs page — **the lesson is that the requirement was assumed, not asked** |

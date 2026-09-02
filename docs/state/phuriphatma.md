@@ -16,7 +16,110 @@ path named here must resolve.
 
 ---
 
-## ▶ 2026-09-02 — the หน้าฝ่าย editor: why NOT a canvas (0179)
+## ▶ HANDOFF 2026-09-02, END OF SESSION — read this before anything else
+
+**Everything below in this file is history. This block is the state.**
+
+`git status` clean · `npm test` 1,712 green · `npm run deploy:owed` current ·
+`npm run migrate:status` 0 pending. **Verify these rather than believing them.**
+
+### ⛔ ONE THING WAITS ON THE OWNER, AND NOTHING SHOULD BE BUILT UNTIL IT ANSWERS
+
+🧪 **The visual-editor SPIKE is live: `/admin/` → หน้าฝ่าย → an HTML row →
+"แก้แบบเห็นภาพ".** GrapesJS 0.23.6, admin-only, lazy, 1.15 MB in its own chunk.
+
+**Do not build the block set until the owner says the feel is right.** If it is
+wrong, `git rm src/js/dept-visual-editor.js src/js/dept-visual-editor.test.js
+src/css/dept-visual-editor.css`, drop the dependency and the button in
+`dept-page-admin.js` — nothing else in the app knows it exists.
+
+⚠️ **A CORRECTION I MADE TO MYSELF, IN THIS FILE, ON THE SAME DAY.** The block
+below this one says *"a canvas was rejected, and this should not be re-opened"*.
+That was my verdict at 12:00; the owner asked twice more and I built one at
+14:00. **The block is kept because its REASONING is still load-bearing — the
+block-list model, the mobile argument, the Puck/Craft.js rejection — but its
+VERDICT is superseded.** Read it as analysis, not as a decision. This is the
+prose-drift class the repo pays for most; correcting it in one place and not the
+other is what makes a document lie.
+
+### What the spike actually proved, and what it did not
+
+✅ Proved, by looking rather than by reading:
+- it imports existing content, opens at **390px**, and shows eight Thai blocks;
+- **the output renders correctly in the real BLANK sandbox** (screenshotted at
+  900px and 390px) — the columns stack on a phone with no media query;
+- the 1.15 MB is a separate chunk with **zero references from the public entry**
+  on the SERVED site.
+
+❌ Not proved: nobody has dragged a block and saved through the real editor. The
+round trip was verified by composing the blocks in code and wrapping them, not
+by driving GrapesJS's drag-and-drop.
+
+⚠️ **Two bugs were found ONLY by screenshotting it**, and both would have shipped:
+GrapesJS hides its block panel behind an icon (the empty canvas WAS the
+"untuitive" complaint), and Bootstrap classes would have looked perfect in the
+editor and unstyled on the real page, because the sandbox is a blank document.
+
+### 📌 A DECISION RECORDED, NOT YET ACTED ON: merge samomdkkupassport into this repo
+
+Asked: *"should samopassport be integrated into the same repo instead of separate
+repo with same supabase … i want preview to just be one link"*.
+
+**Answer: yes, merge — but as its own session. It is a one-way door.**
+
+- **Production is ALREADY one link** — `samo.md.kku.ac.th/passport/` answers 200,
+  and `deploy.sh` already pulls and builds both repos. Merging buys nothing there.
+- **The deciding fact: the two already deploy ATOMICALLY.** Independent release
+  cadence is the one thing polyrepo buys, and this project does not use it — so
+  it pays every polyrepo cost (two CI setups, two protections, two Pages
+  projects, no atomic PR over a shared Supabase project) for no benefit.
+- ⛔ **Do NOT reconnect the `samomdkkupassport` Pages project** (STATE.md §A3
+  step 1). That entrenches the split that is about to be removed.
+- ⛔ **And do not take the cheap fix I proposed first** — having the Cloudflare
+  build `git clone` passport at `main`. It makes the preview NOT REPRODUCIBLE
+  FROM A COMMIT: same web branch, rebuilt tomorrow, different site. Pinning it
+  to a SHA is a git submodule by another name, so following that fix arrives at
+  the merge anyway.
+
+**Shape of the work** (~a session, low risk — the repo would be made to match a
+deploy that already works): `git subtree add --prefix=passport` to keep history ·
+npm workspaces, passport as a second Vite build (`PASSPORT_BASE=/passport/`
+already exists) · `deploy.sh` loses one clone and one pull · `CODEOWNERS` gains
+`passport/**` · retire the second repo's protection and Pages project · update
+`docs/SUCCESSION.md` and `tools/repo-protection.mjs`, which enumerate both today.
+
+### What shipped today, in order
+
+1. The `ไม่พบใครที่ตรงกับ` hint had an entry and no exit (`team/index.js`).
+2. **A new หน้าฝ่าย row is a DRAFT** — it used to be published the instant the
+   button was pressed, placeholder title and all.
+3. **The getting-started docs**, rewritten for someone who has not used git —
+   and `npm run env:check`, because the guide told contributors to run
+   `dev:check`, which needs PRODUCTION credentials they do not have and must
+   never be sent.
+4. **The stable preview address was documented** — `preview.samomdkkuweb.pages.dev`
+   existed since 2026-08-31 and NOTHING pointed at it, including the tool whose
+   job is to print an address.
+5. **0179** — `section` and `text` kinds.
+6. **Cover/video upload**, with the file it replaces retired.
+7. **The GrapesJS spike.**
+
+### ⚠️ Still unresolved, and it is NOT from any of today's changes
+
+The ฝ่าย card grid overflowed horizontally at 390px in a static probe — **but the
+pre-0179 control overflows identically**, and `.news-grid--archive` is
+`repeat(2, minmax(0,1fr))` below 576px, which cannot overflow. So the probe is
+the likelier fault. **Measure the computed grid on the real page before believing
+either answer.**
+
+---
+
+## ▶ 2026-09-02 (12:00) — the หน้าฝ่าย editor: the block-list case
+
+> ⚠️ **VERDICT SUPERSEDED THE SAME DAY — see the handoff block above.** The
+> owner asked twice more and a GrapesJS spike was built at 14:00. The
+> REASONING here is still the best account of the trade-off and of why Puck
+> and Craft.js were rejected; the sentence "a canvas was rejected" is not.
 
 **The report.** *"the current is having to fill in each card then it'll appear
 on ui. i think it's too bland, like there isn't many component for user to can

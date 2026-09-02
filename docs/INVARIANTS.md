@@ -573,3 +573,30 @@ paths; the one in front of you is rarely the only one.
 `analytics-email.test.js` asserts the property rather than a spelling: every
 file containing a `notifyProjectEmail` send obtains its recipient from
 `resolveRecipients`.
+
+## A ฝ่าย's own HTML is ISOLATED, never sanitised
+
+`dept_content.kind = 'html'` (0177) and every Lane-B tool in `public/embed/`
+render into an iframe with `srcdoc` and a sandbox that **deliberately omits
+`allow-same-origin`**. That gives an opaque origin: the markup cannot read the
+session, the parent DOM, cookies or `localStorage`.
+
+⛔ **Three changes look like improvements and each deletes the model:**
+
+1. **Adding `allow-same-origin`.** It reads as "make the frame work properly".
+   It gives a ฝ่าย's markup the app's origin, and with it the signed-in session.
+2. **Sanitising the HTML.** The absence of a filter is not an oversight — the
+   isolation is what makes the filter unnecessary, and a filter would imply the
+   isolation is optional.
+3. **`innerHTML`-ing it** "because the editors are staff". That is the
+   vulnerability; the missing filter is not.
+
+`dept-content.test.js` goes red on all three, asserting the property on the
+RENDERED markup rather than on a spelling. The same `EMBED_SANDBOX` constant
+serves both surfaces (`tool-frame.js`), so there is one place to get it right.
+
+⚠️ **Owner-facing risk, not a bug**: an editor can publish a convincing FAKE
+sign-in form on a real ฝ่าย page. Isolation stops the markup reading anything;
+it cannot stop it *asking* a visitor. The controls are the grant and
+`updated_by`. Weigh that before widening who holds the grant — and note a
+drag-and-drop editor lowers the skill floor for it.
