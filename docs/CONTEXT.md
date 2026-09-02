@@ -1116,7 +1116,7 @@ tools are CODE* — so 0177 moved the cards into a table.
 
 | Piece | Where |
 |---|---|
-| The content | `public.dept_content` — `kind` is `'card'` or `'html'`, ordered by `position`, `visible` hides without deleting |
+| The content | `public.dept_content` — `kind` is `'section'`, `'card'`, `'text'` or `'html'` (0179), ordered by `position`. `visible` hides without deleting, and a row added from the editor is created `visible=false` — a DRAFT — because it used to reach the public page half-built |
 | The ฝ่าย list (identity: name, icon, colour) | `src/data/depts.js` — ONE home, read by the page, the editor and the grant picker |
 | The public renderer | `src/js/dept-content.js` |
 | The editor | `src/js/dept-page-admin.js`, pane `data-admin-pane="deptpage"` |
@@ -1142,6 +1142,28 @@ a scope dimension has to be threaded through are itemised in
 
 **0178** taught `photo_reference_count()` about `dept_content.cover_url` and
 `video_url`, so the portrait cleanup cannot delete a file a ฝ่าย page still uses.
+
+**0179** widened `kind` to four values, ADD-only. `section` is a heading that
+groups everything after it until the next one; `text` is a full-width paragraph
+(`white-space: pre-line`, escaped — deliberately NOT a second markup path).
+⚠️ Adding a kind touches FOUR places — the DDL check constraint, the branch in
+`renderDeptContent`, `KIND_META` and `NEW_ROW` in the editor — and
+`dept-content.test.js` derives the list FROM THE DDL and fails if any of the
+other three has not kept up. An unknown kind falls through to the card branch on
+purpose, which is what makes such a migration safe in either order.
+Proof: `tools/dept0179-kinds.sql` (10 cases, 4 allow + 6 deny).
+
+**The cover/video upload** goes through `uploadImageToDrive`, and the file a new
+upload REPLACES is retired with the same `deleteTeamPhotoIfUnused` ทีม SAMO uses
+— after the write is confirmed, never before. Nothing is uploaded when a file is
+PICKED; see `src/js/dept-page-admin.js`'s `pending` map for the Drive orphans the
+other order produces.
+
+🧪 **A visual editor (GrapesJS 0.23.6) is a SPIKE on the `html` kind** —
+`src/js/dept-visual-editor.js`, admin-only and dynamically imported so its
+1.15 MB never enters the public entry. Its output is plain HTML, which is why it
+needed no new storage or isolation. Awaiting the owner's verdict; if the feel is
+wrong it deletes cleanly.
 
 ## จองโควตา Claude — migrations 0154–0159
 

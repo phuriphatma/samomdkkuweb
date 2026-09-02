@@ -797,10 +797,20 @@ not call it final.
 
 ---
 
-## §12. Forward compatibility with the per-ฝ่าย GUI editor
+## §12. ✅ BUILT — the per-ฝ่าย GUI editor (0177/0178/0179)
 
-The owner's separate, later ask is a GUI for each ฝ่าย to customise its own page.
-**Do not build it here.** One decision now keeps it cheap later:
+> ⚠️ **THIS SECTION WAS A PREDICTION AND IT CAME TRUE — read it as history.**
+> The editor shipped on 2026-09-01/02 as เมนู "หน้าฝ่าย". Its sentence "do not
+> build it here" was about SEQUENCING, not about the feature, and it no longer
+> applies to anything. What is kept is the line it drew, which held exactly as
+> written: the editor edits ROWS in `public.dept_content` and never touches
+> `public/embed/`. Four kinds today — `section`, `card`, `text`, `html` — plus
+> cover upload; a new row is a DRAFT. 🧪 A GrapesJS visual editor sits on the
+> `html` kind as a SPIKE awaiting the owner's verdict.
+> Current shape: `docs/CONTEXT.md`; status: `STATE.md` §A1.
+
+The owner's separate, later ask was a GUI for each ฝ่าย to customise its own
+page. One decision at the time kept it cheap:
 
 > **Content is DATA. Tools are CODE. Draw the line now.**
 
@@ -810,6 +820,13 @@ editor arrives it edits rows and never touches `public/embed/`, and Lane A
 becomes fully self-serve with no deploy at all. If instead cards stay hardcoded
 in `departments.js`, the editor's first task is un-hardcoding them — which is
 §2, paid for later at a worse time.
+
+✅ **Both halves held.** The cards were un-hardcoded first (0177 replaced
+`DEPT_DEFS.cards`), so the editor's first task was not that; and the two lanes
+stayed distinct — the GUI writes rows, the PR road writes files under
+`public/embed/` and lands at `/tools/<slug>`. ⛔ **Keep them distinct.** Letting
+both write the same page would give one fact two writable homes, and a ฝ่าย's
+afternoon in the GUI would vanish on the next deploy of the file, silently.
 
 ---
 

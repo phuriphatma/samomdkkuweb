@@ -22,9 +22,11 @@ triggered over ssh (needs the KKU VPN).
 - **หน้าฝ่าย — each department edits its own page.** Ten ฝ่าย have a page on the
   site, and until 2026-09 changing a word on one meant a commit and a deploy by
   the owner; five of the six with pages had no content at all because of it. Now
-  a granted ฝ่าย member opens **หน้าฝ่าย** in the staff area, adds cards and
-  links in a form or **writes their own HTML**, and saves — the page is live
-  with no deploy. Their HTML renders inside a sandboxed frame on an opaque
+  a granted ฝ่าย member opens **หน้าฝ่าย** in the staff area and builds the page
+  from four kinds of block — a **หัวข้อ** heading that groups what follows, a
+  **การ์ด** link tile, a **ข้อความ** paragraph, or **their own HTML** — uploading
+  covers straight from their machine. A new block is a draft until they press
+  แสดง, and saving puts it live with no deploy. Their HTML renders inside a sandboxed frame on an opaque
   origin, so it can reach nothing: not the signed-in session, not the database,
   not the rest of the page. That isolation is the reason it is safe to accept
   HTML at all, and the reason it is deliberately **not** filtered. A grant names
