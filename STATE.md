@@ -44,14 +44,14 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `22ab61d` (2026-09-02)** — app and docs BOTH published by
+- ✅ **DEPLOYED = `0d7722e` (2026-09-02)** — app and docs BOTH published by
   `deploy.sh` itself, no hand step, in **31 s**. Verified from the SERVED
   artifact with a string UNIQUE to the change and an old one as control.
   ⚠️ **The control earned its place**: `dept-section-sub` greps 0 in
   `public-*.js` — and so does the control `news-card-title`, because the
   renderer lands in a SHARED chunk (`analytics-*.js`) that both entries import.
   A new-string-only check would have read as a failed deploy. Both are in that
-  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `0f130d3`, `3390a8d`.
+  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `22ab61d`, `0f130d3`.
   ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
   `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
   writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the
