@@ -44,15 +44,15 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `90965fe` (2026-09-02)** — app and docs BOTH published by
+- ✅ **DEPLOYED = `c5c004b` (2026-09-02)** — app and docs BOTH published by
   `deploy.sh` itself, no hand step, in **31 s**. Verified from the SERVED
   artifact with a string UNIQUE to the change and an old one as control.
   ⚠️ **The control earned its place**: `dept-section-sub` greps 0 in
   `public-*.js` — and so does the control `news-card-title`, because the
   renderer lands in a SHARED chunk (`analytics-*.js`) that both entries import.
   A new-string-only check would have read as a failed deploy. Both are in that
-  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `a044af6`, `0be5303`.
-  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **16 runs, 12
+  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `90965fe`, `a044af6`.
+  ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** Tally **17 runs, 13
   published docs, 4 did not** (`skills/deploy-vm.md` keeps the count — that is
   its one home). ✅ **Run 7 finally left evidence**: `deploy.sh` writes each run
   in full to `~/samo-deploy-logs` on the VM plus an xtrace naming the line
@@ -61,9 +61,8 @@ TRUE. That is what the grep is for.
   So a run taking MINUTES is already the fault, and the two "clean ~7-minute
   runs" the hang was declared dead on were 14× baseline, not controls.
   ⚠️ **After every deploy, check the ARTEFACT** — root write times must agree
-  (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then settle it by
-  curl-grepping a SERVED page for a string added today, with an old one as
-  control. Both traps are in `skills/deploy-vm.md`. Done for `0be5303`.
+  (`stat -c "%y %n" /var/www/samo-web /var/www/docs`), then curl-grep a SERVED
+  page for a string added today, with an old one as control (`skills/deploy-vm.md`).
   ⛔ Falsified, do not re-open: sudo expiry · the `timeout` ceiling · the PTY.
   Two clean runs were NOT a root cause — `docs/mistakes/deploy-hosting.md`, and
   the whole recipe is `skills/deploy-vm.md`.
@@ -142,6 +141,12 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    ⚠️ **OWNER-FACING RISK, not a bug: an editor can publish a convincing FAKE
    sign-in form on a real page.** Controls = the grant + `updated_by`. Weigh it
    before widening the grant.
+   🧪 **A VISUAL EDITOR SPIKE IS LIVE AND AWAITS THE OWNER'S VERDICT** —
+   "แก้แบบเห็นภาพ" on an html row (GrapesJS 0.23.6, admin-only, lazy, 1.15 MB in
+   its own chunk). ⛔ It is a SPIKE: if the feel is wrong, delete
+   `dept-visual-editor.js` + the dep; nothing else knows it exists. Why GrapesJS
+   and not Puck/Craft.js (React-only), and the block-set work that comes next:
+   `docs/state/phuriphatma.md`.
    ❌ **What is left is NOT code: §13 step 8, teach two people**, and step 5 on
    a REAL phone. Detail: `docs/state/phuriphatma.md` + `docs/DEPT-TOOLS.md`.
 2. ⚠️ **THE DEPLOY DOCS STEP — INTERMITTENT, and this entry used to say the
@@ -189,21 +194,20 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   holds REAL student data**. Rebuild `CONFIRM=1 npm run dev:refresh`; check
   `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on
   dev** (owner: §B1).
-- **The docs site is `docs/` RENDERED, not the status.** `STATE.md` stays at the
-  repo root on purpose; nothing secret goes in `docs/`.
+- **The docs site is `docs/` RENDERED.** Nothing secret goes in `docs/`.
 - **ฝ่าย tools — THE WORKFLOW, THE REGISTRY AND THE FRAME ARE ALL LIVE.**
   Read `docs/DEPT-TOOLS.md` (§0a holds owner decisions that must not be
   re-litigated) — do not work from this bullet. Also live: branch protection,
   `CODEOWNERS`, the Thai request template, `skills/onboard-a-contributor.md`,
   and **Golden Period at `/tools/golden-period`, which is THEIRS to PR against**.
   ⛔ Lane C (a tool that reads real data) is still HARD-BLOCKED on §13 step 15.
-- **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK. Do not build yet.**
-  Read `docs/demos/about-3d/README.md`, not a bullet.
+- **เกี่ยวกับเรา on mobile — WAITING ON THE OWNER'S PICK.** Read
+  `docs/demos/about-3d/README.md`, not a bullet.
 - **The browser pass, continued — `skills/drive-the-browser.md`.** Still
   undriven: VS staff modal, ประกาศ drafts, อาจารย์ signature queue, SHOP
   CHECKOUT. `docs/NEXT.md` §1. The auth blocker is solved; §4 of that skill has
   the recipe and both traps.
-- **ทีม SAMO restructure — DO NOT reparent a ฝ่าย without reading `docs/INVARIANTS.md`.**
+- **ทีม SAMO restructure — read `docs/INVARIANTS.md` before reparenting a ฝ่าย.**
 - `docs/NEXT.md` carries the rest. Genuinely un-started: §0c (two latent
   role-only policies, deliberately not swept), §0a (ทีม SAMO admin model, PARKED
   by the owner), §0b2 + §1 (the browser pass). ⚠️ Its §0
