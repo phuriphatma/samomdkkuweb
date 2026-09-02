@@ -20,18 +20,41 @@ path named here must resolve.
 
 **Everything below in this file is history. This block is the state.**
 
-`git status` clean · `npm test` 1,712 green · `npm run deploy:owed` current ·
-`npm run migrate:status` 0 pending. **Verify these rather than believing them.**
+Clean and current at end of session. **Run these rather than believing a
+sentence** — no count is written down here on purpose, because nothing guards a
+number in prose:
+
+```bash
+git status && npm test && npm run proofs
+npm run deploy:owed && npm run migrate:status
+npm run smoke:browser -- https://samo.md.kku.ac.th
+```
 
 ### ⛔ ONE THING WAITS ON THE OWNER, AND NOTHING SHOULD BE BUILT UNTIL IT ANSWERS
 
 🧪 **The visual-editor SPIKE is live: `/admin/` → หน้าฝ่าย → an HTML row →
 "แก้แบบเห็นภาพ".** GrapesJS 0.23.6, admin-only, lazy, 1.15 MB in its own chunk.
 
-**Do not build the block set until the owner says the feel is right.** If it is
-wrong, `git rm src/js/dept-visual-editor.js src/js/dept-visual-editor.test.js
-src/css/dept-visual-editor.css`, drop the dependency and the button in
-`dept-page-admin.js` — nothing else in the app knows it exists.
+**Do not build the block set until the owner says the feel is right.**
+
+If it is wrong, removing it is five edits — **all five, or the build breaks on a
+dangling import**:
+
+```bash
+git rm src/js/dept-visual-editor.js \
+       src/js/dept-visual-editor.test.js \
+       src/css/dept-visual-editor.css
+npm uninstall grapesjs
+```
+then delete, by hand:
+- `src/admin.css` — the `@import './css/dept-visual-editor.css';` line
+- `src/js/dept-page-admin.js` — the `import { openVisualEditor }` line, the
+  `data-dpa-visual` button in `rowEditor`, and the `[data-dpa-visual]` branch in
+  the delegated click handler
+
+Then `npm run build && npm test`. Nothing else in the app knows it exists —
+`dept-visual-editor.test.js` asserts that `dept-page-admin.js` is the only
+importer, so if something else has grown one, that test names it.
 
 ⚠️ **A CORRECTION I MADE TO MYSELF, IN THIS FILE, ON THE SAME DAY.** The block
 below this one says *"a canvas was rejected, and this should not be re-opened"*.
