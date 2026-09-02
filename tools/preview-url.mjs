@@ -44,9 +44,20 @@ if (!branch || branch === 'HEAD') {
 }
 
 if (branch === 'main') {
-  console.log(`\nYou are on main. main is PRODUCTION, and it does not get a preview.`);
-  console.log(`  production   https://samo.md.kku.ac.th`);
-  console.log(`\nMake a branch and open a pull request to get a preview.\n`);
+  console.log(`\nYou are on main, so there is no per-branch preview — Cloudflare names`);
+  console.log(`a preview after its branch, and main is the PRODUCTION branch.`);
+  console.log(`\nBut main has a permanent address of its own:\n`);
+  console.log(`  main, as merged   https://preview.${PROJECT}.pages.dev`);
+  console.log(`  production        https://samo.md.kku.ac.th`);
+  console.log(`
+The first is the \`preview\` branch — a MIRROR of main that a workflow
+force-pushes on every push, never a branch to target. It updates within a
+couple of minutes and runs against samo-dev, so it shows what is merged
+but not yet deployed.
+
+⛔ NOT https://${PROJECT}.pages.dev — that bare host is retired and
+   bounces to the moved splash. Only the subdomain works.
+`);
   process.exit(0);
 }
 

@@ -144,7 +144,7 @@ Use **Create draft pull request**. Other people can see what you are working on 
 
 ## 6. Open your preview site
 
-Every branch gets a live site, built automatically. Scroll to the bottom of the pull request's **Conversation** tab: the checks box lists the preview alongside the other checks, usually within a couple of minutes of pushing.
+Every branch except `main` gets a live site, built automatically. Scroll to the bottom of the pull request's **Conversation** tab: the checks box lists the preview alongside the other checks, usually within a couple of minutes of pushing.
 
 ![Sketch of the pull request checks box, with the Cloudflare Pages preview link highlighted](../diagrams/pr-checks.svg)
 
@@ -154,7 +154,13 @@ Or ask for the address directly, from the branch:
 npm run preview:url
 ```
 
-**The preview is connected to `samo-dev`, the copy of the database — not the real one.** Click, submit forms, create test records. The address stays the same for the life of the branch, so you can bookmark it, and it rebuilds on every push. Send it to someone in your ฝ่าย for a second opinion; they need to install nothing.
+::: danger Two addresses are listed. The first one is not the one you want.
+Cloudflare's check shows a **Preview URL** and a **Branch Preview URL**. The first is one single build — your next push makes a new one and that address serves the old code for ever. The second follows the branch.
+
+**If it starts with eight random characters, it is a single build.** Bookmark the one with your branch name in it, and send that one to people. `npm run preview:url` always prints the right one.
+:::
+
+**The preview is connected to `samo-dev`, the copy of the database — not the real one.** Click, submit forms, create test records. The branch address stays the same for the life of the branch and rebuilds on every push, so you can bookmark it once and send it to someone in your ฝ่าย for a second opinion; they need to install nothing.
 
 Test **here**, not only on your own machine. It is a real site on a real phone, which `localhost` can never be. [Where the site runs](/start/where-it-runs) explains all four addresses and which database each one touches.
 

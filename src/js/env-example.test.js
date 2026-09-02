@@ -143,3 +143,64 @@ describe('the contributor-facing setup check', () => {
       .toMatch(/Not `npm run dev:check`/);
   });
 });
+
+// ==============================================
+// THE STABLE ADDRESS FOR `main` MUST BE NAMED WHEREVER SOMEONE LOOKS FOR IT.
+//
+// `preview.samomdkkuweb.pages.dev` was built on 2026-08-31 to answer exactly one
+// question — *"what's the stable one i can view"* — after every obvious
+// Cloudflare link turned out to render the moved splash. A workflow mirrors
+// `main` onto a branch named `preview`, which Cloudflare then serves there
+// permanently.
+//
+// Two days later the getting-started docs were written and said `main` has no
+// preview, and `preview-url.mjs` — the tool a person runs to FIND an address —
+// printed "main is PRODUCTION, and it does not get a preview" with no mention of
+// it. The capability existed, was deployed, and was invisible from every place a
+// person would look. That is worse than not having built it: the owner had to
+// ask for it a second time.
+//
+// So the address is pinned in the three places that answer the question, and the
+// workflow that produces it is pinned too — if the mirror is ever deleted, these
+// go red rather than the docs quietly pointing at a dead host.
+// ==============================================
+describe('the stable address for main', () => {
+  const WHERE = readFileSync(join(ROOT, 'docs', 'start', 'where-it-runs.md'), 'utf8');
+  const PREVURL = readFileSync(join(ROOT, 'tools', 'preview-url.mjs'), 'utf8');
+  const MIRROR = readFileSync(join(ROOT, '.github', 'workflows', 'preview-mirror.yml'), 'utf8');
+
+  it('is produced by a workflow that mirrors main onto the `preview` branch', () => {
+    // The address is an alias Cloudflare derives from a BRANCH NAME. If this
+    // workflow stops pushing that branch, the host stops existing and every
+    // reference below becomes a link to nothing.
+    expect(MIRROR).toMatch(/preview/);
+    expect(MIRROR, 'the mirror no longer triggers on main').toMatch(/branches:\s*\[?\s*main/);
+  });
+
+  it('is named by the tool people run to find an address', () => {
+    expect(PREVURL, 'preview-url.mjs tells someone on main there is no preview, '
+      + 'which is the question the mirror was built to answer')
+      .toMatch(/preview\.\$\{PROJECT\}\.pages\.dev/);
+  });
+
+  it('is named on the page about where the site runs', () => {
+    expect(WHERE).toMatch(/preview\.samomdkkuweb\.pages\.dev/);
+  });
+
+  it('says it is a MIRROR, not a branch to work on', () => {
+    // Someone who reads "a branch named preview" and treats it as staging will
+    // have their commits force-pushed away without warning.
+    expect(WHERE.toLowerCase()).toMatch(/mirror/);
+    expect(PREVURL.toLowerCase()).toMatch(/mirror/);
+  });
+
+  it('warns that the BARE host is the retired one', () => {
+    // The trap that caused all of this: samomdkkuweb.pages.dev bounces to the
+    // moved splash, and it is the link Cloudflare's own dashboard offers.
+    // index.html's guard is anchored, so only the bare host redirects.
+    const INDEX = readFileSync(join(ROOT, 'index.html'), 'utf8');
+    expect(INDEX, 'the host guard is no longer anchored, so a subdomain preview '
+      + 'would bounce to the splash too').toMatch(/\^\(samomdkkuweb\|refactorsamomdkkuweb\)/);
+    expect(PREVURL).toMatch(/retired|moved splash/i);
+  });
+});
