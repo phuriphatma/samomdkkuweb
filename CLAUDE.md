@@ -25,7 +25,7 @@ Supabase project: `fheueuowbchsnsvbcgil`.
 ## Tech stack (quick)
 
 - **Frontend**: Vite 6, Vanilla ES modules, Bootstrap 5, Quill (rich text),
-  d3-org-chart (ผังรวม only — dynamic import, never in the entry bundle)
+  d3-org-chart, GrapesJS — **DYNAMIC IMPORT ONLY, never an entry bundle**
 - **Auth + DB**: Supabase Auth (Google + username/password), Postgres with RLS
 - **Files**: Google Drive via GAS `uploadPRFile` (chosen for 2 TB quota)
 - **Discord**: GAS proxy actions `notifyPROnly` / `notifyVSOnly` / `notifyVSConsult`

@@ -1159,7 +1159,8 @@ upload REPLACES is retired with the same `deleteTeamPhotoIfUnused` ทีม SAM
 PICKED; see `src/js/dept-page-admin.js`'s `pending` map for the Drive orphans the
 other order produces.
 
-🧪 **A visual editor (GrapesJS 0.23.6) is a SPIKE on the `html` kind** —
+🧪 **A visual editor (GrapesJS 0.23.6, BSD-3, the only vanilla option — Puck and
+Craft.js are React-only) is a SPIKE on the `html` kind** —
 `src/js/dept-visual-editor.js`, admin-only and dynamically imported so its
 1.15 MB never enters the public entry. Its output is plain HTML, which is why it
 needed no new storage or isolation. Awaiting the owner's verdict; if the feel is

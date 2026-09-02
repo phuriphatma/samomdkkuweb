@@ -206,6 +206,8 @@ triggered over ssh (needs the KKU VPN).
 
 - **Frontend**: Vite 6 + Vanilla ES modules + Bootstrap 5 + Quill (rich text)
   + d3-org-chart (the ผังรวม view, lazy-loaded)
+  + GrapesJS 0.23.6 (the หน้าฝ่าย visual editor, lazy-loaded, admin only —
+    1.15 MB, so it must never reach an entry bundle)
 - **Auth + DB**: Supabase (Auth, Postgres, Row-Level Security)
 - **Files**: Google Drive via Apps Script proxy (chosen for 2 TB quota)
 - **Discord**: one `/notify` proxy for PR / Vital Sign / หนังสือโครงการ webhooks.
