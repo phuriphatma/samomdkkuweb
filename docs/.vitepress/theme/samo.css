@@ -1,0 +1,64 @@
+/* samo.css — SAMO's colours, and the two fixes the audit turned up.
+   ─────────────────────────────────────────────────────────────────────────
+   1. BRAND. #105922 (MDKKU green) and #FF6F30 (SAMO orange), matching
+      src/css/base.css.
+
+      ⚠️ The green is DEEP — deliberately, it is the wordmark colour — and deep
+      green on a dark background fails contrast badly. So dark mode gets a
+      LIGHTER green rather than the same value: same identity, readable. Never
+      set one value for both modes here; that is how the link colour became
+      unreadable on the theme it was not tested in.
+
+   2. DIAGRAMS. Every file in docs/diagrams/ hardcodes fill="#ffffff", so on the
+      dark theme each one is a glaring white slab. They are not being rewritten
+      — a hand-drawn SVG is hard to make theme-aware without redrawing it — so
+      instead they are framed as deliberate figures: rounded, bordered, and
+      very slightly dimmed in dark mode so they read as a printed panel rather
+      than a lighting fault. */
+
+:root {
+  --samo-green: #105922;
+  --samo-green-lift: #177a2f;
+  --samo-orange: #ff6f30;
+
+  --vp-c-brand-1: var(--samo-green);
+  --vp-c-brand-2: var(--samo-green-lift);
+  --vp-c-brand-3: var(--samo-green);
+  --vp-c-brand-soft: rgba(16, 89, 34, 0.14);
+
+  --vp-button-brand-bg: var(--samo-green);
+  --vp-button-brand-hover-bg: var(--samo-green-lift);
+  --vp-button-brand-border: var(--samo-green);
+
+  /* The wordmark is two colours, so the hero is a two-colour sweep. */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(
+    120deg, var(--samo-green) 30%, var(--samo-orange)
+  );
+}
+
+.dark {
+  /* Deep green is unreadable on near-black — lift it, keep the hue. */
+  --samo-green: #4fb06a;
+  --samo-green-lift: #6cc684;
+  --vp-c-brand-soft: rgba(79, 176, 106, 0.16);
+  --vp-home-hero-name-background: linear-gradient(
+    120deg, #4fb06a 30%, var(--samo-orange)
+  );
+}
+
+/* Diagrams: framed as figures, not floating white slabs. */
+.vp-doc img[src*="diagram"],
+.vp-doc img[src*="/start/"] {
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: #fff;
+  display: block;
+  margin: 1.25rem auto;
+  max-width: 100%;
+}
+
+.dark .vp-doc img[src*="diagram"],
+.dark .vp-doc img[src*="/start/"] {
+  filter: brightness(0.93);
+}

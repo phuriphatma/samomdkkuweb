@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: SAMO MDKKU
-  text: Developer documentation
-  tagline: The student portal for the Faculty of Medicine, Khon Kaen University — how to run it, how to contribute, and how it works.
+  text: How the site is built and changed
+  tagline: The student portal for the Faculty of Medicine, Khon Kaen University. You do not need to be a programmer to change something here — start at the beginning and every step is written out.
   actions:
     - theme: brand
       text: Get started

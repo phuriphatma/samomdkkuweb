@@ -132,6 +132,15 @@ Or do it in the browser: go to the repository on GitHub and a **Compare & pull r
 
 ![Sketch of the Compare and pull request banner GitHub shows at the top of the repository after you push](../diagrams/pr-banner.svg)
 
+::: tip What the repository actually looks like
+The real thing, so the sketch above is easier to place. **Fork** is top right;
+**Pull requests** is in the row of tabs. This is the logged-out view — signed in
+you also get your own avatar in the top bar, but the buttons are in the same
+places.
+
+![The samomdkkuweb repository on GitHub, with the Fork button top right and the Pull requests tab in the row beneath](/start/github-repo.png)
+:::
+
 Write three things. None needs to be long.
 
 1. **What changed** — one sentence
