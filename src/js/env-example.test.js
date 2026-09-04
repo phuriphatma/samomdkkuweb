@@ -199,8 +199,16 @@ describe('the stable address for main', () => {
     // moved splash, and it is the link Cloudflare's own dashboard offers.
     // index.html's guard is anchored, so only the bare host redirects.
     const INDEX = readFileSync(join(ROOT, 'index.html'), 'utf8');
+    // ⚠️ Assert the ANCHORING, not the host list. This used to match the exact
+    // alternation `^(samomdkkuweb|refactorsamomdkkuweb)`, which went red on
+    // 2026-09-04 when a third retired host was legitimately added — the
+    // property (only a BARE retired host redirects, never a subdomain) was
+    // never in danger. A guard pinned to today's list fails on correct changes
+    // and teaches people to edit the guard, which is how it stops meaning
+    // anything. host-guard.test.js owns the full behaviour, across all six
+    // entries and both directions; this only pins that the anchor is present.
     expect(INDEX, 'the host guard is no longer anchored, so a subdomain preview '
-      + 'would bounce to the splash too').toMatch(/\^\(samomdkkuweb\|refactorsamomdkkuweb\)/);
+      + 'would bounce to the splash too').toMatch(/\/\^\([a-z|]*samomdkkuweb[a-z|]*\)\\\.pages\\\.dev\$\/i/);
     expect(PREVURL).toMatch(/retired|moved splash/i);
   });
 });

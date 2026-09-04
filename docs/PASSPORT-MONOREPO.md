@@ -24,10 +24,14 @@
       prefixed, no cross-leakage
 - [x] Phase 3 — `_redirects` passport rules and the splash deleted; real files
       now serve `/passport/`
-- [ ] Phase 4 — tests ← **IN PROGRESS.** `redirects-order.test.js` rewritten
-      (asserts the build emits passport, not that a rule exists) and proved in
-      BOTH directions. Still owed: host-guard 6 entries, `passport-build`,
-      `session-sharing`, `qr-compat`, `season-rollover`
+- [x] Phase 4 — tests. **1753 pass, +37 from this merge.** `host-guard` now
+      covers all SIX entries under ONE predicate; new `passport-build`,
+      `session-sharing`, `qr-compat`, `season-rollover`; `redirects-order`
+      rewritten to assert the build emits passport rather than that a rule
+      exists. **Every new guard was reintroduced-as-a-bug, watched fail on the
+      intended assertion, and restored.** `env-example`'s anchoring check was
+      relaxed from a hardcoded host list to the anchor itself — it went red on a
+      correct change, which is a guard pinned to today's shape
 - [x] Phase 5 — `deploy.sh` builds from in-tree: one pull, one `npm ci`, one
       build; `--exclude=passport/` on the samo-web publish; nginx untouched
 - [ ] Phase 6 — production deploy + verification

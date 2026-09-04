@@ -15,7 +15,7 @@
   <script>
     (function () {
       try {
-        if (/^samomdkkupassport\.pages\.dev$/i.test(location.hostname)) {
+        if (/^(samomdkkuweb|refactorsamomdkkuweb|samomdkkupassport)\.pages\.dev$/i.test(location.hostname)) {
           location.replace('https://samo.md.kku.ac.th/passport' + location.pathname + location.search + location.hash);
         }
       } catch (e) {}

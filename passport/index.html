@@ -26,7 +26,7 @@
     <script>
       (function () {
         try {
-          if (/^samomdkkupassport\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
+          if (/^(samomdkkuweb|refactorsamomdkkuweb|samomdkkupassport)\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
             location.replace('/moved.html?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
           }
         } catch (e) {}
