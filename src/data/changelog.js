@@ -152,7 +152,7 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
-  { type: 'improved', area: 'portal', audience: 'all',
+  { type: 'improved', area: 'portal', audience: 'public',
     text: 'SAMO Passport กับเว็บหลักใช้การเข้าสู่ระบบร่วมกันแล้ว เข้าสู่ระบบที่เว็บหลัก '
     + 'แล้วกดเข้า Passport ได้เลย ไม่ต้องล็อกอินซ้ำ และถ้าออกจากระบบที่ใดที่หนึ่ง '
     + 'จะออกจากระบบทั้งสองที่พร้อมกัน', },
