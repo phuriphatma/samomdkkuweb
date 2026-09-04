@@ -1,0 +1,11 @@
+/* css/passport.css — index: imports the modular partials (Vite inlines @import at build). */
+
+@import "./passport/_base.css";  /* leak-guard + shared variables */
+@import "./passport/_shell.css";  /* topbar / nav / app-body / mobile shell / tab panes */
+@import "./passport/_panels.css";  /* theme panel + profile menu */
+@import "./passport/_passport-tab.css";  /* passport book + boarding pass */
+@import "./passport/_stamps.css";  /* stamps tab */
+@import "./passport/_log.css";  /* log tab */
+@import "./passport/_leaderboard.css";  /* leaderboard tab */
+@import "./passport/_modal.css";  /* memory modal + toast */
+@import "./passport/_responsive.css";  /* tablet / desktop responsive layouts */

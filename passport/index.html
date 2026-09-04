@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Deprecated-host guard: the ORIGINAL pages.dev deployment is retired now
+         that the app is self-hosted at samo.md.kku.ac.th/passport. On that host,
+         forward to the "we've moved" splash, preserving the deep link.
+         Never fires on the VM or localhost.
+
+         ⚠️ MUST STAY EXACT, and this is the second repo to learn it. It first
+         tested /\.pages\.dev$/ — ANY pages.dev host — which also matches every
+         PREVIEW URL, because previews live on pages.dev too. That made the
+         dev-server work self-defeating: `preview.samomdkkupassport.pages.dev`
+         would bounce ITSELF to the splash, and the splash points at production,
+         so a tester aiming at dev would land on the real site. Only the ONE
+         EXACT host — the retired production URL — redirects; any subdomain of
+         it is a preview. Anchored `^` for exactly that reason; do not relax it
+         to (^|\.).
+
+         samomdkkuweb/index.html carries the same guard and was narrowed twice on
+         2026-08-27 for the same reason; this repo did not get that fix until
+         2026-09-04. Asserted from OUTSIDE, over the GitHub API, by
+         samomdkkuweb's `tools/repo-protection.mjs` — this repo has no test
+         runner, and a rule with one implementation per repo drifts. -->
+    <script>
+      (function () {
+        try {
+          if (/^(samomdkkuweb|refactorsamomdkkuweb|samomdkkupassport)\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
+            location.replace('/moved.html?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <title>Samo Passport — Life is a Journey</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="landing">
+
+    <div class="sc" style="top:7%;left:6%;--r:-15deg;--d:7s;--dl:0s;font-size:28px">✈️</div>
+    <div class="sc" style="top:13%;right:7%;--r:18deg;--d:6s;--dl:1s;font-size:22px">🛂</div>
+    <div class="sc" style="top:32%;left:3%;--r:-8deg;--d:8s;--dl:.5s;font-size:24px">🗺️</div>
+    <div class="sc" style="top:58%;right:4%;--r:12deg;--d:5.5s;--dl:1.5s;font-size:26px">🧳</div>
+    <div class="sc" style="bottom:22%;left:7%;--r:-20deg;--d:7s;--dl:.8s;font-size:22px">📮</div>
+    <div class="sc" style="bottom:10%;right:9%;--r:5deg;--d:6.5s;--dl:.3s;font-size:24px">🌍</div>
+    <div class="sc" style="top:44%;right:3%;--r:-10deg;--d:9s;--dl:2s;font-size:20px">✉️</div>
+
+    <div class="lp-center">
+        <div class="lp-card">
+            <div class="lpc-top">
+                <div class="lpc-logo-row">
+                    <span style="font-size:32px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))">✈️</span>
+                    <span class="lpc-brand">MDKKU Passport</span>
+                </div>
+                <div class="lpc-sub">SAMO · KKU Medical</div>
+            </div>
+            <div class="lpc-body">
+                <div class="lpc-route">
+                    <div class="lpc-city">
+                        <div class="lpc-iata">YOU</div>
+                        <div class="lpc-city-name">Your Campus</div>
+                    </div>
+                    <div class="lpc-arrow">✈</div>
+                    <div class="lpc-city" style="text-align:right">
+                        <div class="lpc-iata">MDK</div>
+                        <div class="lpc-city-name">MDKKU Goal</div>
+                    </div>
+                </div>
+                <div class="lpc-dash"></div>
+                <div class="lpc-fields">
+                    <div class="lpc-field">
+                        <div class="lpc-fl">Flight No.</div>
+                        <div class="lpc-fv">MD-2027</div>
+                    </div>
+                    <div class="lpc-field">
+                        <div class="lpc-fl">Class</div>
+                        <div class="lpc-fv">MDKKU+</div>
+                    </div>
+                </div>
+
+                <p id="loading-text" class="lpc-loading">Reading device cache…</p>
+
+                <button id="google-login" style="display:none;" class="btn-board">🛫 &nbsp;Board with @kkumail.com</button>
+
+                <div id="logged-in-section" style="display:none;">
+                    <div class="lpc-welcome">
+                        <div class="lpc-fl">Welcome back</div>
+                        <div class="lpc-fv" id="user-email-display" style="font-size:13px;word-break:break-all;"></div>
+                    </div>
+                    <button id="continue-btn" class="btn-board">🛫 &nbsp;Board Your Flight</button>
+                    <div class="lpc-sub-links">
+                        <a href="#" id="logout-btn" class="text-link sign-out-link">Sign Out</a>
+                    </div>
+                </div>
+
+                <div class="lpc-foot-links">
+                    <!-- Leave the passport for the main SAMO portal (site root).
+                         Absolute "/" is correct on the VM (passport lives at
+                         /passport/); NOT BASE_URL, which stays in the passport. -->
+                    <a href="/" class="text-link">&larr; SAMO Website</a>
+                    <span class="lpc-foot-dot" aria-hidden="true">·</span>
+                    <a href="html/admin.html" class="text-link">Admin Portal</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="theme-picker">
+            <span class="theme-picker-label">Theme</span>
+            <div class="theme-swatch active" data-t="teal" data-label="Teal" onclick="setLandingTheme('teal',this)"></div>
+            <div class="theme-swatch" data-t="skycandy" data-label="Candy" onclick="setLandingTheme('skycandy',this)"></div>
+            <div class="theme-swatch" data-t="navy" data-label="Navy" onclick="setLandingTheme('navy',this)"></div>
+            <div class="theme-swatch" data-t="lilac" data-label="Lilac" onclick="setLandingTheme('lilac',this)"></div>
+            <div class="theme-swatch" data-t="blush" data-label="Blush" onclick="setLandingTheme('blush',this)"></div>
+        </div>
+    </div>
+
+    <script>
+    function setLandingTheme(name, el) {
+        document.documentElement.setAttribute('data-theme', name === 'teal' ? '' : name);
+        localStorage.setItem('wp-theme', name);
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.toggle('active', s.dataset.t === name));
+    }
+    const _t = localStorage.getItem('wp-theme') || 'teal';
+    if (_t && _t !== 'teal') document.documentElement.setAttribute('data-theme', _t);
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.toggle('active', s.dataset.t === (_t || 'teal')));
+    });
+    </script>
+
+    <script type="module" src="/js/index.js"></script>
+</body>
+</html>

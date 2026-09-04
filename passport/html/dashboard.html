@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Deprecated-host guard: the ONE retired pages.dev host; app is self-hosted at
+       samo.md.kku.ac.th/passport. ⚠️ ANCHORED — a subdomain is a PREVIEW, never
+       bounce it; full reasoning in index.html. Forward that host to the splash
+       (preserving the deep link). Never fires on the VM or localhost. -->
+  <script>
+    (function () {
+      try {
+        if (/^(samomdkkuweb|refactorsamomdkkuweb|samomdkkupassport)\.pages\.dev$/i.test(location.hostname) && location.pathname !== '/moved.html') {
+          location.replace('/moved.html?next=' + encodeURIComponent(location.pathname + location.search + location.hash));
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <include src="partials/head.html"></include>
+</head>
+
+<body class="passport-page-theme">
+
+  <!-- Desktop: this wrapper IS the Settings popover (theme + account stacked),
+       toggled from the sidebar user card. Mobile: the wrapper is display:contents,
+       so the two panels behave independently, opened by the top-bar 🎨/👤 buttons. -->
+  <div class="settings-popover" id="settingsPanel">
+    <include src="partials/theme-panel.html"></include>
+    <include src="partials/profile-menu.html"></include>
+  </div>
+  <include src="partials/topbar.html"></include>
+
+  <!-- App body -->
+  <div class="app-body" id="app-body">
+    <include src="partials/tab-passport.html"></include>
+    <include src="partials/tab-stamps.html"></include>
+    <include src="partials/tab-log.html"></include>
+    <include src="partials/tab-leaderboard.html"></include>
+  </div><!-- /app-body -->
+
+  <include src="partials/bottom-nav.html"></include>
+  <include src="partials/memory-modal.html"></include>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+
+  <script>
+  function setAppTheme(name) {
+    document.documentElement.setAttribute('data-theme', name === 'teal' ? '' : name);
+    localStorage.setItem('wp-theme', name);
+    document.querySelectorAll('.tp-swatch').forEach(el => el.classList.toggle('active', el.dataset.t === name));
+  }
+  // The combined Settings popover (theme + account). Opened from the sidebar user
+  // card on desktop and the bottom-nav ⚙️ Settings button on mobile.
+  function toggleSettings() {
+    const sp = document.getElementById('settingsPanel');
+    if (!sp) return;
+    const open = sp.classList.toggle('open');
+    document.getElementById('side-user')?.setAttribute('aria-expanded', String(open));
+    document.getElementById('bnav-settings')?.setAttribute('aria-expanded', String(open));
+  }
+  document.addEventListener('click', function(e) {
+    const sp = document.getElementById('settingsPanel');
+    if (sp && sp.classList.contains('open') && !sp.contains(e.target) &&
+        !e.target.closest('#side-user') && !e.target.closest('#bnav-settings')) {
+      sp.classList.remove('open');
+      document.getElementById('side-user')?.setAttribute('aria-expanded', 'false');
+      document.getElementById('bnav-settings')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  const _appTheme = localStorage.getItem('wp-theme') || 'teal';
+  if (_appTheme && _appTheme !== 'teal') document.documentElement.setAttribute('data-theme', _appTheme);
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.tp-swatch').forEach(el => el.classList.toggle('active', el.dataset.t === (_appTheme || 'teal')));
+  });
+
+  // Tab navigation. Defined HERE (classic, parse-time script) — not in the deferred
+  // ES module — so the sidebar / bottom-nav buttons work the instant the page is
+  // interactive, even before js/dashboard.js finishes downloading (fixes the "nav
+  // button does nothing on a slow/cold load, esp. iPad" race). This is the pure-DOM
+  // pane swap; the data-heavy panes (Flight Log / Leaderboard / MRZ refit) are
+  // rendered by the module via window.__dashRenderTab once it has loaded, and again
+  // by init() for whatever tab is active when scans finish loading.
+  let __activeTab = 'passport';
+  window.__getActiveTab = () => __activeTab;
+  function switchTab(id) {
+    __activeTab = id;
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.bnav-btn, .tnav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id)?.classList.add('active');
+    document.getElementById('bnav-' + id)?.classList.add('active');
+    document.getElementById('tnav-' + id)?.classList.add('active');
+    const crumb = document.getElementById('tb-crumb');
+    if (crumb) crumb.textContent = ({
+      passport: 'My Passport', stamps: 'Stamps',
+      log: 'Flight Log', leaderboard: 'Leaderboard',
+    })[id] || 'My Passport';
+    const body = document.getElementById('app-body');
+    if (body) body.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    // Close the Settings popover (and its inner panels) on any tab change.
+    document.getElementById('settingsPanel')?.classList.remove('open');
+    document.getElementById('themePanel')?.classList.remove('open');
+    document.getElementById('profileMenu')?.classList.remove('open');
+    document.getElementById('side-user')?.setAttribute('aria-expanded', 'false');
+    document.getElementById('bnav-settings')?.setAttribute('aria-expanded', 'false');
+    // Render the data-heavy tabs if the module is ready (it owns the data).
+    if (window.__dashRenderTab) window.__dashRenderTab(id);
+  }
+  window.switchTab = switchTab;
+
+  let _planeOn = false;
+  function togglePlane() {
+    _planeOn = !_planeOn;
+    const tog = document.getElementById('planeToggle');
+    const knob = document.getElementById('planeKnob');
+    const lbl = document.getElementById('planeLabel');
+    const max = tog.offsetWidth - 42;
+    tog.classList.toggle('sky', _planeOn);
+    knob.style.left = (_planeOn ? max : 4) + 'px';
+    lbl.textContent = _planeOn ? '✈️ In the sky — flying!' : 'Tap to take off! 🛫';
+  }
+  </script>
+
+<script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

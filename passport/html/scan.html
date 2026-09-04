@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Deprecated-host guard: the ONE retired pages.dev host; app is self-hosted at
+       samo.md.kku.ac.th/passport. A scan is a TRANSACTIONAL deep-link (an action,
+       not a bookmark), so old printed QR codes forward STRAIGHT to the VM — no
+       "we've moved" splash / 30s countdown (that interstitial is only right for
+       the bookmark-style index/dashboard/admin entries). Params (aid/tk) are
+       preserved; the VM nginx $uri.html fallback resolves the extensionless path.
+       ⚠️ ANCHORED — a subdomain is a PREVIEW, never bounce it; full reasoning
+       in index.html. Never fires on the VM or localhost. -->
+  <script>
+    (function () {
+      try {
+        if (/^(samomdkkuweb|refactorsamomdkkuweb|samomdkkupassport)\.pages\.dev$/i.test(location.hostname)) {
+          location.replace('https://samo.md.kku.ac.th/passport' + location.pathname + location.search + location.hash);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title>Stamping Passport...</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/scan.css" />
+</head>
+
+<body class="scan-page">
+  <div class="container scan-container">
+    <div id="loading-spinner">
+      <div class="spinner"></div>
+      <h2>Verifying Flight Data...</h2>
+      <p>Please wait while we check your passport.</p>
+    </div>
+
+    <div id="confirm-section" class="confirm-card" style="display: none;">
+      <p class="cc-eyebrow">Adding flight to passport</p>
+      <h3 id="confirm-user" class="cc-user"></h3>
+
+      <div class="cc-activity">
+        <img id="confirm-badge" class="cc-badge" style="display: none;" />
+        <h4 id="confirm-badge-name" class="cc-badge-name" style="display: none;"></h4>
+        <h2 id="confirm-activity" class="cc-name"></h2>
+        <p id="confirm-points" class="cc-km"></p>
+      </div>
+
+      <div class="cc-actions">
+        <button id="btn-confirm-add" class="cc-confirm">✈️ Confirm & Stamp Passport</button>
+        <button id="btn-change-account" class="cc-change">Not you? Change Account</button>
+      </div>
+    </div>
+
+    <!-- Themed "new stamp earned" success screen -->
+    <div id="stamp-success" style="display: none;">
+      <div class="ss-eyebrow">Passport Stamped</div>
+      <div class="ss-stamp-wrap">
+        <div class="ss-stamp filled" id="ss-stamp"><img id="ss-badge" alt="" /></div>
+      </div>
+      <h1 class="ss-activity" id="ss-activity"></h1>
+      <div class="ss-km" id="ss-km"></div>
+      <p class="ss-sub">added to your MDKKU passport ✈️</p>
+      <button class="ss-cta" onclick="window.location.href = 'dashboard.html'">View My Passport →</button>
+    </div>
+
+    <h1 id="scan-title"></h1>
+    <p id="scan-message"></p>
+
+    <div id="action-buttons" style="display: none; margin-top: 30px">
+<button onclick="window.location.href = 'dashboard.html'" class="btn-large">
+        View My Passport
+      </button>
+    </div>
+  </div>
+
+<script type="module">
+  import { processScan } from "/js/scanning.js";
+  processScan();
+</script>
+</body>
+
+</html>

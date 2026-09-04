@@ -4,30 +4,68 @@
 > The database merge finished long ago (`docs/PASSPORT-MERGE.md`). This is the
 > separate, later job of merging the two **repositories**.
 >
-> # ⛔ THIS COPY IS STALE. THE WORK IS ON A BRANCH.
-> ```
-> git checkout merge/passport-monorepo
-> ```
-> **Phases 1–5 are BUILT and phase 4's tests pass (1753). S1 — sign in on `/`,
-> click through to `/passport/`, still signed in — was VERIFIED BY THE OWNER on
-> 2026-09-04.** `main` and production are deliberately untouched, which is why
-> this file on `main` still reads as a plan.
+> **Status: MERGED to `main` on 2026-09-04.** Passport is the `passport/`
+> directory of this repo and ships with it. **Phases 1–6 done; only the two
+> OWNER-ONLY items remain (7 and 8), and neither is urgent.** S1 — sign in on
+> `/`, click through to `/passport/`, still signed in — was verified by the
+> owner before the merge.
 >
-> **Read the version on that branch, not this one.** It carries a START HERE
-> block, the exact shas, the expected test count, and the phases that remain
-> (merge + deploy, then two owner-only items). Everything below here is the
-> original plan and is still accurate as REASONING — the QR section especially —
-> but its Progress list on this branch is out of date by construction.
+> **This file is now history plus two open items.** Its reasoning stays useful —
+> §3 on the QR posters especially, which governs a decision that has NOT been
+> made yet. Do not treat the finished phases as work to redo.
+
+## ⛔ IF YOU ARE HERE TO DO SOMETHING
+
+**Only two things are left, both yours to authorise, neither blocking:**
+
+1. **Phase 7 — archive `samomdkkupassport`.** Do it once production has run on
+   the merged build for a while. ⚠️ **Until then that repo still accepts
+   pushes**, and anything landing there is NOT in this repo. Its history up to
+   `895c7fa` is inside `passport/` here; if something has landed since, bring it
+   over with
+   `git subtree pull --prefix=passport passport-origin main` BEFORE archiving.
+2. **Phase 8 — the QR redirect host. ⛔ REPLACE, NEVER DELETE.** Read §3 first;
+   82% of printed posters name that Cloudflare project.
+
+**Anything else you want to know, ask the repo rather than this file:**
+
+```bash
+npm run deploy:owed   # what production serves — the ONLY authority
+npm test              # expect 1753 pass, 96 files
+```
+
+⛔ **No shas are written here on purpose.** An earlier version of this section
+named three and two were stale within an hour, because the file kept being
+committed after they were typed. A document that makes its reader doubt whether
+they have the right state is worse than one that stays quiet. The two shas that
+DO appear below are frozen historical anchors, not state.
 
 ## Progress
 
-- [ ] Phase 0 — freeze the facts (measurements below re-verified)
-- [ ] Phase 1 — `git subtree add` passport into `passport/`
-- [ ] Phase 2 — one toolchain, two builds, one `dist/`
-- [ ] Phase 3 — preview serves `/passport/` (the thing the owner asked for)
-- [ ] Phase 4 — tests
-- [ ] Phase 5 — `deploy.sh` builds from in-tree
-- [ ] Phase 6 — production deploy + verification
+**Merged to `main` 2026-09-04. Phases 1–6 done; 7 and 8 are owner-only.**
+
+- [x] Phase 0 — facts frozen (§2); passport builds on Vite 6, output identical
+- [x] Phase 1 — subtree'd into `passport/`; **164 commits added**, old passport
+      shas (`9777a67`, `895c7fa`) resolve on this branch
+- [x] Phase 2 — one toolchain: passport's `package.json`/lockfile deleted, it
+      builds against the root deps; `npm run build` = main → `dist/`, then
+      passport → `dist/passport/` at base `/passport/`. Verified: main app
+      survives the second pass, all four passport entries emitted, asset URLs
+      prefixed, no cross-leakage
+- [x] Phase 3 — `_redirects` passport rules and the splash deleted; real files
+      now serve `/passport/`
+- [x] Phase 4 — tests. **1753 pass, +37 from this merge.** `host-guard` now
+      covers all SIX entries under ONE predicate; new `passport-build`,
+      `session-sharing`, `qr-compat`, `season-rollover`; `redirects-order`
+      rewritten to assert the build emits passport rather than that a rule
+      exists. **Every new guard was reintroduced-as-a-bug, watched fail on the
+      intended assertion, and restored.** `env-example`'s anchoring check was
+      relaxed from a hardcoded host list to the anchor itself — it went red on a
+      correct change, which is a guard pinned to today's shape
+- [x] Phase 5 — `deploy.sh` builds from in-tree: one pull, one `npm ci`, one
+      build; `--exclude=passport/` on the samo-web publish; nginx untouched
+- [x] Phase 6 — merged to `main` and deployed. S1 verified by the owner before
+      the merge; the served artifact re-checked after it.
 - [ ] Phase 7 — retire the old repo (owner)
 - [ ] Phase 8 — the QR redirect host (owner, and **read §3 first**)
 
