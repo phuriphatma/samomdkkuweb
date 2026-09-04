@@ -600,3 +600,24 @@ sign-in form on a real ฝ่าย page. Isolation stops the markup reading any
 it cannot stop it *asking* a visitor. The controls are the grant and
 `updated_by`. Weigh that before widening who holds the grant — and note a
 drag-and-drop editor lowers the skill floor for it.
+
+---
+
+## The docs site is LIVE at `/docs` — and two of its pages were merged AWAY
+
+`https://samo.md.kku.ac.th/docs` is served by the VM from the same repo;
+`deploy.sh` builds it with `DOCS_BASE=/docs/` and publishes it to `/var/www/docs`.
+Two consequences that keep catching people:
+
+**The old `CONTRIBUTE` and `STEP-BY-STEP` pages were deliberately MERGED AWAY,
+and nginx 301s both.** They were not lost in a refactor — recreating either one
+re-splits the guide that was consolidated on purpose. Reasoning:
+`docs/state-archive/2026-08-31-docs-site-restructure.md`.
+
+**"It is only docs" stopped being a reason to skip a deploy on 2026-08-31.**
+Anything under `docs/` now SHIPS, so a docs-only commit leaves production stale
+in a way a reader can see. `npm run deploy:owed` counts those files and says so.
+
+**The general rule.** A directory that used to be repo-only can become a
+published surface, and nothing in the file you are editing announces that. Ask
+what serves a path before assuming an edit is internal.

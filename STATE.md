@@ -22,10 +22,6 @@ because it held three lifetimes at once. It now holds one: **status**.
     (`package.json` `repository.url`, guarded by `npm test`; recovery map is
     `docs/SUCCESSION.md` + `npm run succession:audit`).
 
-03. ✅ **DOCS SITE — LIVE at `https://samo.md.kku.ac.th/docs`.** The old
-    CONTRIBUTE and STEP-BY-STEP pages were MERGED AWAY (nginx 301s both) — do
-    not recreate them. Why: `docs/state-archive/2026-08-31-docs-site-restructure.md`.
-
 Everything older was drained on 2026-09-01 — reasoning in
 `docs/state-archive/2026-08-30-status-prune.md`, durable items in
 `docs/INVARIANTS.md`.
@@ -44,16 +40,17 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `b31454d` (2026-09-04)** — app, passport and docs all published
-  by `deploy.sh`, no hand step; roots 18 s apart, log ends `<== exit 0 — ran to
-  the end`. Took **123 s, 4× baseline**, all in the web `npm ci` under VM load
-  already 5–8 at start — the trace showed a clean run, so slow ≠ the docs fault.
-  ⚠️ **NO browser-visible surface — do not grep the bundle for this one.** Its
-  shipped surface is `/notify`: verify `SILENCE_KEYS` in the VM checkout
-  `samo-notify` runs from, plus its restart stamp. The `changelog.js` entry is
-  in `PENDING`, which **nothing imports**, so Rollup tree-shakes it — the string
-  greps 0 in the LOCAL `dist` too, and that build was the control that stopped
-  this reading as a failed deploy. Previous: `0d7722e`, `22ab61d`.
+- ✅ **DEPLOYED = `4af99d9` (2026-09-04)** — two runs, both complete, roots
+  agreeing, docs published with no hand step; new write-up confirmed in the
+  SERVED `/var/www/docs` against an older control, six endpoints 200.
+  Previous: `b31454d`, `0d7722e`.
+  ⚠️ **Both were 4× and 13× baseline (123 s, 389 s) and NEITHER was the docs
+  fault** — `npm ci` was the whole anomaly (326 s of the 389) while `docs:build`
+  ran 11 s against 10 s; disk, memory, registry, CPU all healthy right after.
+  **Duration alone is not the known hang** (`skills/deploy-vm.md`).
+  ⚠️ **Ask which surface a commit SHIPS to before grepping for it** — `b31454d`
+  had none in the browser, only `/notify`; its changelog note sits in `PENDING`,
+  which nothing imports and Rollup shakes out (`docs/mistakes/deploy-hosting.md`).
   ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
   `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
   writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the

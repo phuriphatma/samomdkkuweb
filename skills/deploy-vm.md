@@ -26,24 +26,44 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 25 runs, 21 completed the docs step, 4 did not.**
+**Run tally: 26 runs, 22 completed the docs step, 4 did not.**
 (4 on 2026-08-31: 2 ok, 2 not. 5 on 2026-09-01: the first two skipped docs and
 **both returned exit 0**, one of them after `pgrep deploy.sh` already showed the
 script gone while ssh had still not returned; the last three — every run since
 the log and trace landed — took between 30 and 35 seconds and published
 everything. 10 on 2026-09-02: all ~31 s, docs published, roots ~17 s apart.
-1 on 2026-09-04: complete (`<== exit 0 — ran to the end`), docs published, roots
-18 s apart — but it took **123 s, 4× baseline**, essentially all of it in the
-web `npm ci`, with the VM's load average already at 5–8 BEFORE the deploy
-started. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
+2 on 2026-09-04: both complete (`<== exit 0 — ran to the end`), docs published,
+roots agreeing — but **123 s and 389 s, 4× and 13× baseline**. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
 file said "the hang did not reproduce" once already.
 
-⚠️ **A slow run is not automatically the docs fault.** 2026-09-04 sat past the
-~2-minute line this file calls "already the fault", and the trace still showed a
-clean end-to-end run — the time was in `npm ci` under pre-existing VM load, a
-step that precedes the docs build. **Read the trace for WHICH line is slow
-before matching a duration to the known fault**; "past 2 minutes" is a prompt to
-open the log, not a diagnosis on its own.
+⚠️ **A SLOW RUN IS NOT AUTOMATICALLY THE DOCS FAULT — measured, 2026-09-04.**
+Both runs sat past the ~2-minute line this file calls "already the fault", and
+both were clean end-to-end. Per-step timing off the trace:
+
+| Step | Baseline | The 389 s run |
+|---|---|---|
+| web `npm ci` | 6 s | **326 s** |
+| web `npm run build` | 7 s | 9 s |
+| passport `npm ci` | 3 s | 23 s |
+| **`npm run docs:build`** | **10 s** | **11 s — normal** |
+
+**`npm ci` is the entire anomaly and the docs build was untouched**, so duration
+alone does not identify the documented fault. Read the trace for WHICH line is
+slow first. To get per-step times, filter the keepalive out — `deploy.sh:90
+sleep 45` interleaves into the trace and is NOT a step:
+
+```bash
+ssh samo-vm 'grep -v "deploy.sh:90" ~/samo-deploy-logs/latest.trace' | grep -E "npm|rsync"
+```
+
+⚠️ **The cause of the slow `npm ci` is NOT known, and the obvious theories are
+already falsified.** Measured minutes after the 389 s run, on the same box:
+disk fine (8% used, no iowait, 0 D-state), memory fine (1.9 G available),
+registry fast (12 ms connect, 1.6 MB/s tarball), CPU 96–99% idle. Only oddity
+is a load average that sits at 5–6 while nothing is running, which no direct
+measurement corroborates — likely a virtualization artifact, not a real
+bottleneck. **Do not write this up as understood.** If a deploy is slow again,
+capture the per-step table DURING the run, not after.
 
 ✅ **Run 7 is the first one whose evidence survived.** `deploy.sh` now writes
 every run in full to `~/samo-deploy-logs` on the VM, with a separate xtrace
