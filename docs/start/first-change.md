@@ -132,11 +132,16 @@ Or do it in the browser: go to the repository on GitHub and a **Compare & pull r
 
 ![Sketch of the Compare and pull request banner GitHub shows at the top of the repository after you push](../diagrams/pr-banner.svg)
 
-::: tip What the repository actually looks like
-The real thing, so the sketch above is easier to place. **Fork** is top right;
-**Pull requests** is in the row of tabs. This is the logged-out view — signed in
-you also get your own avatar in the top bar, but the buttons are in the same
-places.
+::: tip The real banner, photographed on a real push
+Signed in, twelve seconds after pushing a branch. The green **Compare & pull
+request** button is what you click.
+
+![GitHub showing the Compare and pull request banner after a branch was pushed](/start/github-pr-banner.jpg)
+
+If you have missed the banner — it disappears after a while — the **Pull
+requests** tab and then **New pull request** gets you to the same place. The
+repository page also has **Fork** at the top right if you are working from your
+own copy.
 
 ![The samomdkkuweb repository on GitHub, with the Fork button top right and the Pull requests tab in the row beneath](/start/github-repo.png)
 :::
@@ -156,6 +161,17 @@ Use **Create draft pull request**. Other people can see what you are working on 
 Every branch except `main` gets a live site, built automatically. Scroll to the bottom of the pull request's **Conversation** tab: the checks box lists the preview alongside the other checks, usually within a couple of minutes of pushing.
 
 ![Sketch of the pull request checks box, with the Cloudflare Pages preview link highlighted](../diagrams/pr-checks.svg)
+
+::: tip And the real one
+Taken on an actual pull request in this repository. **Cloudflare Pages —
+Deployed successfully** is your preview; the `…` beside it opens it.
+
+![The pull request checks box: build succeeded and is marked Required, Cloudflare Pages deployed successfully, and merging is blocked pending a review](/start/github-pr-checks.jpg)
+
+Note **Merging is blocked — At least 1 approving review is required.** That is
+normal and not something you did wrong: your checks can all be green and the
+merge still waits for a person. That is the design described in step 8.
+:::
 
 Or ask for the address directly, from the branch:
 
