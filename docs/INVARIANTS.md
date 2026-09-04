@@ -659,3 +659,30 @@ when there is none, and a nullable destination column turns that NULL into a
 silent, permanent mislabelling rather than an error. Ask what a
 "current-thing" query returns during the seconds when there is no current thing
 — see also class 2, an unresolvable reference fails OPEN.
+
+---
+
+## A QR code lives and dies with its quarter
+
+Since migration 0180, `passport.activities.season_id` records which quarter an
+activity belongs to, and `passport.stamp_scan` refuses (`SEASON_CLOSED`) once
+that season's `ended_at` is set. A trigger fills the column on insert, so it
+holds no matter which client creates the activity.
+
+**Decided by the ฝ่าย, 2026-09-04** — *"ถ้าเกิน quater ก็คือสแกนไม่ได้ๆๆ"*. Before
+this, a poster from a finished event kept working for ever and its scans landed
+in whatever quarter was open, so someone who never attended a Q2 event could
+collect km toward the Q3 leaderboard. `UNIQUE (user_id, activity_id)` capped it
+at once per person, so it was a fairness problem, never farmable.
+
+**The accepted cost, so nobody reports it as a bug:** an activity must be created
+IN the quarter it should count toward, and an event spanning a rollover loses its
+QR when the quarter ends. The owner raised exactly this and the ฝ่าย chose it.
+
+⛔ **Do not "fix" it by falling back to the current season when an activity's
+season has closed.** That restores the original bug wearing a helpful face. The
+check fails CLOSED on a NULL season for the same reason — class 2, an
+unresolvable reference otherwise answers "allowed".
+
+**Where the proof is**: `tools/passport0180-season-gate.sql`, both directions
+plus a control, green on samo-dev and production.

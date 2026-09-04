@@ -130,6 +130,23 @@ if (!user) {
                 showStatus('Already Stamped!', 'You have already claimed points for this activity.', 'error');
             } else if (msg.includes('INVALID_TOKEN')) {
                 showStatus('QR Code Invalid', 'This QR code is invalid. Please scan the current authorized code.', 'error');
+            } else if (msg.includes('SEASON_CLOSED')) {
+                // 0180: the activity's quarter has ended. This is the ONE error
+                // here that is not the student's fault and not fixable by them,
+                // so it says what happened and what still counts — a bare
+                // "invalid" would read as a broken QR and send them to ask IT.
+                showStatus(
+                    'กิจกรรมนี้ปิดรับแล้ว',
+                    'QR นี้เป็นของ Season ที่จบไปแล้ว จึงสะสม km ไม่ได้ '
+                    + 'แต้มที่เคยได้รับไปแล้วยังอยู่ครบ ไม่ได้หายไปไหน '
+                    + 'ถ้ากิจกรรมนี้ยังจัดอยู่ ให้แจ้งผู้จัดขอ QR ใหม่ของ Season ปัจจุบัน',
+                    'error');
+            } else if (msg.includes('NO_OPEN_SEASON')) {
+                showStatus(
+                    'ยังไม่ได้เปิด Season',
+                    'ตอนนี้ยังไม่มี Season ที่เปิดอยู่ จึงยังสะสม km ไม่ได้ '
+                    + 'แจ้งผู้ดูแลระบบให้เปิด Season ใหม่ก่อน',
+                    'error');
             } else if (msg.includes('ACTIVITY_NOT_FOUND')) {
                 showStatus('Activity Not Found', 'Could not locate this flight.', 'error');
             } else if (msg.includes('AUTH_REQUIRED')) {

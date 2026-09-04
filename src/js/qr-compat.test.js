@@ -71,6 +71,24 @@ describe('printed QR posters keep working', () => {
     expect(guard, 'scan.html no longer forwards to the production VM').toContain('samo.md.kku.ac.th/passport');
   });
 
+  it('a scan refused for a CLOSED season says so, in Thai, and does not read as broken', () => {
+    // 0180 made an activity's QR stop working when its quarter ends. That is the
+    // one refusal here that is nobody's mistake and cannot be fixed by the
+    // student, so it must not fall through to the generic "System Error:
+    // <postgres message>" branch — which would read as a broken QR and send them
+    // to ask IT about a working system.
+    const SCAN = readFileSync(join(ROOT, 'passport/js/scanning.js'), 'utf8');
+    expect(SCAN, 'scanning.js does not handle SEASON_CLOSED — a student whose QR '
+      + 'expired would see a raw database error').toContain('SEASON_CLOSED');
+    expect(SCAN, 'NO_OPEN_SEASON is unhandled — that happens during a rollover gap')
+      .toContain('NO_OPEN_SEASON');
+    // The message must say the km already earned is safe. Losing points is the
+    // first thing a student will assume, and it is not what happened.
+    const i = SCAN.indexOf('SEASON_CLOSED');
+    expect(SCAN.slice(i, i + 700), 'the SEASON_CLOSED message must reassure that '
+      + 'previously-earned km are unaffected').toMatch(/ยังอยู่ครบ|ไม่ได้หายไป/);
+  });
+
   it('the forward PRESERVES the query string — aid and tk are the whole payload', () => {
     const guard = SCAN_HTML.slice(SCAN_HTML.indexOf('location.hostname'), SCAN_HTML.indexOf('</script>'));
     expect(guard, [
