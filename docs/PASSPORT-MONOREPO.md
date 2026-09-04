@@ -54,7 +54,10 @@ Three further reasons, none of which is about the URL:
 - **Passport has no safety net.** No tests, no CI, no CODEOWNERS. samoweb has
   1,715 tests plus guard tooling. The merge hands Passport all of it.
 - **Passport's Pages git connection is already dead.** Its stored config still
-  names `phuriphatma/samomdkkupassport` (pre-org-transfer). Measured 2026-09-04:
+  names the owner's **personal account** as the repo owner, not the org — the
+  value it held before the transfer. (Written out rather than pasted, because
+  `repo-identity.test.js` rightly refuses any stale `owner/repo` string in
+  prose: someone would eventually copy it.) Measured 2026-09-04:
   a real commit was pushed, the mirror workflow ran, and Cloudflare built
   **nothing** in 400 s — last build 2026-08-09. Keeping two projects means
   fixing that first, by hand, in a dashboard with no API.
@@ -162,8 +165,50 @@ permanent dependency on a hostname you no longer develop.
 a student can act on — they scan, a page loads, nothing happens. You cannot
 recall printed paper.
 
-**When it may be deleted:** once no activity created before the VM move is still
-in use. Re-run the query in §2 and check `scans_last_30d` for gen 2 is 0.
+### Are NEW posters still affected? No — and it becomes impossible after Phase 8
+
+New posters are generated from the admin's current address, and admins work on
+the VM, so they are gen 3 and involve Cloudflare not at all. The retired host
+also bounces an admin away before they could generate one there, and after
+Phase 8 the app will not exist on that host to open. **The gen-2 population is
+closed and can only shrink.**
+
+⚠️ **Correction to the 82% figure above, stated so nobody over-trusts it.** The
+poster URL is fixed when the **poster is generated**, not when the activity is
+created, and *the URL is stored nowhere* — it exists only on paper. So
+classifying by `created_at` is an INFERENCE, not a measurement. It is the best
+available proxy and it is directionally right, but an old activity whose poster
+was re-downloaded from the VM is already gen 3 and is counted as gen 2 here.
+
+### The shrink path — re-printing is SAFE, and much smaller than it looks
+
+`generateStaticQR()` does `let staticToken = act?.static_token; if (!staticToken)
+{ …mint and save… }` — **an existing token is reused, never rotated**. So
+re-printing a poster produces the same `aid`/`tk` with a new host: the old
+poster keeps working and the new one stops depending on Cloudflare. There is no
+cutover moment and no window where either is dead.
+
+That makes retirement a small job rather than a wait. Of 31 gen-2 activities,
+**only 7 were scanned in the last 30 days**, and ONE of them is 84 of the 94
+scans:
+
+```
+84 scans/30d  เปิดโลกกิจกรรม 2569          ← 89% of all gen-2 traffic
+ 3            Music on ward
+ 2            พิธีไหว้ครู
+ 2            HRD's MDKKU Landmark (July 2/2026)
+ 1            โครงการรับน้องบ้านเขียว 2569
+ 1            อาสาสมัครถ่ายทอดสดรายการพิเศษ
+ 1            MDKKU Community
+```
+
+**Re-print one poster and 89% of the exposure is gone; re-print seven and it is
+effectively all of it** — for any of those still physically displayed. The rest
+are past events whose posters are down.
+
+**When it may be deleted:** re-run the query above; when `scans_30d` for gen-2
+activities is 0 and has been for a term, the redirect host has no job left.
+Until then keep it — it costs four lines of `_redirects`.
 
 ---
 
@@ -334,9 +379,11 @@ No `/passport` rule remains; `/admin/*` still precedes `/*`.
 
 - Deep link straight into `/passport/html/dashboard` while signed out.
 - Signed in on Passport first, then navigating to the main site (reverse of S1).
-- Sign **out** on one app — it must sign out both, since they share one token.
-  Confirm this is the intended behaviour before shipping; it is a real UX change
-  from two separate logins and nobody has stated a preference.
+- Sign **out** on one app signs out **both**. ✅ **DECIDED by the owner
+  2026-09-04: this is wanted, not a side effect to design around.** Test that it
+  actually happens — one shared token means it should — and do NOT "fix" it
+  later by giving either app its own `storageKey`, which would also delete
+  single sign-on (see Traps).
 - The legacy `admin/1234` door still gets its own session and does not clobber a
   signed-in Google user.
 
