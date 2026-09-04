@@ -40,14 +40,16 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `4af99d9` (2026-09-04)** — two runs, both complete, roots
-  agreeing, docs published with no hand step; new write-up confirmed in the
-  SERVED `/var/www/docs` against an older control, six endpoints 200.
-  Previous: `b31454d`, `0d7722e`.
-  ⚠️ **Both were 4× and 13× baseline (123 s, 389 s) and NEITHER was the docs
-  fault** — `npm ci` was the whole anomaly (326 s of the 389) while `docs:build`
-  ran 11 s against 10 s; disk, memory, registry, CPU all healthy right after.
-  **Duration alone is not the known hang** (`skills/deploy-vm.md`).
+- ✅ **DEPLOYED = `5ada77a` (2026-09-04)** — three runs, all complete, roots
+  agreeing, docs published with no hand step; new `INVARIANTS.md` content
+  confirmed in the SERVED `/var/www/docs` against an older control, six
+  endpoints 200. Previous: `4af99d9`, `b31454d`.
+  ⚠️ **All three ran 4×–13× baseline (123/389/347 s) and NONE was the docs
+  fault** — `npm ci` is the whole anomaly, `docs:build` was 10–11 s every time.
+  Exactly ONE of the two `npm ci` calls stalls ~5 min per run and **which one
+  alternates**, so it is not either repo's lockfile. Cause unknown; disk,
+  memory, registry, CPU all measured healthy. **Duration alone is not the known
+  hang** — table in `skills/deploy-vm.md`.
   ⚠️ **Ask which surface a commit SHIPS to before grepping for it** — `b31454d`
   had none in the browser, only `/notify`; its changelog note sits in `PENDING`,
   which nothing imports and Rollup shakes out (`docs/mistakes/deploy-hosting.md`).

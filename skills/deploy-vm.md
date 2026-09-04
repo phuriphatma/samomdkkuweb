@@ -26,31 +26,42 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 26 runs, 22 completed the docs step, 4 did not.**
+**Run tally: 27 runs, 23 completed the docs step, 4 did not.**
 (4 on 2026-08-31: 2 ok, 2 not. 5 on 2026-09-01: the first two skipped docs and
 **both returned exit 0**, one of them after `pgrep deploy.sh` already showed the
 script gone while ssh had still not returned; the last three — every run since
 the log and trace landed — took between 30 and 35 seconds and published
 everything. 10 on 2026-09-02: all ~31 s, docs published, roots ~17 s apart.
-2 on 2026-09-04: both complete (`<== exit 0 — ran to the end`), docs published,
-roots agreeing — but **123 s and 389 s, 4× and 13× baseline**. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
+3 on 2026-09-04: all complete (`<== exit 0 — ran to the end`), docs published,
+roots agreeing — but **123 s, 389 s and 347 s**, 4×–13× baseline. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
 file said "the hang did not reproduce" once already.
 
 ⚠️ **A SLOW RUN IS NOT AUTOMATICALLY THE DOCS FAULT — measured, 2026-09-04.**
-Both runs sat past the ~2-minute line this file calls "already the fault", and
-both were clean end-to-end. Per-step timing off the trace:
+All three runs sat past the ~2-minute line this file calls "already the fault",
+and all three were clean end-to-end. Per-step timing off the trace:
 
-| Step | Baseline | The 389 s run |
-|---|---|---|
-| web `npm ci` | 6 s | **326 s** |
-| web `npm run build` | 7 s | 9 s |
-| passport `npm ci` | 3 s | 23 s |
-| **`npm run docs:build`** | **10 s** | **11 s — normal** |
+| Step | Baseline | 389 s run | 347 s run |
+|---|---|---|---|
+| web `npm ci` | 6 s | **326 s** | 37 s |
+| web `npm run build` | 7 s | 9 s | 9 s |
+| passport `npm ci` | 3 s | 23 s | **287 s** |
+| **`npm run docs:build`** | **10 s** | **11 s** | **11 s — normal** |
 
-**`npm ci` is the entire anomaly and the docs build was untouched**, so duration
-alone does not identify the documented fault. Read the trace for WHICH line is
-slow first. To get per-step times, filter the keepalive out — `deploy.sh:90
-sleep 45` interleaves into the trace and is NOT a step:
+**`npm ci` is the entire anomaly and the docs build was untouched in all three**
+(10–11 s every time), so duration alone does not identify the documented fault.
+
+⚠️ **And it is not a particular `npm ci` — exactly ONE of the two goes slow per
+run, and WHICH one alternates.** The 389 s run lost 326 s on web with passport
+healthy at 23 s; the very next run lost 287 s on passport with web healthy at
+37 s. So do not "fix" this by looking at one project's lockfile or
+`node_modules`: the property to explain is *one arbitrary `npm ci` per run
+stalling for ~5 minutes*, which points at something shared and intermittent
+(registry-side stall, cache lock) rather than at either repo. **Two data points
+— do not treat the alternation as established.**
+
+Read the trace for WHICH line is slow first. To get per-step times, filter the
+keepalive out — `deploy.sh:90 sleep 45` interleaves into the trace and is NOT a
+step:
 
 ```bash
 ssh samo-vm 'grep -v "deploy.sh:90" ~/samo-deploy-logs/latest.trace' | grep -E "npm|rsync"
