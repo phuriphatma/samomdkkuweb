@@ -40,11 +40,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `2fd34c0` (2026-09-04)** — **the passport MERGE is live.** One
+- ✅ **DEPLOYED = `7f91ce4` (2026-09-04)** — **the passport MERGE is live.** One
   repo, one `npm ci`, one build: all three roots landed within **13 s** (the
   second install is gone). Verified live: `/passport/` serves the real app, the
   scan path reaches "Stamping Passport...", `/passport` still 301s, and
-  `/var/www/samo-web/passport` does NOT exist — the publish `--exclude` holds up the nginx rule that depends on its absence. Previous: `846488a`, `29df268`.
+  `/var/www/samo-web/passport` does NOT exist — the publish `--exclude` holds up the nginx rule that depends on its absence. Previous: `2fd34c0`, `846488a`.
   ⚠️ **All ran 4×–13× baseline and NONE was the docs
   fault** — `npm ci` is the whole anomaly, `docs:build` was 10–11 s every time.
   Exactly ONE of the two `npm ci` calls stalls ~5 min per run and **which one
