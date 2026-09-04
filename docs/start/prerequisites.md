@@ -23,6 +23,16 @@ SUPABASE_DEV_DB_URL=postgresql://…
 
 [Install and run](/start/install) shows exactly where to put them. Read the rest of this page while you wait.
 
+::: tip You will probably get a link that stops working — that is on purpose
+A maintainer should send these through a **self-destructing link** rather than
+pasting them into a chat. So expect a URL that opens once, or expires after a
+day, and possibly a password sent separately by another route.
+
+**Open it, copy all four lines somewhere safe, and finish the setup** — if you
+leave it and come back tomorrow the link may be dead and you will have to ask
+again. That is the system working, not a mistake.
+:::
+
 ::: danger Do not paste them into a public place
 Not into a GitHub issue, not into a pull request, not into a group chat with people outside the team. If you think a key has been seen by the wrong people, say so immediately — replacing one takes a maintainer about two minutes, and saying nothing is the only expensive option.
 :::

@@ -57,7 +57,32 @@ npm ci
 
 `npm ci` downloads the exact library versions recorded in `package-lock.json`. It takes a minute or two and prints a lot.
 
-**You should see** a last line like `added 312 packages in 47s`. Warnings above it are normal and can be ignored; the word `ERR!` is not.
+**You should see** it end with something like this — and yes, it mentions vulnerabilities:
+
+```
+added 312 packages, and audited 313 packages in 47s
+
+145 packages are looking for funding
+  run `npm fund` for details
+
+11 vulnerabilities (9 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+```
+
+::: tip That vulnerability count is not a problem, and you should not fix it
+This is the single most alarming-looking thing in the whole setup, and it is
+normal. Almost every JavaScript project prints it. The warnings are about
+build-time tools, not about anything a student's browser ever runs.
+
+⛔ **Do not run `npm audit fix`.** It rewrites `package-lock.json` — the file
+whose entire job is pinning exact versions so everyone builds the same thing —
+and you would be submitting a change nobody asked for that is hard to review.
+
+**The only word that means failure here is `ERR!`.** If you do not see `ERR!`,
+the install worked, whatever the numbers above say.
+:::
 
 Use `npm ci`, not `npm install` — `ci` installs the exact versions CI uses, so "works on my machine" means something.
 
@@ -150,6 +175,41 @@ It prints something like:
 ```
 
 **Always open the address it printed**, not one you remember. Your browser usually opens it for you.
+
+You should get this — the real site, running on your own machine:
+
+![The portal running at localhost:5174](/start/local-running.png)
+
+::: danger SAMO Passport does NOT appear at `/passport/` while you are developing
+This one catches everybody, because it fails **silently**.
+
+`npm run dev` serves the main portal only. Open `http://localhost:5174/passport/`
+and you will get **200 OK and the main portal again** — not an error, not a 404,
+just the wrong page wearing the right URL. Nothing tells you anything is wrong.
+
+Passport and the portal became one project in September 2026, so they ship
+together and share one sign-in on the real site. But that join happens **when
+the site is built**, not in the development server.
+
+To work on Passport, run it in a **second terminal**, leaving the first one going:
+
+```bash
+npm run dev:passport
+```
+
+That prints its own address — open that one. It runs on a **different port**
+(5173 rather than 5174), so both can run at once:
+
+![SAMO Passport running at localhost:5173](/start/local-passport.png)
+
+To see them joined the way visitors do, build instead of serving:
+
+```bash
+npm run build && npm run preview
+```
+
+`/passport/` works there, because `npm run build` produces both.
+:::
 
 ::: warning The port is 5174 — until it is not
 `5174` is the port the project asks for. If something else on your machine is already using it — most often a second copy of this same project, left running in another terminal window — **Vite quietly moves to the next free port** and tells you:

@@ -32,6 +32,75 @@ never that trigger.
 
 ---
 
+## What you have to SEND them, and how to send it
+
+The one thing a contributor genuinely cannot get for themselves. Everything else
+in this repository is public.
+
+### What to send — exactly four lines, no more
+
+```
+SUPABASE_DEV_URL=…
+SUPABASE_DEV_ANON_KEY=…
+SUPABASE_DEV_ACCESS_TOKEN=…
+SUPABASE_DEV_DB_URL=…
+```
+
+Copy the values from your own `.env.local`. The names have ONE home,
+`.env.local.example`, which is checked in and guarded by `env-example.test.js` —
+so do not retype the list from here or from memory.
+
+⛔ **Never send anything else.** Not the production keys, not
+`SAMO_VM_SUDO_PASSWORD`, not the Google client secret. A contributor with a
+production key can write to real student records; a contributor with these four
+can only touch a copy. `.env.local.example` names the maintainer-only variables
+explicitly so a file containing them is recognisable — that list is what NOT to
+paste.
+
+⚠️ **These are still real student data.** `samo-dev` is an unmasked copy — real
+names, real รหัสนักศึกษา, real photographs. Safe to *click*, not safe to
+*publish*. Say that when you send them; it is in the docs, but people skim.
+
+### How to send it — a one-time link, not a message
+
+⛔ **Not by LINE, Discord, Messenger, email, or a shared Google Doc.** Those keep
+the value for ever, in a place you do not control, readable by anyone who later
+gets that account or that document. This is the whole reason the values are not
+simply in the repository.
+
+**Use a link that self-destructs.** Paste the four lines in, get a URL, send the
+URL, and it stops working after one view or after a set time.
+
+| Option | Cost | Good to know |
+|---|---|---|
+| **A one-time-secret service** (onetimesecret.com and similar) | free | Nobody needs an account — not you, not them. Simplest thing that is correct, and the right default here |
+| **Bitwarden Send** | free tier | ⚠️ **The free plan allows only ONE active text Send at a time**, so onboarding several people means deleting each before creating the next. Set the expiry down from its 7-day default. Sensible if the team already uses Bitwarden |
+| **1Password / Bitwarden shared vault** | paid | Worth it only once the same people need the values repeatedly and you want to rotate in one place. Overkill for occasional volunteers |
+| **A secrets manager** (Doppler, Vault) | paid/complex | The right answer for a company with staff and audit requirements. Not for this |
+
+**Send the link and any password on two different channels** — the link in
+Discord, the password by phone — so one compromised account is not enough.
+
+### Best practice this project already follows
+
+Worth knowing so nobody "improves" it:
+
+- **The repository holds the NAMES, never the values** (`.env.local.example`).
+  New people learn what they need without anyone leaking anything, and the list
+  cannot drift from the code because a test compares them.
+- **`.env.local` is gitignored** and the ignore rule is itself asserted.
+- **Contributors get a separate database account** (`samo-dev`), not production.
+  A leak is then an embarrassment, not an incident.
+
+### If a key is leaked
+
+Rotate it, then say so. Rotating the dev anon key takes a maintainer about two
+minutes in the Supabase dashboard. **Saying nothing is the only expensive
+option** — and make sure whoever leaked it hears that from you, or the next
+person will hide it too.
+
+---
+
 ## The session, when you do sit with someone
 
 Optional, and worth it for the one or two people who will contribute often. It
