@@ -107,7 +107,7 @@ TRUE. That is what the grep is for.
 
 ### What is owed
 
-⛔ **START HERE.**
+⛔ **START HERE: `docs/state/HANDOFF.md` is the full list of what is NOT done, with reasons and owners. Read it first; below is detail.**
 
 ### A. NEXT SESSION — buildable now, nobody is blocking you
 

@@ -83,12 +83,22 @@ gh --version     # skip this line if you did not install gh
 Some guides prefix commands with `$` or `%`. That is the terminal's own prompt, printed by the terminal — **not something you type.** The boxes on these pages never include it, so you can copy them whole.
 :::
 
-## 4. You do not need permission to contribute
+## 4. Nobody has to add you to the project
 
-Anyone with a GitHub account can propose a change today. Nobody has to add you to the project first.
+You do need one thing from a person — the database key in step 1. What you do **not** need is to be added to the project as a member before you may propose a change.
 
-GitHub gives you your own copy of the project. You change your copy and submit it for review. **The live site does not move until a maintainer approves the change and then separately deploys it** — two deliberate steps, both by someone else. You cannot break the live site by accident, and nothing you do on your own machine reaches a student.
+Anyone with a GitHub account can do that today. GitHub gives you your own copy of a public project (a *fork*); you change your copy and submit it for review.
 
-The one thing you do need a person for is the database key in step 1. That is a convenience, not a permission: it is what makes your local copy show real-shaped content instead of empty screens.
+**The live site does not move until a maintainer approves the change and then separately deploys it** — two deliberate steps, both by someone else. You cannot break the live site by accident, and nothing you do on your own machine reaches a student.
+
+::: tip What the two roads differ in
+| | fork | added as a member |
+|---|---|---|
+| Who can | **anyone** | invited people |
+| Open a pull request, get it reviewed and merged | ✅ | ✅ |
+| Automatic **preview site** on your pull request | ❌ | ✅ |
+
+A fork cannot get a preview because GitHub will not hand a fork the project's secrets. That is the only practical difference — ask to be added once you are contributing often enough for it to be worth it, not as permission to start.
+:::
 
 Next — [Install and run](/start/install)
