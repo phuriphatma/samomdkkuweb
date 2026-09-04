@@ -284,8 +284,21 @@ scans:
 effectively all of it** — for any of those still physically displayed. The rest
 are past events whose posters are down.
 
-**When it may be deleted:** re-run the query above; when `scans_30d` for gen-2
-activities is 0 and has been for a term, the redirect host has no job left.
+**When it may be deleted — ✅ OWNER DECIDED 2026-09-04: NOT by re-printing.**
+The owner declined the re-print path: the posters are already up and printed, and
+swapping them is real-world work for a problem nobody is experiencing. So the
+gen-2 population does not shrink deliberately — **it decays only as those events
+end and their posters come down naturally.**
+
+That makes the redirect host effectively **permanent**, and that is an accepted
+cost, not an oversight. It is four lines of `_redirects` with nothing to build,
+nothing to drift and nothing to guard, so the price of keeping it is close to
+zero — much lower than the price of getting the deletion wrong.
+
+⛔ **Do not re-propose re-printing.** It was offered, considered and declined
+with a reason. If you want to check whether the host has become unnecessary on
+its own, re-run the §2 query and look at `scans_30d` for gen-2 activities; when
+that has been 0 for a term, the host has no job left. Until then, leave it.
 Until then keep it — it costs four lines of `_redirects`.
 
 ---
