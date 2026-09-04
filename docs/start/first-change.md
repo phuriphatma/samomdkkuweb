@@ -157,6 +157,9 @@ Every branch except `main` gets a live site, built automatically. Scroll to the 
 
 ![Sketch of the pull request checks box, with the Cloudflare Pages preview link highlighted](../diagrams/pr-checks.svg)
 
+<!-- REAL-SCREENSHOTS-SLOT: replaced on this branch with captures of the actual
+     banner and checks box, taken while signed in. -->
+
 Or ask for the address directly, from the branch:
 
 ```bash
