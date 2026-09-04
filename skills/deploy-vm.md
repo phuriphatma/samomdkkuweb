@@ -26,13 +26,24 @@ code that reads it ships; DROP only after the new bundle is confirmed SERVED**
 
 ## ⛔ THE DOCS STEP IS INTERMITTENT — AND IT CAN EXIT 0
 
-**Run tally: 24 runs, 20 completed the docs step, 4 did not.**
+**Run tally: 25 runs, 21 completed the docs step, 4 did not.**
 (4 on 2026-08-31: 2 ok, 2 not. 5 on 2026-09-01: the first two skipped docs and
 **both returned exit 0**, one of them after `pgrep deploy.sh` already showed the
 script gone while ssh had still not returned; the last three — every run since
 the log and trace landed — took between 30 and 35 seconds and published
-everything. 10 on 2026-09-02: all ~31 s, docs published, roots ~17 s apart. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
+everything. 10 on 2026-09-02: all ~31 s, docs published, roots ~17 s apart.
+1 on 2026-09-04: complete (`<== exit 0 — ran to the end`), docs published, roots
+18 s apart — but it took **123 s, 4× baseline**, essentially all of it in the
+web `npm ci`, with the VM's load average already at 5–8 BEFORE the deploy
+started. ⚠️ Four clean runs still prove nothing about the fifth.) The count only grows — a run that works is not evidence, and this
 file said "the hang did not reproduce" once already.
+
+⚠️ **A slow run is not automatically the docs fault.** 2026-09-04 sat past the
+~2-minute line this file calls "already the fault", and the trace still showed a
+clean end-to-end run — the time was in `npm ci` under pre-existing VM load, a
+step that precedes the docs build. **Read the trace for WHICH line is slow
+before matching a duration to the known fault**; "past 2 minutes" is a prompt to
+open the log, not a diagnosis on its own.
 
 ✅ **Run 7 is the first one whose evidence survived.** `deploy.sh` now writes
 every run in full to `~/samo-deploy-logs` on the VM, with a separate xtrace

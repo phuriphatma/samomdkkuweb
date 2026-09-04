@@ -44,14 +44,16 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `0d7722e` (2026-09-02)** — app and docs BOTH published by
-  `deploy.sh` itself, no hand step, in **31 s**. Verified from the SERVED
-  artifact with a string UNIQUE to the change and an old one as control.
-  ⚠️ **The control earned its place**: `dept-section-sub` greps 0 in
-  `public-*.js` — and so does the control `news-card-title`, because the
-  renderer lands in a SHARED chunk (`analytics-*.js`) that both entries import.
-  A new-string-only check would have read as a failed deploy. Both are in that
-  chunk; `dpaAddSection` is in `admin-*.js`. Previous: `22ab61d`, `0f130d3`.
+- ✅ **DEPLOYED = `b31454d` (2026-09-04)** — app, passport and docs all published
+  by `deploy.sh`, no hand step; roots 18 s apart, log ends `<== exit 0 — ran to
+  the end`. Took **123 s, 4× baseline**, all in the web `npm ci` under VM load
+  already 5–8 at start — the trace showed a clean run, so slow ≠ the docs fault.
+  ⚠️ **NO browser-visible surface — do not grep the bundle for this one.** Its
+  shipped surface is `/notify`: verify `SILENCE_KEYS` in the VM checkout
+  `samo-notify` runs from, plus its restart stamp. The `changelog.js` entry is
+  in `PENDING`, which **nothing imports**, so Rollup tree-shakes it — the string
+  greps 0 in the LOCAL `dist` too, and that build was the control that stopped
+  this reading as a failed deploy. Previous: `0d7722e`, `22ab61d`.
   ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
   `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
   writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the

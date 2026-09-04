@@ -796,3 +796,45 @@ the population from the authority that owns it — here the Cloudflare account,
 not this repository. Ask what the sentence quantifies over, then ask who can
 list that. **A green count is not coverage**: 18 passed while three of the
 account's six environments were wrong.
+
+---
+
+## A deploy verified green, then the SERVED bundle did not contain the change — and neither did the local build
+
+**Symptom.** `b31454d` deployed cleanly (`<== exit 0 — ran to the end`, three
+web roots written within 18 s), but grepping `/var/www/samo-web/assets/` for a
+Thai string the commit added returned nothing. The obvious reading was a failed
+or stale deploy.
+
+**Cause.** The string was a `PENDING` release note in `src/data/changelog.js`.
+`PENDING` is `export`ed, but **no module imports it** — `src/js/changelog.js`
+pulls `RELEASES, LATEST, AREAS, CHANGE_TYPES, LEVELS, MAJOR_STORY` and nothing
+else. Rollup therefore tree-shakes `PENDING` out of every bundle. It is staging
+for `npm run release`, which folds it into a version; until that happens it has
+no browser surface by design. The deploy was correct and complete.
+
+**What caught it.** The control, exactly as class 7 prescribes. A second string
+known to ship already (`แจ้งเตือนแบบ Silent`, the live vs-staff checkbox label)
+*also* greped 0 — so the instrument, not the deploy, was the variable. Building
+locally and grepping `dist/` settled it: the string is absent there too, from
+the very source that defines it. **The local build is the cheapest control
+available for "is this string supposed to be in a bundle at all".**
+
+**The trap underneath.** This commit's whole shipped surface was the `/notify`
+Node service, which `samo-notify` runs straight out of the VM's git checkout
+(`WorkingDirectory=/home/ubuntu/samo-projects/samomdkkuweb`) — not out of
+`/var/www`. "Grep the served bundle" is the right ritual for a frontend change
+and answers nothing for a server-side one; the verification there is the file in
+that checkout plus `ExecMainStartTimestamp` falling after the pull.
+
+**Where it lives now.** The ⚠️ on the ✅ DEPLOYED block in `STATE.md`, which now
+says which surface a given commit actually ships to.
+
+**The general rule — a new instance of "check the INSTRUMENT can see it".** The
+class already knew a string behind a build-time flag is DELETED, not renamed.
+**A tree-shaken export is the same deletion with no flag to notice**: an
+`export` nothing imports is not in the build, so its absence proves nothing.
+Before grepping an artifact for a string, ask whether that string ships AT ALL —
+and ask which artifact the commit ships to, because a server-side change never
+enters `/var/www`. Grep a known-shipping control beside it; when the control is
+also missing, stop and fix the instrument.

@@ -272,7 +272,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(17)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(18)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -293,6 +293,7 @@ Open when: deploy.sh, nginx, cache headers.
 - The deploy exited 0, published the app, and silently skipped `/docs`
 - Six runs, four failures, no diagnosis
 - The guard said "nothing on pages.dev reaches production"
+- A deploy verified green, then the SERVED bundle did not contain the change
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(37)*
 
@@ -336,4 +337,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A guard that asserted the implementation, and went red on a refactor
 - The browser smoke covered the smaller entry, and nobody noticed for months
 
-_279 entries across 9 files._
+_280 entries across 9 files._
