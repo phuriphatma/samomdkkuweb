@@ -22,13 +22,25 @@
 
 **State at handoff (2026-09-04):**
 
+⛔ **No shas are written here on purpose.** An earlier version of this table
+named three, and two were stale within an hour because the file kept being
+committed after the table was typed — a handoff that makes its reader doubt
+whether they have the right state is worse than one that stays quiet. Ask the
+repo instead; these answer in one line each:
+
+```bash
+git rev-parse --short HEAD origin/merge/passport-monorepo   # the branch, and whether you are on it
+git rev-parse --short main origin/main                      # main, untouched by this work
+npm run deploy:owed                                         # what production serves — the ONLY authority
+npm test                                                    # expect 1753 pass, 96 files
+```
+
 | | |
 |---|---|
-| branch | `merge/passport-monorepo` @ `3d00291` — pushed, NOT merged |
-| `main` | `1d10d8e` — untouched by this work |
-| production serves | `7394f1f` (`npm run deploy:owed` is the authority, not this table) |
-| tests | 1753 pass, 96 files |
-| S1 (the deliverable) | ✅ verified by the owner on the branch preview |
+| branch | `merge/passport-monorepo` — pushed, **NOT merged**, NOT deployed |
+| `main` + production | untouched by this work; `main` carries only a pointer to this branch |
+| tests | **1753 pass, 96 files** — the one number worth writing down, because a reader needs it BEFORE running anything to tell a pre-existing failure from one they caused |
+| S1 (the deliverable) | ✅ verified by the owner on the branch preview, 2026-09-04 |
 
 ⚠️ **The `samomdkkupassport` repo still exists and still accepts pushes.** Its
 commits up to `895c7fa` are inside `passport/` here. Anything pushed there from
