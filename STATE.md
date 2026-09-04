@@ -151,8 +151,8 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    VM. **Read the log before forming any theory — every theory so far was
    formed without one.** Status, tally and how to read a log live in ONE place,
    the CURRENT DEPLOY block above; do not restate them here.
-3. ⏳ **PASSPORT REPO MERGE — ON BRANCH `merge/passport-monorepo`, NOT `main`.**
-   Read `docs/PASSPORT-MONOREPO.md` THERE (main's copy is stale by design). Phases 1–5 done, 1753 pass, **S1 owner-verified**; left: merge+deploy, then 2 owner-only items. The
+3. ✅ **PASSPORT REPO MERGE — DONE, on `main`.** Passport is `passport/`; one
+   pull, one `npm ci`, one build. 2 OWNER-ONLY items left in `docs/PASSPORT-MONOREPO.md`: archive the old repo, and ⛔ **REPLACE (never delete)** its Cloudflare project — 82% of printed QR posters name it. The
    two-preview-URL steps in `docs/state/phuriphatma.md` are dead: a session is
    per-ORIGIN, so two Pages projects = two logins whatever the dashboard says.
    ⛔ **NEVER delete the `samomdkkupassport` Pages project** — 82% of activities
