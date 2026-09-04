@@ -4,18 +4,32 @@
 > The database merge finished long ago (`docs/PASSPORT-MERGE.md`). This is the
 > separate, later job of merging the two **repositories**.
 >
-> **Status: PLANNED, nothing built.** Owner approved the direction on
-> 2026-09-04. No phase below has started. When you finish a phase, tick its box
-> and write the sha beside it — that is how the next session knows where it is.
+> **Status: IN PROGRESS on `merge/passport-monorepo`, NOT on `main`, NOT
+> deployed.** Owner approved the direction on 2026-09-04 and work started the
+> same day. **The Progress list below is the only status — do not restate it in
+> prose here**, which is how this line came to say "nothing built" while five
+> boxes were ticked two inches below it.
 
 ## Progress
 
-- [ ] Phase 0 — freeze the facts (measurements below re-verified)
-- [ ] Phase 1 — `git subtree add` passport into `passport/`
-- [ ] Phase 2 — one toolchain, two builds, one `dist/`
-- [ ] Phase 3 — preview serves `/passport/` (the thing the owner asked for)
-- [ ] Phase 4 — tests
-- [ ] Phase 5 — `deploy.sh` builds from in-tree
+**Branch: `merge/passport-monorepo`. Not merged to `main`, not deployed.**
+
+- [x] Phase 0 — facts frozen (§2); passport builds on Vite 6, output identical
+- [x] Phase 1 — subtree'd into `passport/`; **164 commits added**, old passport
+      shas (`9777a67`, `895c7fa`) resolve on this branch
+- [x] Phase 2 — one toolchain: passport's `package.json`/lockfile deleted, it
+      builds against the root deps; `npm run build` = main → `dist/`, then
+      passport → `dist/passport/` at base `/passport/`. Verified: main app
+      survives the second pass, all four passport entries emitted, asset URLs
+      prefixed, no cross-leakage
+- [x] Phase 3 — `_redirects` passport rules and the splash deleted; real files
+      now serve `/passport/`
+- [ ] Phase 4 — tests ← **IN PROGRESS.** `redirects-order.test.js` rewritten
+      (asserts the build emits passport, not that a rule exists) and proved in
+      BOTH directions. Still owed: host-guard 6 entries, `passport-build`,
+      `session-sharing`, `qr-compat`, `season-rollover`
+- [x] Phase 5 — `deploy.sh` builds from in-tree: one pull, one `npm ci`, one
+      build; `--exclude=passport/` on the samo-web publish; nginx untouched
 - [ ] Phase 6 — production deploy + verification
 - [ ] Phase 7 — retire the old repo (owner)
 - [ ] Phase 8 — the QR redirect host (owner, and **read §3 first**)

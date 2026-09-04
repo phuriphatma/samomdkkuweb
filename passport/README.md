@@ -69,9 +69,12 @@ passport/
 ### Installation
 
 ```bash
-git clone [https://github.com/samodevmdkku69/passport.git](https://github.com/samodevmdkku69/passport.git)
-cd passport
-npm install
+# Passport is no longer its own repository — it merged into samomdkkuweb
+# on 2026-09-04 and lives at passport/ inside it.
+git clone https://github.com/samomdkku/samomdkkuweb.git
+cd samomdkkuweb
+npm install          # one install covers both apps
+npm run dev:passport # passport alone, or `npm run dev` for the main site
 ```
 
 ### Environment Variables

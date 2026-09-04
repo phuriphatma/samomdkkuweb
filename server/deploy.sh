@@ -5,12 +5,16 @@
 #
 # Assumes the layout in docs/SELF-HOST.md:
 #   ~/samo-projects/samomdkkuweb     (this repo, .env.local present)
-#   ~/samo-projects/samomdkkupassport (built with base '/passport/')
 #   /var/www/samo-web  and  /var/www/passport  (Nginx roots)
+#
+# Passport used to be a SECOND CLONE here (~/samo-projects/samomdkkupassport,
+# pulled and built separately). Since the 2026-09-04 repo merge it is this
+# repo's passport/ directory and `npm run build` emits it to dist/passport/, so
+# there is one pull, one npm ci and one build. That old clone is now unused; it
+# is left on disk rather than deleted, and nothing reads it.
 set -euo pipefail
 
 WEB_DIR="$HOME/samo-projects/samomdkkuweb"
-PASS_DIR="$HOME/samo-projects/samomdkkupassport"
 
 # ---------------------------------------------------------------------------
 # Pull FIRST, then re-exec ourselves.
@@ -136,30 +140,40 @@ trap 'exit 143' TERM
 # NOTE `--exclude=assets/` also protects those files from --delete; rsync only
 # removes excluded files if you additionally pass --delete-excluded.
 ASSET_GRACE_DAYS=7
+# Extra args after the two positional ones are passed to the MIRROR rsync only
+# (the assets pass copies $src/assets/ and can never see a sibling directory).
 publish() {
-  local src="$1" root="$2"
+  local src="$1" root="$2"; shift 2
   sudo mkdir -p "$root/assets"
   sudo rsync -a "$src/assets/" "$root/assets/"                 # additive: keep old chunks
-  sudo rsync -a --delete --exclude=assets/ "$src/" "$root/"    # mirror the rest
+  sudo rsync -a --delete --exclude=assets/ "$@" "$src/" "$root/"   # mirror the rest
   sudo find "$root/assets" -type f -mtime +$ASSET_GRACE_DAYS -delete
 }
 
-echo "==> samomdkkuweb: pull + build"
+echo "==> samomdkkuweb + passport: pull + build (one repo, one install)"
 cd "$WEB_DIR"
 git pull --ff-only
 npm ci
+# `npm run build` runs BOTH vite passes: the main app into dist/, then passport
+# into dist/passport/ at base '/passport/' (passport/vite.config.js). No second
+# clone, no second npm ci, no PASSPORT_BASE to remember.
 npm run build
-publish dist /var/www/samo-web
 
-if [ -d "$PASS_DIR" ]; then
-  echo "==> samomdkkupassport: pull + build (subpath base)"
-  cd "$PASS_DIR"
-  git pull --ff-only
-  npm ci
-  # KKU VM serves passport at the /passport/ subpath — base must be prefixed.
-  # (pages.dev builds without this var → base '/'.)
-  PASSPORT_BASE=/passport/ npm run build
-  publish dist /var/www/passport
+# Publish to the two nginx roots, unchanged — nginx still serves / from
+# samo-web and /passport/ from passport, so the live layout is identical.
+# ⚠️ --exclude=passport/ is LOAD-BEARING, not tidiness. dist/ CONTAINS
+# dist/passport/ now. Without the exclude every passport file is ALSO mirrored
+# into /var/www/samo-web/passport/ — and that breaks an assumption nginx-samo.conf
+# states in writing: its `location = /passport { return 301 /passport/; }` exists
+# because "there's no passport dir under /var/www/samo-web to trigger" nginx's
+# own automatic directory redirect. Create one and that reasoning silently stops
+# holding, on top of shipping a full second copy nothing serves.
+publish dist /var/www/samo-web --exclude=passport/
+publish dist/passport /var/www/passport
+
+if [ ! -f /var/www/passport/index.html ]; then
+  echo "!! /var/www/passport/index.html missing after publish — passport did not build" >&2
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------

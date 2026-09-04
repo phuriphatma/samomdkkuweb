@@ -142,7 +142,8 @@ change, **not a tax on every commit** (internal-only refactors/typos can skip 1â
 6. **Say what you updated** in the user-facing response (e.g. "Updated STATE.md + MISTAKES.md +
    memory."). If nothing needed updating, no need to mention it.
 
-> Philosophy (from the sibling repo `refactorsamoweb/samomdkkuweb`): keep this file a **slim router**
+> Philosophy (inherited from samomdkkuweb, which since the 2026-09-04 merge is
+> the repo this directory lives IN, not a sibling): keep this file a **slim router**
 > â€” most detail is read on demand (`STATE.md`, `MISTAKES.md`, the `db/` migrations, the persistent
 > memory). The loop keeps those honest without bloating context.
 

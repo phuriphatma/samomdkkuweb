@@ -2,10 +2,14 @@
 
 Snapshot of what's built, what's pending, and required config. Update as things land.
 Last updated: 2026-07-25. **Tagged release: v1.0.0.**
-**Deployed to the KKU VM (`/var/www/passport`): `ffec467`** — admin ฝ่าย scope + the
-temporary `admin`/`1234` fallback. Deploy = push `main`, then on the VM
-`cd ~/samo-projects/samomdkkupassport && git pull && npm ci && PASSPORT_BASE=/passport/ npm run build`
-→ `rsync -a --delete dist/ /var/www/passport/` (samoweb `server/deploy.sh` does both apps).
+⚠️ **MERGED 2026-09-04.** Passport is no longer its own repository or its own
+deploy. It is the `passport/` directory of samomdkkuweb, built by that repo's
+`npm run build` into `dist/passport/` and published to `/var/www/passport` by
+`server/deploy.sh`. The old recipe here — a second clone, a second `npm ci` and
+`PASSPORT_BASE=/passport/` — is DEAD; that clone on the VM is unused.
+**The deployed sha has ONE home and it is samomdkkuweb's `STATE.md`**, not this
+line, which is why the stale `ffec467` that used to sit here has been removed
+rather than updated. Plan and progress: samomdkkuweb `docs/PASSPORT-MONOREPO.md`.
 
 ## Working
 

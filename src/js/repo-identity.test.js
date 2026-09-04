@@ -51,6 +51,7 @@ const THIRD_PARTY = new Map([
   ['vuejs', 'Vue / VitePress'],
   ['squidfunk', 'Material for MkDocs, cited when choosing the docs generator'],
   ['shenruisi', 'the Stay Safari extension, named in a state-archive note'],
+  ['davidshimjs', 'qrcodejs, the QR library passport/README credits — arrived with the passport subtree'],
 ]);
 
 /**

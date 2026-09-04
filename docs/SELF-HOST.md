@@ -26,8 +26,10 @@ bundle. Miss the `/admin/*` fallback and an admin refresh serves the wrong app.
 ## Layout on the VM
 
 ```
-/home/ubuntu/samo-projects/samomdkkuweb        # this repo (has .env.local)
-/home/ubuntu/samo-projects/samomdkkupassport   # passport repo, base '/passport/'
+/home/ubuntu/samo-projects/samomdkkuweb        # this repo (has .env.local);
+                                               # passport/ lives INSIDE it since
+                                               # the 2026-09-04 merge — one clone,
+                                               # one npm ci, one `npm run build`
 /var/www/samo-web                              # Nginx root for the public+admin app
 /var/www/passport                              # Nginx root for passport
 /etc/samo-notify.env                           # notify secrets (chmod 600, root)
