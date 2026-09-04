@@ -272,7 +272,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(18)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(19)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -294,8 +294,9 @@ Open when: deploy.sh, nginx, cache headers.
 - Six runs, four failures, no diagnosis
 - The guard said "nothing on pages.dev reaches production"
 - A deploy verified green, then the SERVED bundle did not contain the change
+- The preview would have bounced ITSELF to production
 
-## `tooling-proofs.md` — Proof scripts & verification discipline *(37)*
+## `tooling-proofs.md` — Proof scripts & verification discipline *(38)*
 
 Open when: writing or trusting a `tools/*.mjs` proof.
 
@@ -336,5 +337,6 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A check whose own audience could not run it
 - A guard that asserted the implementation, and went red on a refactor
 - The browser smoke covered the smaller entry, and nobody noticed for months
+- "Unset is SAFE" — a guard that would have called a preview pointed at production a PASS
 
-_280 entries across 9 files._
+_282 entries across 9 files._

@@ -200,15 +200,34 @@ if (cfAccount && cfToken) {
         const pcfg = proj?.deployment_configs ?? {};
         for (const e of ['production', 'preview']) {
           const vars = pcfg[e]?.env_vars ?? {};
-          // Unset is SAFE — a build with no Supabase URL reaches no database.
-          // Set-to-anything-but-dev is the failure, whichever project it is.
+          // ⛔ THIS ONCE READ "Unset is SAFE — a build with no Supabase URL reaches
+          // no database", and that was true of the app it was written against and
+          // FALSE of the one beside it. samoweb's src/js/db.js reads
+          // import.meta.env.VITE_SUPABASE_URL with no fallback, so unset really does
+          // reach nothing. samomdkkupassport's js/app.js does
+          //     import.meta.env?.VITE_SUPABASE_URL || "https://fheueuowbchsnsvbcgil…"
+          // — the PRODUCTION project, hardcoded, with the production anon key beside
+          // it. There, unset means PRODUCTION. So deleting a variable would have
+          // pointed a preview at real student data and this guard would have called
+          // it a PASS, which is the failure mode the whole check exists to prevent.
+          //
+          // The fix is not to special-case passport: an assumption about what a
+          // MISSING value falls back to is a fact about code in another repository,
+          // which this file cannot see and which can change without it. So require
+          // the variable to be SET and to name samo-dev. That is true of every
+          // project today, it needs no knowledge of any app's fallback, and a
+          // deleted variable now goes RED instead of silently green.
           const url = vars.VITE_SUPABASE_URL?.value;
-          checks.push([`Cloudflare ${proj.name}/${e} cannot reach a non-dev database`,
-            !url || url === devUrl, true,
-            `VITE_SUPABASE_URL is ${url}. A pages.dev build made from this config talks `
-            + `to a database that is not samo-dev. If it is the production project, every `
-            + `form submitted there writes REAL student data while the page shows a `
-            + `PREVIEW ribbon. Repoint it (npm run cf:pin-dev) or delete the project.`]);
+          checks.push([`Cloudflare ${proj.name}/${e} is pinned to the dev database`,
+            url === devUrl, true,
+            url === undefined
+              ? 'VITE_SUPABASE_URL is UNSET. That is not neutral: an app that falls back '
+                + 'to a hardcoded URL (samomdkkupassport/js/app.js does, to PRODUCTION) '
+                + 'will reach that database instead. Set it with `npm run cf:pin-dev`.'
+              : `VITE_SUPABASE_URL is ${url}. A pages.dev build made from this config talks `
+                + `to a database that is not samo-dev. If it is the production project, every `
+                + `form submitted there writes REAL student data while the page shows a `
+                + `PREVIEW ribbon. Repoint it (npm run cf:pin-dev) or delete the project.`]);
 
           const nm = vars.VITE_ENV_NAME?.value;
           checks.push([`Cloudflare ${proj.name}/${e} labels itself non-production`,
@@ -285,6 +304,77 @@ for (const name of SIBLING_REPOS) {
     `main requires ${JSON.stringify(required)} but the repo has no workflows — every `
     + 'pull request waits for a status that never arrives. Add the workflow first, '
     + 'or drop the requirement']);
+}
+
+// ---------------------------------------------------------------------------
+// THE SIBLING'S HOST GUARD. Added 2026-09-04, when the passport preview work
+// turned it up.
+//
+// Every built passport entry carries an inline "deprecated host" redirect. It
+// tested `/\.pages\.dev$/i` — ANY pages.dev host — which is ALSO every preview
+// URL, because previews live on pages.dev too. So the moment
+// `preview.samomdkkupassport.pages.dev` existed it would bounce ITSELF to a
+// splash pointing at PRODUCTION: a tester aiming at the dev database would land
+// on the real site, having been told the preview was the safe place to click.
+// samomdkkuweb narrowed the identical guard on 2026-08-27; the sibling did not
+// get that fix for eight days, because ONE RULE WITH AN IMPLEMENTATION PER REPO
+// HAS NO SHARED GUARD. This is that guard.
+//
+// It is asserted from OUTSIDE, over the GitHub API, for a reason: the sibling
+// has no test runner and adding one is a bigger change than the bug. So the
+// repo that HAS tooling checks the repo that does not.
+//
+// ⛔ IT READS THE EXECUTABLE LINE, NEVER THE FILE TEXT. The fixed index.html
+// quotes the OLD broken regex inside its explanatory comment, so a plain
+// `includes('/\\.pages\\.dev$/')` over the file matches the COMMENT and reports
+// the bug still present on a correct file. (This repo has already paid for a
+// proof satisfied by prose — confirm-modal.test.js matched a comment.) Only
+// lines that actually run — the ones calling `.test(location.hostname)` — are
+// examined, and a control asserts we found some, so an empty scan is RED
+// rather than silently green.
+// ---------------------------------------------------------------------------
+const GUARDED_ENTRIES = ['index.html', 'html/dashboard.html', 'html/admin.html', 'html/scan.html'];
+for (const name of SIBLING_REPOS) {
+  const sib = `${OWNER}/${name}`;
+  let examined = 0;
+  const broad = [];
+  let readable = true;
+
+  for (const entry of GUARDED_ENTRIES) {
+    let html;
+    try {
+      const raw = execFileSync('gh', ['api', `repos/${sib}/contents/${entry}`, '--jq', '.content'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      html = Buffer.from(raw.replace(/\s/g, ''), 'base64').toString('utf8');
+    } catch {
+      // A missing entry is not a pass. If the file list here goes stale
+      // (a renamed entry), say so rather than scoring zero findings as green.
+      readable = false;
+      continue;
+    }
+    // Only lines that RUN. The comment above explains why this matters.
+    for (const line of html.split('\n')) {
+      if (!line.includes('.test(location.hostname)')) continue;
+      examined += 1;
+      if (!/\^samomdkkupassport\\?\.pages\\?\.dev\$/.test(line)) broad.push(`${entry}: ${line.trim().slice(0, 90)}`);
+    }
+  }
+
+  checks.push([`${name}: every host guard is ANCHORED to the one retired host`,
+    broad.length === 0 && readable, true,
+    broad.length
+      ? 'these run on EVERY pages.dev host, so the preview bounces itself to a '
+        + `splash pointing at production:\n      ${broad.join('\n      ')}`
+      : `could not read all of ${JSON.stringify(GUARDED_ENTRIES)} from ${sib} — the entry `
+        + 'list may be stale; a scan that finds nothing must not read as a pass']);
+
+  // The CONTROL. Without it, a rename or an API change makes `broad` empty and
+  // the check above passes while having inspected nothing at all.
+  checks.push([`${name}: the guard scan actually found guards to check`,
+    examined >= GUARDED_ENTRIES.length, true,
+    `only ${examined} executable host-guard line(s) found across `
+    + `${GUARDED_ENTRIES.length} entries — expected at least one each. The scan is `
+    + 'blind; fix it before trusting the check above']);
 }
 
 let failed = 0;

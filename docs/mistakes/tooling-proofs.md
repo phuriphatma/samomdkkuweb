@@ -1675,3 +1675,60 @@ entries — bundles, binaries, routes, workers — and ask which ones your smoke
 actually visits. The tell here was that the number nobody could answer was not
 "is it broken" but "has anyone looked", and the honest answer to the second is
 what surfaced the first.
+
+---
+
+## "Unset is SAFE" — a guard that would have called a preview pointed at production a PASS
+
+**Symptom.** None. `node tools/repo-protection.mjs` printed all green, and had
+been printing all green, while carrying an assumption that was false of one of
+the three projects it checks. Found by reading the sibling app's source for an
+unrelated reason.
+
+**Cause.** The Cloudflare check judged each project's database with:
+
+```js
+// Unset is SAFE — a build with no Supabase URL reaches no database.
+const url = vars.VITE_SUPABASE_URL?.value;
+… !url || url === devUrl …
+```
+
+That comment is **true of the app it was written against and false of the one
+beside it**. samoweb's `src/js/db.js` reads `import.meta.env.VITE_SUPABASE_URL`
+with no fallback, so unset really does reach nothing. samomdkkupassport's
+`js/app.js` reads
+
+```js
+import.meta.env?.VITE_SUPABASE_URL || "https://fheueuowbchsnsvbcgil.supabase.co"
+```
+
+— the **production** project, hardcoded, with the production anon key on the
+next line. So for that project *unset means production*. Delete the variable in
+the dashboard and the preview talks to real student data, while the guard whose
+entire purpose is catching that reports **PASS**. The repo has already had the
+live incident this describes (`refactorsamomdkkuweb` holding the production URL
+with `VITE_ENV_NAME` unset); this is the same incident with the alarm disabled.
+
+The fallback is not itself a mistake — its comment explains it exists so a
+missing build env cannot send passport to the RETIRED project B and split-brain
+the data. The mistake is a guard in repo A reasoning about what a missing value
+means in repo B.
+
+**Fix.** Do not special-case the sibling. Require the variable to be **SET and
+equal to the dev URL** for every project: true of all three today, needs no
+knowledge of any app's fallback, and a deleted variable now goes RED. The
+message distinguishes unset from wrongly-set, because those have different
+remedies.
+
+**Where it lives now.** `tools/repo-protection.mjs`, Cloudflare section — the
+old comment is kept inverted, as the reason.
+
+**The general rule — class 7, "guards fail GREEN", with the tell.** *A guard
+that reasons about what a MISSING value falls back to is asserting a fact about
+code it cannot see.* The fallback lives in another repository, another language
+or another team's file, and it can change without the guard noticing. Assert the
+POSITIVE state you require — set, and set to this — rather than enumerating the
+states you believe are harmless. **Whenever a guard's comment says a condition
+is "safe" or "neutral", find the code that makes it so and check it is the only
+code that can.** Here there were two readers of one variable and only one had
+been read.

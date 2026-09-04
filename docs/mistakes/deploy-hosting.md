@@ -838,3 +838,44 @@ Before grepping an artifact for a string, ask whether that string ships AT ALL �
 and ask which artifact the commit ships to, because a server-side change never
 enters `/var/www`. Grep a known-shipping control beside it; when the control is
 also missing, stop and fix the instrument.
+
+---
+
+## The preview would have bounced ITSELF to production — a host guard fixed in one repo and not its twin
+
+**Symptom.** Reported as *"when i open samopassport i got SAMO Passport
+ไม่ได้อยู่ในเวอร์ชันทดสอบนี้"* — the samoweb preview honestly says Passport is not
+in this build. Following the recorded plan to fix that (STATE.md A3: push a
+`preview` branch, then point the splash at it) would have produced a preview
+that redirected itself to `/moved.html`, whose button goes to **production**. A
+tester sent to dev to click around safely would have landed on the real site.
+
+**Cause.** Every built passport entry tested `/\.pages\.dev$/i` — ANY pages.dev
+host. Previews live on pages.dev too, so the guard could not tell the retired
+production URL from a preview *of itself*. samoweb carries the identical guard
+and narrowed it **twice on 2026-08-27** for exactly this reason, its comment
+ending "do not relax it to `(^|\.)`". That fix never crossed the repo boundary.
+Eight days, and it would have silently defeated the dev-server work it had
+nothing to do with.
+
+**Fix.** `/^samomdkkupassport\.pages\.dev$/i` in **all four** built entries —
+`vite.config.js` builds index, dashboard, admin and scan, so fixing `index.html`
+alone would have left three. Proved against seven hostnames: the retired host
+and its uppercase form still bounce; `preview.*`, `<hash>.*`, the VM, localhost
+and `evilsamomdkkupassport.pages.dev` (which the OLD regex also matched) do not.
+
+**Where it lives now.** `samomdkkupassport` commit `9777a67`, and the assertion
+in this repo's `tools/repo-protection.mjs`, which already reaches across for
+branch protection. It reads the executable `.test(location.hostname)` lines, not
+the file text — the fixed `index.html` QUOTES the old regex in its explanatory
+comment, so a substring check over the file would match the COMMENT and call a
+correct file broken. It carries a control asserting it found a guard per entry,
+and it was run BEFORE the fix and failed on all four.
+
+**The general rule — class 6, with the boundary that makes it invisible.** Two
+implementations of one rule drift, and *a repository boundary hides the drift
+completely*: `host-guard.test.js` checks BOTH entry files in this repo and can
+never see the sibling. When a rule exists in a repo with no test runner, the
+guard belongs in the repo that HAS one, asserted over the API. **Ask which other
+repository implements a rule you just fixed** — the sibling here had no tests,
+no CI and no guards at all, so nothing was ever going to tell anyone.
