@@ -391,6 +391,26 @@ archived repo, and a guard whose subject has rotted is worse than none
 - `scan.html` forwards **straight to the VM**, never to `/moved.html` — a scan is
   transactional, and an interstitial with a countdown breaks it.
 
+### New `src/js/season-rollover.test.js` — ⚠️ OWED, the fix shipped UNGUARDED
+
+`startNewYear` / `startNewSeason` in `passport/js/admin-page.js` were reordered
+on 2026-09-04 to **create the new วาระ/season before ending the old one**
+(previously they ended first, leaving a four-round-trip window with nothing open
+— see `docs/INVARIANTS.md`). Passport has no test runner, so that fix went in
+verified only by inspection and a throwaway script. **This is the standing test
+it still owes**, and it is cheap once passport is in-tree:
+
+- In each function, the first `.insert(` must appear **before** the
+  `ended_at: now` update. That is the property; assert the order, not a spelling.
+- Each closing update must carry `.neq('id', …)` excluding the row just created
+  — without it the function **ends the season it just made**, which is worse
+  than the bug being fixed.
+- The failure paths must not end anything: an insert error returns before any
+  `ended_at` write.
+
+⛔ Do not "simplify" these two functions back into end-then-create. It reads
+tidier and it is the bug.
+
 ### `_redirects` test
 
 No `/passport` rule remains; `/admin/*` still precedes `/*`.
