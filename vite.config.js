@@ -139,9 +139,50 @@ function notifyDevStub() {
   };
 }
 
+// ── /passport/ must reach the proxy, not the SPA fallback ──────────────────
+// Measured, because the proxy alone was not enough and the failure was subtle:
+// /passport/js/index.js proxied fine (200 text/javascript) while /passport/
+// returned the PORTAL's HTML. Vite's SPA history fallback claims directory-style
+// URLs — anything ending in "/" — and rewrites them to the root index.html
+// before the proxy ever sees them. Asset URLs have an extension, so they were
+// never claimed, which is why the two behaved differently and why "the proxy
+// works" was true and useless.
+//
+// So normalise the URL first. This plugin's middleware is registered in the
+// body of configureServer, which Vite installs BEFORE its own — including the
+// fallback. By the time anything else looks, /passport/ is /passport/index.html
+// and the proxy takes it.
+const passportDirIndex = {
+  name: 'samo-passport-dir-index',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      const [path, query] = (req.url || '').split('?');
+      const q = query ? `?${query}` : '';
+      if (/^\/passport(\/.*)?$/.test(path)) {
+        // ⛔ Never touch Vite's own machinery or dependencies: /passport/@vite/client,
+        // /passport/@fs/…, /passport/node_modules/… have no file extension either,
+        // and appending .html to them breaks HMR with no obvious cause.
+        const internal = path.includes('/@') || path.includes('/node_modules/');
+        const last = path.slice(path.lastIndexOf('/') + 1);
+        if (!internal) {
+          if (path === '/passport') req.url = `/passport/index.html${q}`;
+          else if (path.endsWith('/')) req.url = `${path}index.html${q}`;
+          // Extensionless deep link, e.g. /passport/html/dashboard. Production
+          // resolves these through nginx's `$uri.html` try_files — old printed QR
+          // codes depend on it — so dev has to do the same or the two disagree
+          // about a URL people actually hold.
+          else if (last && !last.includes('.')) req.url = `${path}.html${q}`;
+        }
+      }
+      next();
+    });
+  },
+};
+
 export default defineConfig({
   root: '.',
-  plugins: [notifyDevStub(), buildIdPlugin(), htmlPartials(), spaFallback()],
+  plugins: [passportDirIndex, notifyDevStub(), buildIdPlugin(), htmlPartials(), spaFallback()],
   build: {
     outDir: 'dist',
     // Multi-page build — public site at /, operator app at /admin/.
@@ -158,5 +199,31 @@ export default defineConfig({
   server: {
     port: 5174,
     open: true,
+
+    // ── /passport/ works in `npm run dev` too ────────────────────────────
+    // Passport and the portal became one project in September 2026, but the
+    // join originally happened only at BUILD time: `npm run dev` served the
+    // portal alone, and /passport/ answered 200 with the PORTAL'S OWN HTML —
+    // the wrong page wearing the right URL, with no error to notice. Anyone
+    // sent to fix something in Passport opened /passport/ and saw the portal.
+    //
+    // Passport runs its own Vite on 5173 (it needs its own root, plugins and
+    // html-includes), so this proxies to it rather than trying to serve two
+    // roots from one server. That works because Vite already rewrites
+    // passport's root-absolute asset paths with its base in DEV as well as in
+    // build: the dev HTML asks for /passport/css/main.css and
+    // /passport/js/index.js, never /css or /js. Everything it needs is under
+    // the one prefix, so one proxy rule is enough.
+    //
+    // `npm run dev` starts BOTH servers (tools/dev-all.mjs). If you start this
+    // one alone, /passport/ fails to connect — which is the honest answer, and
+    // better than the portal pretending to be Passport.
+    proxy: {
+      '/passport': {
+        target: 'http://localhost:5173',
+        changeOrigin: false,
+        ws: true,
+      },
+    },
   },
 });

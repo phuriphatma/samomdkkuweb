@@ -180,35 +180,26 @@ You should get this — the real site, running on your own machine:
 
 ![The portal running at localhost:5174](/start/local-running.png)
 
-::: danger SAMO Passport does NOT appear at `/passport/` while you are developing
-This one catches everybody, because it fails **silently**.
+::: tip Passport is at `/passport/`, on the same address
+`npm run dev` starts **both** apps and serves them under one address, the same
+way the real site does:
 
-`npm run dev` serves the main portal only. Open `http://localhost:5174/passport/`
-and you will get **200 OK and the main portal again** — not an error, not a 404,
-just the wrong page wearing the right URL. Nothing tells you anything is wrong.
+- `http://localhost:5174/` — the portal
+- `http://localhost:5174/passport/` — SAMO Passport
 
-Passport and the portal became one project in September 2026, so they ship
-together and share one sign-in on the real site. But that join happens **when
-the site is built**, not in the development server.
+![SAMO Passport running under the same dev address](/start/local-passport.png)
 
-To work on Passport, run it in a **second terminal**, leaving the first one going:
+You do not need a second command or a second port. Under the hood it runs two
+Vite servers and proxies `/passport` to the second one — passport needs its own
+build settings — but that is an implementation detail you can ignore.
 
-```bash
-npm run dev:passport
-```
+⚠️ **This changed on 2026-09-04.** Before that, `npm run dev` served the portal
+only and `/passport/` answered **200 with the portal's own page** — the wrong
+app wearing the right URL, with nothing to tell you. If you find a guide or a
+note anywhere saying Passport is unavailable in development, it is out of date.
 
-That prints its own address — open that one. It runs on a **different port**
-(5173 rather than 5174), so both can run at once:
-
-![SAMO Passport running at localhost:5173](/start/local-passport.png)
-
-To see them joined the way visitors do, build instead of serving:
-
-```bash
-npm run build && npm run preview
-```
-
-`/passport/` works there, because `npm run build` produces both.
+`npm run dev:web` still starts the portal alone, and `npm run dev:passport`
+starts Passport alone, if you ever want one without the other.
 :::
 
 ::: warning The port is 5174 — until it is not
