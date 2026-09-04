@@ -34,7 +34,22 @@
       correct change, which is a guard pinned to today's shape
 - [x] Phase 5 — `deploy.sh` builds from in-tree: one pull, one `npm ci`, one
       build; `--exclude=passport/` on the samo-web publish; nginx untouched
-- [ ] Phase 6 — production deploy + verification
+- [ ] Phase 6 — production deploy ← **BLOCKED ON ONE HUMAN CHECK (S1).**
+      Branch preview built and structurally verified 2026-09-04:
+      **https://3cf974f7.samomdkkuweb.pages.dev** (per-deployment hash; a new
+      push to the branch mints a new one — find the current one in the
+      Cloudflare Deployments tab or via the API).
+      Confirmed there: `/` → the portal · **`/passport/` → the real Passport,
+      SAME ORIGIN** · `/passport/html/dashboard` → the dashboard ·
+      `/passport/html/scan?aid&tk` → "Stamping Passport..." (the QR path works
+      on a preview for the first time) · `/admin/` → admin · the old splash is
+      gone (it answers with the portal via the SPA catch-all, identical to a
+      nonsense path — a control confirmed that) · the preview host is NOT
+      bounced by the guard. Production still on the two-repo build and healthy.
+      ⛔ **What is left is S1 and it needs a person**: sign in on `/`, click
+      through to `/passport/`, and confirm you are STILL SIGNED IN with no
+      second login. That is the deliverable; everything else is scaffolding for
+      it, and no automated check here can perform a Google sign-in.
 - [ ] Phase 7 — retire the old repo (owner)
 - [ ] Phase 8 — the QR redirect host (owner, and **read §3 first**)
 
