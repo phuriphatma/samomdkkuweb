@@ -152,6 +152,10 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'improved', area: 'portal', audience: 'all',
+    text: 'SAMO Passport กับเว็บหลักใช้การเข้าสู่ระบบร่วมกันแล้ว เข้าสู่ระบบที่เว็บหลัก '
+    + 'แล้วกดเข้า Passport ได้เลย ไม่ต้องล็อกอินซ้ำ และถ้าออกจากระบบที่ใดที่หนึ่ง '
+    + 'จะออกจากระบบทั้งสองที่พร้อมกัน', },
   { type: 'fixed', area: 'vs', audience: 'staff',
     text: 'VitalSound: ปุ่ม "แจ้งเตือนแบบ Silent (ไม่ดัง)" ในหน้าจัดการเรื่อง '
     + 'ใช้ได้จริงแล้ว ก่อนหน้านี้ติ๊กไว้แต่ Discord ยังเด้งเตือนเหมือนเดิม', },
