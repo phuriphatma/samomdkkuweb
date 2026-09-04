@@ -56,4 +56,15 @@ export const PREVIEW_HOST_SUFFIX = `${REPO_NAME}.pages.dev`;
  * guards the sibling's branch protection) and two hand-kept lists of one fact
  * is the shape this module exists to prevent.
  */
-export const SIBLING_REPOS = ['samomdkkupassport'];
+// ⛔ EMPTY SINCE 2026-09-04, deliberately — do not "restore" it.
+// samomdkkupassport was merged into this repo (git subtree, docs/PASSPORT-MONOREPO.md)
+// and then ARCHIVED. Every check that looped over it is now either meaningless
+// (branch protection on a read-only repo) or covered locally and better:
+// src/js/host-guard.test.js reads all SIX built entries from disk, in this repo,
+// instead of fetching four of them over the GitHub API.
+//
+// A guard whose SUBJECT has rotted is worse than no guard — it runs, it passes,
+// and it proves nothing about anything anyone can still change (house0116,
+// proj0092). If a genuine sibling repo ever exists again, add it here and the
+// loops below light up.
+export const SIBLING_REPOS = [];
