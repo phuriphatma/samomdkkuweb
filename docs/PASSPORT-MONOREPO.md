@@ -24,8 +24,29 @@
    `895c7fa` is inside `passport/` here; if something has landed since, bring it
    over with
    `git subtree pull --prefix=passport passport-origin main` BEFORE archiving.
-2. **Phase 8 — the QR redirect host. ⛔ REPLACE, NEVER DELETE.** Read §3 first;
-   82% of printed posters name that Cloudflare project.
+2. **Phase 8 — the QR redirect host. ✅ DECIDED 2026-09-04: LEAVE IT ALONE.**
+   ⛔ **Never delete it**, and — reversing the earlier recommendation in §3 —
+   **do not replace it with a redirect-only project either.**
+
+   Why the advice changed rather than "was wrong": the redirect-only swap was
+   proposed while re-printing was still on the table, i.e. while this host was
+   TEMPORARY. The owner then declined re-printing, which makes it permanent and
+   removes the fallback — there is no way to recover a broken poster. A change
+   whose upside is "one hop instead of two" is not worth that.
+
+   Measured before deciding: the retired host serves
+   `location.replace('https://samo.md.kku.ac.th/passport' + pathname + search +
+   hash)` — it preserves `aid`/`tk` and goes straight to the VM. **It works.**
+   The remaining upside was server-side 301 vs a JS redirect, plus fixing gen-1,
+   which has ZERO posters. Small upside, unrecoverable downside.
+
+   ⚠️ One thing left genuinely unresolved, recorded as unknown rather than
+   settled: I could not determine which Supabase project that 2026-08-09 build
+   has baked in. Six chunks were searched and no URL was found, which is
+   INCONCLUSIVE, not proof it reaches nothing. `npm run cf:pin-dev` repointed the
+   project's variables, but variables only apply to the NEXT build and no build
+   has run since. If that ever matters, the way to settle it is to open the host
+   in a browser and watch the network tab, not to grep chunks.
 
 **Anything else you want to know, ask the repo rather than this file:**
 
@@ -66,8 +87,12 @@ DO appear below are frozen historical anchors, not state.
       build; `--exclude=passport/` on the samo-web publish; nginx untouched
 - [x] Phase 6 — merged to `main` and deployed. S1 verified by the owner before
       the merge; the served artifact re-checked after it.
-- [ ] Phase 7 — retire the old repo (owner)
-- [ ] Phase 8 — the QR redirect host (owner, and **read §3 first**)
+- [x] Phase 7 — old repo **ARCHIVED** 2026-09-04, after verifying its `main` was
+      identical to what the subtree holds, so nothing was stranded. Archiving is
+      read-only and reversible, and it cannot affect QR codes — the Cloudflare
+      project serves its last BUILD, not the repo.
+- [x] Phase 8 — **decided: leave the QR redirect host exactly as it is.** Not
+      deleted, and not replaced either. Reasoning at the top of this file.
 
 ---
 
