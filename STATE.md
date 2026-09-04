@@ -40,11 +40,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `7394f1f` (2026-09-04)** — seven runs, all complete, roots
+- ✅ **DEPLOYED = `29df268` (2026-09-04)** — eight runs, all complete, roots
   agreeing. This one also carried the PASSPORT rollover fix
   (`samomdkkupassport` 895c7fa — `deploy.sh` pulls and rebuilds that repo),
   verified by a RUNTIME string in the served `/var/www/passport` bundle with an
-  older control present in both bundles. Previous: `375aa7d`, `5ada77a`.
+  older control present in both bundles. Previous: `7394f1f`, `375aa7d`.
   ⚠️ **All ran 4×–13× baseline and NONE was the docs
   fault** — `npm ci` is the whole anomaly, `docs:build` was 10–11 s every time.
   Exactly ONE of the two `npm ci` calls stalls ~5 min per run and **which one
