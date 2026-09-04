@@ -11,9 +11,10 @@ email (`MailApp`, quota-bound — ceilings and options in `docs/EMAIL.md`).
 
 Live URLs:
 - **Production: `https://samo.md.kku.ac.th` — the KKU VM, `main` branch.**
-- `samomdkkuweb.pages.dev` / `refactorsamomdkkuweb.pages.dev` / `samomdkkupassport.pages.dev` are **RETIRED**.
-  They still resolve and splash-redirect to the VM, so a check against them can
-  look healthy while the real host is stale. Never verify a deploy there.
+- `samomdkkuweb.pages.dev` / `samomdkkupassport.pages.dev` are **RETIRED** but
+  still RESOLVE and splash-redirect, so a check there looks healthy while the
+  real host is stale. Never verify a deploy on them. ⛔ Never DELETE the passport
+  one — 82% of printed QR posters point at it.
 
 **Pushing `main` does NOT deploy.** `server/deploy.sh` runs ON the VM and is
 triggered over ssh — `skills/deploy-vm.md`, needs VPN. Verify from the SERVED

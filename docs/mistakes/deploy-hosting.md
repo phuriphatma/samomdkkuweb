@@ -879,3 +879,42 @@ never see the sibling. When a rule exists in a repo with no test runner, the
 guard belongs in the repo that HAS one, asserted over the API. **Ask which other
 repository implements a rule you just fixed** — the sibling here had no tests,
 no CI and no guards at all, so nothing was ever going to tell anyone.
+
+---
+
+## "Delete this Cloudflare Pages project" is not one call — it is 952
+
+**Symptom.** `DELETE /pages/projects/<name>` returned
+`success: false`, code 8000076: *"Your project has too many deployments to be
+deleted."* The project had accumulated **952 deployments** over its life.
+
+**Cause.** Cloudflare will not delete a Pages project while deployments exist.
+Each must be deleted first, individually — there is no bulk endpoint. Two
+smaller traps sat inside that:
+
+- **`per_page=100` is rejected** with code 8000024, "Invalid list options". The
+  deployments endpoint caps lower; `per_page=25` works. A naive pager gets
+  `result: null` and, if it does `len(result)`, crashes — or worse, reads the
+  null as "no more pages" and reports **0 deployments to delete** on a project
+  holding 952. That near-miss is why this is written down: the count was wrong
+  in the safe direction only by luck.
+- **The active production deployment cannot be deleted individually** — it fails
+  with exactly that message even with `?force=true`. That is not an error to
+  chase: delete the other 951, and the PROJECT delete then succeeds and takes
+  the last one with it.
+
+**Fix.** Page with `per_page=25`, collect ids, `DELETE` each with `?force=true`
+at low concurrency (4 was ample; 952 took about three minutes and stayed well
+inside the 1200-per-5-minutes account limit), tolerate the one production
+failure, then delete the project.
+
+**Where it lives now.** Done once, 2026-09-04, for `refactorsamomdkkuweb`. No
+script was kept — deleting a Pages project is rare and a retained bulk-delete
+tool aimed at a project name is a loaded gun (`house0116`: a proof whose subject
+is a hardcoded name that rotted). The recipe above is enough to rebuild it.
+
+**The general rule.** *A destructive operation that looks like one API call can
+be a thousand, and the failure that tells you so arrives only when you try it.*
+Budget for it before promising the cleanup is quick — and when a paging loop
+returns `null`, treat that as UNKNOWN, never as zero. A sweep that finds nothing
+must prove it looked.

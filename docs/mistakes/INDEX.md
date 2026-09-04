@@ -272,7 +272,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - The dev database emailed a REAL staff member, because it is an exact copy of production
 - "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
-## `deploy-hosting.md` — Deploy, nginx & caching *(19)*
+## `deploy-hosting.md` — Deploy, nginx & caching *(20)*
 
 Open when: deploy.sh, nginx, cache headers.
 
@@ -295,6 +295,7 @@ Open when: deploy.sh, nginx, cache headers.
 - The guard said "nothing on pages.dev reaches production"
 - A deploy verified green, then the SERVED bundle did not contain the change
 - The preview would have bounced ITSELF to production
+- "Delete this Cloudflare Pages project" is not one call
 
 ## `tooling-proofs.md` — Proof scripts & verification discipline *(38)*
 
@@ -383,4 +384,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_321 entries across 10 files._
+_322 entries across 10 files._

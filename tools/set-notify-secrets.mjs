@@ -6,8 +6,18 @@
  *
  * This is the automation for the `/notify` Cloudflare Function setup (see
  * skills/cloudflare-notify-function.md). Run it once per project:
- *   - preview:  --project refactorsamomdkkuweb
- *   - prod:     --project samomdkkuweb
+ *   - --project samomdkkuweb   (the ONLY samoweb Pages project; it serves both
+ *                               the production and preview environments, and
+ *                               this script patches BOTH configs in one run)
+ *
+ * ⚠️ It used to say "preview: --project refactorsamomdkkuweb". That project was
+ * DELETED on 2026-09-04 — it had been retired since the move to the KKU VM, was
+ * still wired to the pre-org-transfer repo path, and had not built in days.
+ * Verified before deleting that it reached no database: the apex bounced to the
+ * moved splash and a per-deployment hash URL, which the anchored host guard
+ * deliberately does NOT bounce, contacted no Supabase host either. Naming a
+ * project that no longer exists is how a tool quietly stops working, so the
+ * reference is gone rather than left as a comment.
  *
  * Requires (in env or .env.local — .env.local is gitignored):
  *   CLOUDFLARE_API_TOKEN             — token with "Cloudflare Pages: Edit"
@@ -23,8 +33,8 @@
  *                                      the script prints a masked dry-run.
  *
  * Usage:
- *   node tools/set-notify-secrets.mjs --project refactorsamomdkkuweb           # dry run
- *   CONFIRM=1 node tools/set-notify-secrets.mjs --project refactorsamomdkkuweb # apply
+ *   node tools/set-notify-secrets.mjs --project samomdkkuweb           # dry run
+ *   CONFIRM=1 node tools/set-notify-secrets.mjs --project samomdkkuweb # apply
  *
  * ROTATE FIRST: the webhook URLs leaked in chat/repo history. Regenerate
  * them in Discord and put the FRESH URLs in .env.local before running.
@@ -80,7 +90,7 @@ function die(msg) {
 
 // ---------- validate ----------
 
-if (!project) die('Missing --project <name> (e.g. refactorsamomdkkuweb or samomdkkuweb)');
+if (!project) die('Missing --project <name> (the samoweb project is: samomdkkuweb)');
 
 const token = env('CLOUDFLARE_API_TOKEN');
 const accountId = env('CLOUDFLARE_ACCOUNT_ID');
