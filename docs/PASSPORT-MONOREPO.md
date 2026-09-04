@@ -180,6 +180,35 @@ classifying by `created_at` is an INFERENCE, not a measurement. It is the best
 available proxy and it is directionally right, but an old activity whose poster
 was re-downloaded from the VM is already gen 3 and is counted as gen 2 here.
 
+### ⚠️ A SEASON CHANGE RETIRES NOTHING — asked by the owner, checked in the live function
+
+**A QR code never expires.** Read from the live `passport.stamp_scan` body (not
+the migration): it checks signed-in, kkumail, account-not-moved, activity
+exists, and `static_token = p_token`. It then resolves whichever season is
+**currently open** and stamps the scan with it. **It never asks whether the
+activity belongs to that season.** `activities` has no end date and no closed
+flag; `token_expires_at` belongs to the removed dynamic-token flow and
+`stamp_scan` does not read it.
+
+Two consequences:
+
+1. **Waiting for Q3 does not solve the old-poster problem.** The retired host
+   stays needed until posters are physically replaced or deliberately cut off.
+   Do not plan around the season boundary fixing anything.
+2. **A leftover poster from a finished event will award km into the NEW season.**
+   `UNIQUE (user_id, activity_id)` means once per person per activity, so no
+   farming — but someone who never attended a Q2 event can scan a poster still
+   on a wall (or a photo of one) during Q3 and collect km that count toward the
+   new season's leaderboard. **This is a fairness question for the owner, not a
+   bug to quietly close** — and it exists today, independently of this merge.
+
+**The mechanism to retire a QR already exists and is one statement**: set that
+activity's `static_token` to null (or rotate it). `stamp_scan` then raises
+`INVALID_TOKEN`. It invalidates every poster for that activity, old and new,
+which is exactly what "retire" means. Worth considering as a season-rollover
+step for finished events. ⛔ Do not do this to the seven activities in the list
+below without asking — some are still in use.
+
 ### The shrink path — re-printing is SAFE, and much smaller than it looks
 
 `generateStaticQR()` does `let staticToken = act?.static_token; if (!staticToken)
