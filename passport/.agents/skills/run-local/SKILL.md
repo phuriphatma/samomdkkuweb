@@ -11,7 +11,8 @@ description: Run SAMO Passport locally with Vite and verify a change in the brow
 
 ## Start the dev server
 ```bash
-npm run dev   # http://localhost:5173
+npm run dev   # from the REPO ROOT: both apps, passport at http://localhost:5174/passport/
+              # (npm run dev:passport runs passport alone on :5173)
 ```
 Routes: `/` (login), `/html/dashboard.html`, `/html/admin.html`, `/html/scan.html`.
 Admin login is `admin` / `1234` (a localStorage flag — there is no real admin auth).

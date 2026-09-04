@@ -1,5 +1,27 @@
 # CLAUDE.md — SAMO Passport
 
+> # ⛔ THIS DIRECTORY IS PART OF samomdkkuweb SINCE 2026-09-04
+>
+> Passport is no longer its own repository, its own build, or its own deploy.
+> **The root `CLAUDE.md` governs.** This file covers what is specific to
+> `passport/` and nothing else; where the two disagree, the root wins.
+>
+> | Was | Is |
+> |---|---|
+> | its own repo | the `passport/` directory of samomdkkuweb (old repo ARCHIVED) |
+> | its own `package.json` | none — builds against the ROOT dependencies, Vite **6** |
+> | `npm run dev` → :5173 alone | **`npm run dev` from the ROOT serves BOTH apps at :5174**; `/passport/` is proxied. `npm run dev:passport` still runs it alone |
+> | Cloudflare Pages hosting | **the KKU VM.** ⛔ Pushing `main` DEPLOYS NOTHING — `server/deploy.sh` must be run on the VM (`skills/deploy-vm.md`, needs VPN) |
+> | preview per branch | `preview.samomdkkuweb.pages.dev`, built by the samoweb project |
+>
+> ⛔ **Never delete the `samomdkkupassport` Cloudflare project** — 82% of printed
+> QR posters name it. Full reasoning: `docs/PASSPORT-MONOREPO.md` §3.
+>
+> ⚠️ **A QR only scans while its quarter is open** (migration 0180). Read
+> `docs/INVARIANTS.md` before touching `stamp_scan`, seasons, or activities.
+>
+> Everything still owed anywhere: `docs/state/HANDOFF.md`.
+
 Guide for working in this repo (for Claude and humans). Keep it accurate: update it
 when structure, conventions, or workflows change.
 
@@ -16,10 +38,10 @@ Admins create activities, show QR codes, and manage certificate templates.
 ## Tech stack
 
 - **Vanilla JS (ES modules)** — no framework. DOM is manipulated directly.
-- **Vite 5** — dev server + multi-page build (`vite.config.js`).
+- **Vite 6** — shared with samoweb; this directory has no `package.json` of its own.
 - **Supabase** — Google OAuth + Postgres (tables queried with the anon key from the browser).
 - **QRCode.js** — loaded from a CDN in `html/admin.html` (global `QRCode`).
-- **Cloudflare Pages** — hosting; auto-deploys from git, one preview URL per branch.
+- **KKU VM (nginx)** — hosting. Cloudflare Pages builds PREVIEWS only.
 
 ## Project structure
 
@@ -52,8 +74,9 @@ vite-plugin-html-includes.js   In-repo Vite plugin: expands <include src="…"> 
 ## Run / build / deploy
 
 ```bash
-npm install
-npm run dev      # vite dev server at http://localhost:5173
+npm ci           # from the REPO ROOT, not here
+npm run dev      # BOTH apps: portal at :5174, passport at :5174/passport/
+npm run dev:passport   # passport alone, if you want it
 npm run build    # outputs to dist/ (gitignored)
 npm run preview  # serve the production build locally
 ```
@@ -61,8 +84,9 @@ npm run preview  # serve the production build locally
 - Requires a `.env` (copy `.env.example`) with `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY`. Vite only exposes vars prefixed `VITE_`.
 - **Local OAuth login needs the dev URL allow-listed in Supabase** — see `docs/mistakes/passport.md`.
-- Deploy: push to a branch → Cloudflare Pages builds (`npm run build`) and publishes.
-  `main` is production; other branches get a preview URL.
+- ⛔ **Deploy: pushing does NOTHING.** `server/deploy.sh` runs ON the KKU VM over
+  ssh (`skills/deploy-vm.md`, needs VPN) and builds both apps from this one repo.
+  `npm run deploy:owed` is the only authority on what production serves.
 
 ## Database (Supabase, queried with the anon key)
 
@@ -149,7 +173,7 @@ change, **not a tax on every commit** (internal-only refactors/typos can skip 1�
 
 ## Authority model
 
-- **Pre-authorized:** commit + push directly to `main` (Cloudflare auto-deploys); `npm run build`;
+- **Pre-authorized:** commit + push directly to `main` (this does NOT deploy); `npm run build`;
   read-only Supabase queries with the anon key; branch-and-push for previews.
 - **Ask first:** destructive DB ops beyond the current feature's scope (mass row deletes, dropping
   tables), prod GAS redeploys, force-push, anything irreversible and outward-facing.

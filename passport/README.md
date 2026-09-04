@@ -21,7 +21,7 @@ Students attend wellness activities, scan QR codes, and earn "km" points that ac
 | Frontend | Vanilla HTML / CSS / JavaScript (ES Modules) |
 | Build Tool | [Vite](https://vitejs.dev/) |
 | Backend / Auth | [Supabase](https://supabase.com/) (PostgreSQL + Auth + RLS) |
-| Hosting | [Cloudflare Pages](https://pages.cloudflare.com/) |
+| Hosting | **KKU VM (nginx)** at `samo.md.kku.ac.th/passport/`. Cloudflare Pages builds previews only |
 | QR Generation | [qrcodejs](https://github.com/davidshimjs/qrcodejs) |
 
 ## Project Structure

@@ -1,5 +1,15 @@
 # AGENTS.md — SAMO Passport
 
+> # ⛔ PART OF samomdkkuweb SINCE 2026-09-04 — the ROOT AGENTS.md/CLAUDE.md governs
+>
+> No longer its own repo, build or deploy. No `package.json` here (root deps,
+> **Vite 6**). `npm run dev` **from the root** serves BOTH apps at :5174 with
+> passport at `/passport/`. Hosting is the **KKU VM** — ⛔ **pushing `main`
+> deploys NOTHING**; `server/deploy.sh` runs on the VM (`skills/deploy-vm.md`).
+> ⛔ Never delete the `samomdkkupassport` Cloudflare project — 82% of printed QR
+> posters name it. A QR only scans while its quarter is open (0180).
+> Outstanding work: `docs/state/HANDOFF.md`.
+
 Guide for working in this repo (for Codex and humans). Keep it accurate: update it
 when structure, conventions, or workflows change.
 
@@ -16,10 +26,10 @@ Admins create activities, show QR codes, and manage certificate templates.
 ## Tech stack
 
 - **Vanilla JS (ES modules)** — no framework. DOM is manipulated directly.
-- **Vite 5** — dev server + multi-page build (`vite.config.js`).
+- **Vite 6** — shared with samoweb; no `package.json` in this directory.
 - **Supabase** — Google OAuth + Postgres (tables queried with the anon key from the browser).
 - **QRCode.js** — loaded from a CDN in `html/admin.html` (global `QRCode`).
-- **Cloudflare Pages** — hosting; auto-deploys from git, one preview URL per branch.
+- **KKU VM (nginx)** — hosting. Cloudflare Pages builds PREVIEWS only.
 
 ## Project structure
 
@@ -53,7 +63,7 @@ vite-plugin-html-includes.js   In-repo Vite plugin: expands <include src="…"> 
 
 ```bash
 npm install
-npm run dev      # vite dev server at http://localhost:5173
+npm run dev      # from the ROOT: both apps; passport at :5174/passport/
 npm run build    # outputs to dist/ (gitignored)
 npm run preview  # serve the production build locally
 ```
@@ -61,8 +71,8 @@ npm run preview  # serve the production build locally
 - Requires a `.env` (copy `.env.example`) with `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY`. Vite only exposes vars prefixed `VITE_`.
 - **Local OAuth login needs the dev URL allow-listed in Supabase** — see `docs/mistakes/passport.md`.
-- Deploy: push to a branch → Cloudflare Pages builds (`npm run build`) and publishes.
-  `main` is production; other branches get a preview URL.
+- ⛔ **Deploy: pushing does NOTHING.** `server/deploy.sh` runs on the KKU VM
+  (`skills/deploy-vm.md`, needs VPN). `npm run deploy:owed` is the authority.
 
 ## Database (Supabase, queried with the anon key)
 
@@ -149,7 +159,7 @@ change, **not a tax on every commit** (internal-only refactors/typos can skip 1�
 
 ## Authority model
 
-- **Pre-authorized:** commit + push directly to `main` (Cloudflare auto-deploys); `npm run build`;
+- **Pre-authorized:** commit + push directly to `main` (does NOT deploy); `npm run build`;
   read-only Supabase queries with the anon key; branch-and-push for previews.
 - **Ask first:** destructive DB ops beyond the current feature's scope (mass row deletes, dropping
   tables), prod GAS redeploys, force-push, anything irreversible and outward-facing.
