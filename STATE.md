@@ -150,12 +150,12 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    VM. **Read the log before forming any theory — every theory so far was
    formed without one.** Status, tally and how to read a log live in ONE place,
    the CURRENT DEPLOY block above; do not restate them here.
-3. ⏳ **PASSPORT ON THE DEV SERVER — steps 1, 3 and 4 remain; step 2 is done.** samo-dev
-   now EXPOSES the `passport` schema (it always held the data), so dev answers
-   exactly as production. Owner did Part A; **Part B — reconnect the
-   `samomdkkupassport` Pages project in the DASHBOARD — is not done.**
-   ✅ Step 2 is DONE — its variables now name samo-dev, not the frozen old DB.
-   **The remaining steps are in `docs/state/phuriphatma.md`.**
+3. ⏳ **PASSPORT DEV SERVER — SUPERSEDED 2026-09-04; owner chose the REPO MERGE.
+   Plan + progress boxes: `docs/PASSPORT-MONOREPO.md`. START THERE.** The
+   two-preview-URL steps in `docs/state/phuriphatma.md` are dead: a session is
+   per-ORIGIN, so two Pages projects = two logins whatever the dashboard says.
+   ⛔ **NEVER delete the `samomdkkupassport` Pages project** — 82% of activities
+   have PRINTED QR posters pointing at it; replace it with redirects (§3 there).
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
 1. ✅ **DONE 2026-08-31 — Google sign-in works on previews.** A dev-only OAuth

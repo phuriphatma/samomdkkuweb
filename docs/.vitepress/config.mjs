@@ -124,7 +124,11 @@ export const SIDEBAR = [
     files: [
       'TEAM-WORKFLOW.md', 'NEXT.md', 'PROJECT-ARCHITECTURE.md',
       'KKU-SSO.md', 'KKU-SSO-MANUAL.md', 'AUTH-MODEL.md',
-      'SUPABASE-MIGRATION.md', 'PASSPORT-MERGE.md',
+      // The two passport documents sit together on purpose: MERGE is the
+      // finished DATABASE cutover, MONOREPO is the planned REPOSITORY merge.
+      // Anyone who finds one is one click from learning the other exists,
+      // which is the only thing that stops them being confused for each other.
+      'SUPABASE-MIGRATION.md', 'PASSPORT-MERGE.md', 'PASSPORT-MONOREPO.md',
     ],
   },
   { text: 'Bug write-ups', dir: 'mistakes', collapsed: true },
