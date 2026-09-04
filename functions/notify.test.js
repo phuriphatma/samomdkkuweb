@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   htmlToText, buildPrPayload, buildVsPayload, buildVsConsultPayload,
   buildProjectPayload, buildClaudeMonitorPayload, parseVsWebhooks, resolveTarget,
-  postToDiscord, logNotifyOutcome,
+  postToDiscord, logNotifyOutcome, wantsSilence, SILENCE_KEYS,
 } from './_discord.js';
 import { onRequestPost } from './notify.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { stripComments } from '../src/js/strip-comments.js';
 
 const noSleep = () => Promise.resolve();
@@ -552,4 +552,98 @@ describe('silence is honoured by every action, not only the ones that remembered
       expect(payload && payload.flags, `${action} silenced a message nobody asked to silence`).toBeUndefined();
     });
   }
+});
+
+// ============================================================
+// …and it must honour the spelling the SENDERS actually use.
+//
+// The block above reads the ACTION list out of the source — the property, not
+// a list — but it hardcoded ONE spelling, `silentNotify`, taken from
+// wantsSilence's own definition. That is the list the code came from, so a
+// caller using a different key passed the guard invisibly: the VS staff modal
+// sends `isSilent`, wantsSilence knew only `silentNotify`/`vsSilentNotify`,
+// and "แจ้งเตือนแบบ Silent (ไม่ดัง)" pinged the ฝ่าย from 2026-08-28 until
+// 2026-09-04. Nothing was red.
+//
+// So derive the spellings from the FRONTEND senders instead. This is the
+// differential test for a rule with two homes in two build targets: the
+// checkbox is read in src/js, the flag is applied in functions/. Neither half
+// can see the other, and only this crosses.
+//
+// One direction only, deliberately: every key a sender passes must be honoured.
+// The reverse (a key in SILENCE_KEYS nobody sends) is NOT asserted — a spelling
+// stays accepted so an already-loaded browser tab running the old bundle keeps
+// working after a rename.
+// ============================================================
+describe('every silence spelling a frontend sender uses is honoured', () => {
+  const SRC = new URL('../src/js/', import.meta.url);
+
+  /** Every .js under src/js that is not a test. */
+  function walk(dir) {
+    const out = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const u = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+      if (e.isDirectory()) out.push(...walk(u));
+      else if (e.name.endsWith('.js') && !e.name.includes('.test.')) out.push(u);
+    }
+    return out;
+  }
+
+  /** Text of every `sendNotify(...)` argument list, by balanced parens. */
+  function sendNotifyCalls(src) {
+    const calls = [];
+    const re = /\bsendNotify\s*\(/g;
+    let m;
+    while ((m = re.exec(src))) {
+      let depth = 1;
+      let i = re.lastIndex;
+      for (; i < src.length && depth > 0; i += 1) {
+        if (src[i] === '(') depth += 1;
+        else if (src[i] === ')') depth -= 1;
+      }
+      calls.push(src.slice(re.lastIndex, i - 1));
+    }
+    return calls;
+  }
+
+  const sent = new Set();
+  for (const f of walk(SRC)) {
+    // Comments are stripped first: notify.js's own usage BLOCK names the
+    // actions in prose, and a doc comment describing a flag is not a sender.
+    for (const call of sendNotifyCalls(stripComments(readFileSync(f, 'utf8')))) {
+      // Object-literal keys, shorthand (`isSilent,`) or explicit (`isSilent:`).
+      for (const k of call.matchAll(/(?:^|[{,\s])(\w*[sS]ilent\w*)\s*[,:}]/g)) sent.add(k[1]);
+    }
+  }
+
+  it('found the senders (a zero-key sweep would pass every assertion below)', () => {
+    // Control: if the walk or the paren scan breaks, this is what says so
+    // rather than an empty loop reading as green.
+    expect([...sent].sort(), 'no silence flag found in any sendNotify call').toEqual(
+      ['isSilent', 'silentNotify', 'vsSilentNotify'],
+    );
+  });
+
+  const WEBHOOK = 'https://discord.com/api/webhooks/1/x';
+  const env = {
+    DISCORD_PR_WEBHOOK: WEBHOOK,
+    DISCORD_PROJECTS_WEBHOOK: WEBHOOK,
+    DISCORD_CLAUDE_WEBHOOK: WEBHOOK,
+    DISCORD_VS_WEBHOOKS: JSON.stringify({ SE: WEBHOOK }),
+  };
+
+  it('wantsSilence accepts every spelling the app sends', () => {
+    for (const key of sent) {
+      expect(SILENCE_KEYS, `nothing honours "${key}", which a sendNotify call passes`)
+        .toContain(key);
+      expect(wantsSilence({ [key]: true }), `wantsSilence dropped "${key}"`).toBe(true);
+    }
+  });
+
+  it('notifyVSConsult suppresses the ping for the staff modal\'s own flag', () => {
+    // The exact wire shape vs-staff.js sends. This is the case that was broken.
+    const { payload } = resolveTarget('notifyVSConsult',
+      { notifyTo: 'SE', ticketId: 'T', role: 'x', isSilent: true }, env);
+    expect(payload && payload.flags).toBe(4096);
+  });
 });

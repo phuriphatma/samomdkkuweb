@@ -46,14 +46,22 @@ const isTruthyFlag = (v) => v === true || v === 'true';
  * which action they used — reported by the owner as "on samodocument not
  * silent" after a test run interrupted people.
  *
- * Both spellings are accepted because both are already in the wire format the
- * app sends: the PR form sends `silentNotify`, the VS form `vsSilentNotify`.
+ * ALL THREE spellings are accepted because all three are already in the wire
+ * format the app sends: the PR form sends `silentNotify`, the public VS form
+ * `vsSilentNotify`, and the VS STAFF modal `isSilent` (vs-staff.js). The 08-28
+ * centralisation above collected the two spellings it could see from
+ * `wantsSilence`'s own callers and missed the third, which lives in the
+ * FRONTEND — so `notifyVSConsult` accepted "แจ้งเตือนแบบ Silent (ไม่ดัง)" from
+ * the staff modal and pinged the ฝ่าย anyway from 2026-08-28 until this fix.
+ * `silenceKeys()` below is exported so a test can assert the set against the
+ * senders instead of against this list (which is where the bug hid).
  * Discord's flag is SUPPRESS_NOTIFICATIONS (1 << 12) — the message still
  * appears, it just does not notify.
  */
 export const SUPPRESS_NOTIFICATIONS = 4096;
+export const SILENCE_KEYS = ['silentNotify', 'vsSilentNotify', 'isSilent'];
 export function wantsSilence(data = {}) {
-  return isTruthyFlag(data.silentNotify) || isTruthyFlag(data.vsSilentNotify);
+  return SILENCE_KEYS.some((k) => isTruthyFlag(data[k]));
 }
 
 // ---- payload builders (one per GAS action) ----
@@ -92,7 +100,10 @@ export function buildPrPayload(data = {}) {
 }
 
 export function buildVsPayload(data = {}) {
-  const silent = isTruthyFlag(data.vsSilentNotify);
+  // No silence handling here: resolveTarget() owns it (see wantsSilence). A
+  // dead `const silent = …` used to sit on this line and on buildVsConsultPayload's,
+  // left over from the per-builder era — and reading `data.isSilent` in the
+  // consult builder made that spelling look handled when nothing consumed it.
   const emergency = isTruthyFlag(data.isEmergency);
 
   let content = '🚨 **แจ้งปัญหาใหม่ระบบ Vital Sound**';
@@ -123,7 +134,6 @@ export function buildVsPayload(data = {}) {
 }
 
 export function buildVsConsultPayload(data = {}) {
-  const silent = isTruthyFlag(data.isSilent);
   const content = `💬 **${data.role}** มีการอัปเดตใน Ticket **${data.ticketId}**`;
   let desc = `**ฝ่ายที่ดูแล:** ${data.displayDept || '-'}\n**สถานะ:** ${data.displayStatus || '-'}\n\n`;
   desc += data.remark ? `**ข้อความ:**\n${data.remark}` : '*(ไม่มีข้อความแนบ)*';

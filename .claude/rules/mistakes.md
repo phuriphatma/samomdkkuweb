@@ -259,7 +259,12 @@ it is the part that generalises to code not yet written.
    **The ritual that catches all five: reintroduce the bug, watch it fail on the
    assertion you expect, restore.** Never write a guard from the SAME LIST the
    code came from — assert the PROPERTY that list was meant to produce, or a
-   wrong list passes itself. **Nor against today's SHAPE**: an assertion that
+   wrong list passes itself. A centralised flag is that list: `wantsSilence`
+   knew two spellings and its test asserted ONE of them, taken from the
+   function itself, while the only caller of `notifyVSConsult` sent a third
+   (`isSilent`) from the OTHER build target — the Silent toggle pinged the ฝ่าย
+   for 7 days, green. Assert against the SENDERS, and give the sweep a control
+   so an empty result is red (`integrations.md`). **Nor against today's SHAPE**: an assertion that
    COUNTED `visible:false` literals ("one per kind") went red when four seeds
    folded into one insert, while the property held — and the fastest way to
    green is to edit the number, which is how a guard stops meaning anything.
@@ -330,7 +335,7 @@ shaving the classes, which are the only part that generalises.
 - `postgres-schema.md` *(25)* — Migrations, DDL, triggers & constraints. Open when: writing a migration.
 - `frontend-ui.md` *(87)* — Bootstrap, CSS, DOM & the browser. Open when: markup, modals, layout, touch, icons.
 - `app-state.md` *(20)* — Routing, read-state, caches & serialization. Open when: URL state, per-user "seen", import/export.
-- `integrations.md` *(27)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
+- `integrations.md` *(28)* — Notifications, Apps Script & Google Drive. Open when: notify, GAS handlers, Drive URLs.
 - `deploy-hosting.md` *(17)* — Deploy, nginx & caching. Open when: deploy.sh, nginx, cache headers.
 - `tooling-proofs.md` *(37)* — Proof scripts & verification discipline. Open when: writing or trusting a `tools/*.mjs` proof.
 

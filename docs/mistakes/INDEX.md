@@ -239,7 +239,7 @@ Open when: URL state, per-user "seen", import/export.
 - "why does the week still say 61% used when nothing has measured it for four days"
 - A trailing slash matched no route and landed on the home tab, silently
 
-## `integrations.md` — Notifications, Apps Script & Google Drive *(27)*
+## `integrations.md` — Notifications, Apps Script & Google Drive *(28)*
 
 Open when: notify, GAS handlers, Drive URLs.
 
@@ -270,6 +270,7 @@ Open when: notify, GAS handlers, Drive URLs.
 - A preview deployment could post into the real ฝ่าย Discord channel
 - A test notification read as a real incident, because every builder hardcodes its own alarm
 - The dev database emailed a REAL staff member, because it is an exact copy of production
+- "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร"
 
 ## `deploy-hosting.md` — Deploy, nginx & caching *(17)*
 
@@ -335,4 +336,4 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - A guard that asserted the implementation, and went red on a refactor
 - The browser smoke covered the smaller entry, and nobody noticed for months
 
-_278 entries across 9 files._
+_279 entries across 9 files._

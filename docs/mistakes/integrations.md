@@ -1116,3 +1116,68 @@ restored row cannot re-arm it. **Then ask which other paths send**: the one you
 are looking at is rarely the only one, and a guard built from that path's own
 code will agree with it. Non-production output should also *say* so — an
 `[ENV]` subject prefix costs nothing and stops a test message being acted on.
+
+---
+
+## "ทำไมไม่เห็นข้อความใน Discord ของฝ่ายบริหารองค์กร" — และการตรวจสอบพบคนละบั๊ก
+
+**Symptom (as reported).** VitalSound ticket `VS-260721-2118-Z5Q` has a timeline
+entry `ส่งแจ้งเตือน/ปรึกษา ไปที่ Discord ฝ่าย: "อุปนายกฝ่ายบริหารองค์กร"` stamped
+27/08 21:36, but nothing appeared in that ฝ่าย's Discord channel. The owner's
+own theory: "we were fixing the notifying bug at the time, so it was down."
+
+**Cause — not an outage, a CHANGE OF ADDRESS.** `notify_log` id 274 says the
+send happened at `2026-08-27 14:36:52Z` (= 21:36 ICT), `notifyVSConsult`,
+`dept=อุปนายกฝ่ายบริหารองค์กร`, **`ok=true`, Discord HTTP 204**. It was
+delivered. It was delivered to the webhook the map held *at that instant* — and
+until `993a7de` (**2026-08-27 23:45**, nine hours later) VitalSound had **ONE
+webhook for all twelve ฝ่าย**. Every VS notification before that timestamp,
+whatever ฝ่าย it names, landed in the single shared VS channel. The twelve
+per-ฝ่าย `#vs-*` webhooks were provisioned at 23:45 and smoke-tested at 23:52
+(the twelve `notifyVSOnly` rows at `16:52Z` in `notify_log` are that smoke).
+So the message exists — one channel to the left of where it was looked for.
+
+Nothing was down: the "VitalSound is DOWN right now" line in `6f68e21` was
+itself retracted in `993a7de`'s body (a urllib User-Agent Discord 403s).
+
+**What the recheck actually found.** `buildVsConsultPayload` opened with
+`const silent = isTruthyFlag(data.isSilent);` — **assigned, never used.** The
+2026-08-28 centralisation (`2151d6a`) moved the flag to one home,
+`wantsSilence()`, which accepted `silentNotify` and `vsSilentNotify`… and the
+VS **staff** modal sends neither. `vs-staff.js:2305` sends `isSilent`, read from
+the `แจ้งเตือนแบบ Silent (ไม่ดัง)` checkbox. So from 2026-08-28 to 2026-09-04
+that toggle did nothing: the ฝ่าย got pinged every time, and the dead local made
+the spelling *look* handled to anyone reading the builder.
+
+**Why the guard did not catch it.** `notify.test.js` had exactly the right
+shape for the ACTIONS — it reads the `case` list out of the source, the property
+rather than a list — and then hardcoded ONE spelling, `silentNotify`, **taken
+from `wantsSilence`'s own definition**. A guard written from the list the code
+came from agrees with the code. The one caller that mattered was in a different
+build target (`src/js/`), which the function's tests never read.
+
+**Fix.** `SILENCE_KEYS = ['silentNotify','vsSilentNotify','isSilent']`, exported
+so a test can assert the set against the SENDERS; both dead `const silent` locals
+deleted. New `describe` in `functions/notify.test.js` walks every `.js` under
+`src/js/`, extracts each `sendNotify(...)` argument list by balanced parens,
+collects every property whose name matches `/ilent/`, and asserts each is
+honoured — with a control assertion that the sweep found all three, because a
+zero-key sweep would pass every loop below it. Verified by reintroducing the
+bug: red on `nothing honours "isSilent", which a sendNotify call passes`.
+
+Accepted spellings are only ever ADDED, never renamed: a browser tab already
+running the old bundle keeps sending the old key after a deploy.
+
+**Where it lives now.** `wantsSilence` / `SILENCE_KEYS` in
+`functions/_discord.js` · the sender sweep in `functions/notify.test.js` ·
+the sender itself at `src/js/vs-staff.js:2305`.
+
+**The general rule.** *A delivery receipt answers "did Discord accept it", never
+"which channel is that".* `ok=true, 204` against a dept NAME is not proof the
+name routed anywhere related to it — check what the map held **at the timestamp**,
+not what it holds now; a webhook map is deploy-time state and `git log` is its
+history. And: **a flag with ONE home still needs its home checked against every
+CALLER's spelling.** Centralising a rule collects the spellings visible from
+where you are standing; the caller in the other build target is the one that
+breaks, and a guard built from the central definition will never see it. Assert
+against the SENDERS, and give the sweep a control so an empty result is red.

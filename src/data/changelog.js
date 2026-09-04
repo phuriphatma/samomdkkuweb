@@ -152,6 +152,9 @@ export const AREAS = {
  * workflow: yes, even if it was one line.
  */
 export const PENDING = [
+  { type: 'fixed', area: 'vs', audience: 'staff',
+    text: 'VitalSound: ปุ่ม "แจ้งเตือนแบบ Silent (ไม่ดัง)" ในหน้าจัดการเรื่อง '
+    + 'ใช้ได้จริงแล้ว ก่อนหน้านี้ติ๊กไว้แต่ Discord ยังเด้งเตือนเหมือนเดิม', },
   { type: 'new', area: 'portal', audience: 'staff',
     text: 'หน้าฝ่าย: แต่ละฝ่ายแก้หน้าของตัวเองได้แล้ว เพิ่มการ์ด ลิงก์ คู่มือ '
     + 'หรือรูปปกได้เอง กดบันทึกแล้วกด "แสดง" ก็ขึ้นหน้าเว็บเลย ไม่ต้องรอไอทีแก้ให้ '
