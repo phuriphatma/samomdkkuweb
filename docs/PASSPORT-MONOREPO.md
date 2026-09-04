@@ -4,9 +4,20 @@
 > The database merge finished long ago (`docs/PASSPORT-MERGE.md`). This is the
 > separate, later job of merging the two **repositories**.
 >
-> **Status: PLANNED, nothing built.** Owner approved the direction on
-> 2026-09-04. No phase below has started. When you finish a phase, tick its box
-> and write the sha beside it — that is how the next session knows where it is.
+> # ⛔ THIS COPY IS STALE. THE WORK IS ON A BRANCH.
+> ```
+> git checkout merge/passport-monorepo
+> ```
+> **Phases 1–5 are BUILT and phase 4's tests pass (1753). S1 — sign in on `/`,
+> click through to `/passport/`, still signed in — was VERIFIED BY THE OWNER on
+> 2026-09-04.** `main` and production are deliberately untouched, which is why
+> this file on `main` still reads as a plan.
+>
+> **Read the version on that branch, not this one.** It carries a START HERE
+> block, the exact shas, the expected test count, and the phases that remain
+> (merge + deploy, then two owner-only items). Everything below here is the
+> original plan and is still accurate as REASONING — the QR section especially —
+> but its Progress list on this branch is out of date by construction.
 
 ## Progress
 
