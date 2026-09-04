@@ -1297,8 +1297,23 @@ sample the board hides that strip rather than showing a zero.
 |---|---|
 | Production | <https://samo.md.kku.ac.th> — nginx on the KKU VM, built from `main` |
 | Docs | <https://samo.md.kku.ac.th/docs> — **served from this VM**, built by `server/deploy.sh` with `DOCS_BASE=/docs/`. **A deploy is the only thing that updates it.** KKU issues no subdomain, so the path is the only official-looking address. **GitHub Pages publishes the same docs at the default base on every push** — the backup, so the VM is not a single point of failure, and the fresher of the two between deploys |
-| `samomdkkuweb.pages.dev` | ⚠️ RETIRED — resolves, splash-redirects to the VM |
-| `refactorsamomdkkuweb.pages.dev` | ⚠️ RETIRED — same |
+| `samomdkkuweb.pages.dev` | ⚠️ RETIRED **apex** — resolves, splash-redirects to the VM. **FROZEN since 2026-09-04**: production deployments are disabled on the Pages project, so pushing `main` no longer rebuilds it. A tombstone should not churn |
+| `preview.samomdkkuweb.pages.dev` | ✅ **LIVE and useful** — the stable preview of `main`, rebuilt on every push by the `preview` mirror branch. Points at **samo-dev**, never production |
+| `refactorsamomdkkuweb.pages.dev` | ❌ **DELETED 2026-09-04** (project and its 952 deployments). Does not resolve |
+
+⛔ **The `samomdkkuweb` PROJECT is alive; only its apex is retired.** Deleting it
+would remove every preview, including the stable one above — the apex being a
+dead URL makes the project look dead, and it is not. This is the single most
+likely wrong conclusion to draw from this table.
+
+⛔ **Do NOT move the preview onto the apex to "save a URL".** They do opposite
+jobs: the apex is a tombstone for an address that spent months as production and
+is still in bookmarks, chat history and autocomplete; the preview is a working
+app on the DEV database. Serve the preview there and anyone arriving from a
+stale link gets a site that looks real and writes nowhere. A ribbon saying
+PREVIEW is a label; the redirect is a mechanism, and this project has already
+had the ribbon fail to stop exactly that. `preview.` is the right home precisely
+because it has no legacy traffic.
 
 **A retired host is worse than a dead one**: it answers 200 with a page that
 looks like the app, so verifying a deploy there reports healthy while production
