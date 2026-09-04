@@ -10,6 +10,32 @@
 > prose here**, which is how this line came to say "nothing built" while five
 > boxes were ticked two inches below it.
 
+## ⛔ START HERE — the next session, in order
+
+1. **Read this file top to bottom.** It is the whole context; nothing important
+   about this work lives only in a chat transcript.
+2. `git checkout merge/passport-monorepo` — the work is THERE, not on `main`.
+   `main` and production are deliberately untouched.
+3. Run `npm test` (expect **1753 pass**) and `npm run build`. If either is red
+   before you change anything, stop and find out why — it was green at handoff.
+4. Do Phase 6 below. Nothing blocks it: **S1 has passed.**
+
+**State at handoff (2026-09-04):**
+
+| | |
+|---|---|
+| branch | `merge/passport-monorepo` @ `3d00291` — pushed, NOT merged |
+| `main` | `1d10d8e` — untouched by this work |
+| production serves | `7394f1f` (`npm run deploy:owed` is the authority, not this table) |
+| tests | 1753 pass, 96 files |
+| S1 (the deliverable) | ✅ verified by the owner on the branch preview |
+
+⚠️ **The `samomdkkupassport` repo still exists and still accepts pushes.** Its
+commits up to `895c7fa` are inside `passport/` here. Anything pushed there from
+now on is NOT in this repo and will be lost when Phase 7 archives it. If someone
+has pushed to it since `895c7fa`, bring those commits over with
+`git subtree pull --prefix=passport passport-origin main` BEFORE merging.
+
 ## Progress
 
 **Branch: `merge/passport-monorepo`. Not merged to `main`, not deployed.**
@@ -34,22 +60,11 @@
       correct change, which is a guard pinned to today's shape
 - [x] Phase 5 — `deploy.sh` builds from in-tree: one pull, one `npm ci`, one
       build; `--exclude=passport/` on the samo-web publish; nginx untouched
-- [ ] Phase 6 — production deploy ← **BLOCKED ON ONE HUMAN CHECK (S1).**
-      Branch preview built and structurally verified 2026-09-04:
-      **https://3cf974f7.samomdkkuweb.pages.dev** (per-deployment hash; a new
-      push to the branch mints a new one — find the current one in the
-      Cloudflare Deployments tab or via the API).
-      Confirmed there: `/` → the portal · **`/passport/` → the real Passport,
-      SAME ORIGIN** · `/passport/html/dashboard` → the dashboard ·
-      `/passport/html/scan?aid&tk` → "Stamping Passport..." (the QR path works
-      on a preview for the first time) · `/admin/` → admin · the old splash is
-      gone (it answers with the portal via the SPA catch-all, identical to a
-      nonsense path — a control confirmed that) · the preview host is NOT
-      bounced by the guard. Production still on the two-repo build and healthy.
-      ⛔ **What is left is S1 and it needs a person**: sign in on `/`, click
-      through to `/passport/`, and confirm you are STILL SIGNED IN with no
-      second login. That is the deliverable; everything else is scaffolding for
-      it, and no automated check here can perform a Google sign-in.
+- [ ] Phase 6 — merge to `main`, deploy, verify. ✅ **S1 PASSED — the owner
+      signed in on `/`, clicked through to `/passport/`, and was still signed
+      in. The deliverable works.** Everything below Phase 6 is now mechanical.
+      Preview it was verified on: `3cf974f7.samomdkkuweb.pages.dev` (the hash
+      changes on every push to the branch).
 - [ ] Phase 7 — retire the old repo (owner)
 - [ ] Phase 8 — the QR redirect host (owner, and **read §3 first**)
 
