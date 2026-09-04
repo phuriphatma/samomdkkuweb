@@ -442,3 +442,37 @@ obvious in one look at a picture.
 ⚠️ **This does NOT replace signing in (§4).** It renders markup; it cannot
 exercise a click handler, a permission gate, or anything that needs a session.
 Use it to check what a thing LOOKS like, and §4 to check what it DOES.
+
+---
+
+## ⚠️ A FIXED `sleep` IN A MULTI-PAGE LOOP REPORTS HEALTHY PAGES AS DEAD
+
+Measured 2026-09-04, verifying the passport merge on production. A driver walked
+five pages in one loop with `await sleep(5000)` after each `Page.navigate`, and
+reported `/admin/` as **0 nodes, `__samoBooted: false`, empty body** — the exact
+signature of the "dead and animated" failure this repo has a write-up for.
+
+`/admin/` was fine. Re-driven **alone**, it reached `booted=true` with 3,021
+nodes in under 3 s, showing the correct signed-out gate. Nothing was wrong with
+it at any point.
+
+**The cause is the instrument.** The pages share one browser and one event loop;
+by the fifth navigation the earlier pages' lazy imports were still settling, so
+a timer that was generous for page one was not generous for page five. The
+heaviest entry, measured last, looks broken.
+
+**Do this instead** — poll for a signal rather than sleeping for a duration:
+
+```js
+for (const t of [3000, 5000, 7000]) { await sleep(t); /* re-read and print */ }
+```
+
+Three readings cost seconds and distinguish "not ready yet" from "never coming".
+A single reading cannot. Better still, drive one page per browser when the
+verdict matters.
+
+**The general rule, and it is this repo's own**: *a warning that fires on the
+healthy case is worse than no warning.* I nearly reported a working admin page
+as a merge regression. Before believing a browser check's bad news, re-run that
+ONE page in isolation — the second run costs a minute and is the difference
+between a bug report and a false alarm.
