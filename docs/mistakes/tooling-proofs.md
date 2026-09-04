@@ -1732,3 +1732,47 @@ states you believe are harmless. **Whenever a guard's comment says a condition
 is "safe" or "neutral", find the code that makes it so and check it is the only
 code that can.** Here there were two readers of one variable and only one had
 been read.
+
+---
+
+## A proof that was written, run by hand, committed — and never ran in the suite
+
+**Symptom.** None, which is the point. `npm run proofs` printed **"all 30 proofs
+green"** immediately after a 31st proof was added, run against samo-dev AND
+production by hand, and committed. The number that is supposed to be the
+evidence was the thing concealing the gap: 30 was also the answer yesterday.
+
+**Cause.** `PROOFS` in `tools/run-proofs.mjs` is a hardcoded list. Adding the
+file is not adding the line, and nothing connected the two. Same class as the
+mistakes index found the same day — a guard whose SUBJECT is a hardcoded name
+(class 7) — landing this time on the tool whose whole job is telling you which
+guards still hold.
+
+**Fix.** The directory is the authority for what exists. An unlisted
+`tools/*.sql` and a listed-but-absent one both exit 1 naming the file.
+
+⚠️ **`.sql` ONLY, and the first version got this wrong.** `PROOFS` also holds
+`.mjs` proofs, while `tools/` is full of `.mjs` that are NOT proofs
+(`apply-migration`, `db-query`, …). Comparing every listed entry against the
+`.sql` listing declared all eight `.mjs` proofs missing. A directory can only be
+the authority for an extension where **every** file is a proof.
+
+**Then it failed for a second, unrelated reason.** Once it ran, the new proof
+reported `FAIL — 6 failed` while every row it emitted said `"verdict":"ok"`.
+`judge()` counts a case as passing only if the verdict **starts with `PASS`**.
+Before that it had emitted `RAISE NOTICE`, which the Management API does not
+return at all — `[]`, every case executed and none readable.
+
+So one proof failed three ways in a row while being correct: **invisible to the
+runner, unreadable by the runner, then misread by the runner.** The SQL was
+right every time.
+
+**Where it lives now.** `tools/run-proofs.mjs` (the directory check),
+`tools/passport0180-season-gate.sql` (rows, and `PASS`/`FAIL` verdicts).
+
+**The general rule.** *A new guard is not wired in until you have watched the
+runner report it.* Run the suite and find your proof's name in the output —
+"the suite is green" is not evidence when your proof may not be in the suite.
+And when a proof is green by hand and red under the runner on the same database,
+stop looking at the SQL: the difference is never the subject, it is the
+instrument.

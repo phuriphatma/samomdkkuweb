@@ -13,6 +13,14 @@
 -- six days did exactly that (tooling-proofs.md).
 begin;
 
+-- ⚠️ THE VERDICT MUST START WITH "PASS", AND ROWS NOT NOTICES.
+-- Two separate things run-proofs.mjs needs, and this file got both wrong first:
+--   * RAISE NOTICE returns nothing through the Management API — `[]`. Every case
+--     ran and none could be read.
+--   * Then the verdicts said 'ok', and judge() counts a case as passing only if
+--     the verdict STARTS WITH "PASS" — so six green cases were reported as
+--     "6 failed". Green by hand, red under the runner, same database. That
+--     difference is never the subject; it is the instrument.
 -- ⚠️ RESULTS ARE ROWS, NOT NOTICES. The first version of this file used
 -- RAISE NOTICE and the Management API returned `[]` — every case ran and
 -- nothing could be read. tooling-proofs.md: a proof is only as good as its
@@ -32,7 +40,7 @@ begin
   select id into v_uid from auth.users
    where lower(email) like '%@kkumail.com' order by created_at limit 1;
   if v_uid is null then
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('setup: no @kkumail.com user exists to scan as'));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('setup: no @kkumail.com user exists to scan as'));
     return;
   end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_uid)::text, true);
@@ -51,12 +59,12 @@ begin
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
     if v_scan.id is not null then
-      insert into proof_0180(verdict,detail) values ('ok', format('ALLOW  season OPEN  -> scan created (%s km)', v_scan.points_awarded));
+      insert into proof_0180(verdict,detail) values ('PASS', format('ALLOW  season OPEN  -> scan created (%s km)', v_scan.points_awarded));
     else
-      insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('ALLOW season OPEN -> no scan returned'));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('ALLOW season OPEN -> no scan returned'));
     end if;
   exception when others then
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('ALLOW season OPEN -> refused with %s', sqlerrm));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('ALLOW season OPEN -> refused with %s', sqlerrm));
   end;
 
   -- undo the scan so the DENY half is not blocked by ALREADY_STAMPED
@@ -68,22 +76,22 @@ begin
    where user_id = v_uid and activity_id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('DENY season CLOSED -> the scan was ACCEPTED'));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season CLOSED -> the scan was ACCEPTED'));
   exception when others then
     v_err := sqlerrm;
     if v_err = 'SEASON_CLOSED' then
-      insert into proof_0180(verdict,detail) values ('ok', format('DENY   season CLOSED -> SEASON_CLOSED'));
+      insert into proof_0180(verdict,detail) values ('PASS', format('DENY   season CLOSED -> SEASON_CLOSED'));
     else
-      insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('DENY season CLOSED -> wrong error: %s', v_err));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season CLOSED -> wrong error: %s', v_err));
     end if;
   end;
 
   -- a refusal must also not have written anything
   if (select count(*) from passport.scans
        where user_id = v_uid and activity_id = v_act) = v_scans_before then
-    insert into proof_0180(verdict,detail) values ('ok', format('DENY   refused AND wrote no scan row'));
+    insert into proof_0180(verdict,detail) values ('PASS', format('DENY   refused AND wrote no scan row'));
   else
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('DENY refused but a scan row appeared'));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY refused but a scan row appeared'));
   end if;
 
   ---------------------------------------------------------------- DENY (null)
@@ -94,12 +102,12 @@ begin
   update passport.activities set season_id = null where id = v_act;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('DENY season NULL -> the scan was ACCEPTED (fails OPEN)'));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season NULL -> the scan was ACCEPTED (fails OPEN)'));
   exception when others then
     if sqlerrm = 'SEASON_CLOSED' then
-      insert into proof_0180(verdict,detail) values ('ok', format('DENY   season NULL   -> SEASON_CLOSED (fails closed)'));
+      insert into proof_0180(verdict,detail) values ('PASS', format('DENY   season NULL   -> SEASON_CLOSED (fails closed)'));
     else
-      insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('DENY season NULL -> wrong error: %s', sqlerrm));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('DENY season NULL -> wrong error: %s', sqlerrm));
     end if;
   end;
 
@@ -110,9 +118,9 @@ begin
   update passport.samo_seasons set ended_at = null where id = v_season;
   begin
     v_scan := passport.stamp_scan(v_act, 'proof-0180-token');
-    insert into proof_0180(verdict,detail) values ('ok', format('CONTROL re-opened     -> scan created again'));
+    insert into proof_0180(verdict,detail) values ('PASS', format('CONTROL re-opened     -> scan created again'));
   exception when others then
-    insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('CONTROL re-opened -> refused with %s', sqlerrm));
+    insert into proof_0180(verdict,detail) values ('FAIL', format('CONTROL re-opened -> refused with %s', sqlerrm));
   end;
 
   ---------------------------------------------------------------- trigger
@@ -123,9 +131,9 @@ begin
          values ('PROOF 0180 trigger', 1, 'proof-0180-trigger')
       returning id, season_id into v_auto, v_auto_season;
     if v_auto_season is not null then
-      insert into proof_0180(verdict,detail) values ('ok', format('TRIGGER new activity  -> season filled automatically'));
+      insert into proof_0180(verdict,detail) values ('PASS', format('TRIGGER new activity  -> season filled automatically'));
     else
-      insert into proof_0180(verdict,detail) values ('*** FAIL ***', format('TRIGGER new activity -> season_id left NULL'));
+      insert into proof_0180(verdict,detail) values ('FAIL', format('TRIGGER new activity -> season_id left NULL'));
     end if;
   end;
 end $$;

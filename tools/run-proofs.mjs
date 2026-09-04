@@ -29,6 +29,7 @@
 //   node tools/run-proofs.mjs team       # only proofs whose name matches
 // ============================================================
 import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { loadEnv, resolveTarget } from './env-lib.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -54,6 +55,7 @@ const PROOFS = [
   ['claude0162-usage-runs.sql', 'ใช้จริง says WHEN Claude was used, from the window\'s own opening instant'],
   ['claude0167-monitoring-switch.sql', 'a "right now" measurement expires, and an admin can switch it off'],
   ['proj0165-succession-and-prefs.sql', 'the seat reaches what the retired role account reached; ปีงบ + prefs boundaries'],
+  ['passport0180-season-gate.sql', "a QR scans while its quarter is open, and not after"],
   ['passport0174-total-km-symmetry.sql', 'a passport total moves DOWN as well as up'],
   ['passport-link-on-signup.sql', 'a carried student keeps their km, and a re-key that gives up is VISIBLE'],
   ['proj0176-master-desk.sql', 'a master works the ผู้ส่ง desk, and the professor guard still guards'],
@@ -75,6 +77,42 @@ const PROOFS = [
   // nothing about what an existing deployment will do.
   ['notify-exposure.mjs', 'only the VM can reach a real notification channel'],
 ];
+
+// ⛔ PROOFS IS A HARDCODED LIST, AND A HARDCODED LIST ROTS SILENTLY.
+//
+// Found 2026-09-04: passport0180-season-gate.sql was written, run by hand
+// against dev AND production, committed — and never ran here, because adding
+// the file is not the same as adding the line. `npm run proofs` reported "all
+// 30 proofs green" exactly as before, so the number that is supposed to be the
+// evidence was the thing hiding it. This is the same shape as the mistakes
+// index found the same day (its TOPICS list ignored a new file), and it is
+// class 7: a guard whose SUBJECT is a hardcoded name.
+//
+// The directory is the authority for what exists. Every tools/*.sql is a proof;
+// there is no other kind of .sql in there. So an unlisted one is an error, and
+// a listed-but-missing one is a rename nobody finished.
+{
+  const onDisk = readdirSync(HERE)
+    .filter((f) => f.endsWith('.sql')).sort();
+  // ⚠️ .sql ONLY, in both directions. PROOFS also holds .mjs proofs, and tools/
+  // is full of .mjs that are NOT proofs (apply-migration, db-query, …) — so the
+  // directory can only be the authority for the one extension where every file
+  // is a proof. The first version of this guard compared every listed entry
+  // against the .sql listing and declared all eight .mjs proofs missing.
+  const listed = new Set(PROOFS.map(([f]) => f).filter((f) => f.endsWith('.sql')));
+  const unlisted = onDisk.filter((f) => !listed.has(f));
+  const missing = [...listed].filter((f) => !onDisk.includes(f));
+  if (unlisted.length || missing.length) {
+    if (unlisted.length) {
+      console.error(`✗ tools/ holds ${unlisted.join(', ')} with no entry in PROOFS.`);
+      console.error('  A proof nobody runs is not a proof. Add the line above.');
+    }
+    if (missing.length) {
+      console.error(`✗ PROOFS names ${missing.join(', ')}, which is not on disk.`);
+    }
+    process.exit(1);
+  }
+}
 
 /**
  * The two proofs above that ask GitHub and Cloudflare, not a database.

@@ -1607,8 +1607,19 @@ window.cleanAllData = async () => {
     try {
         // Dependents first (FKs to activities were dropped in 0006; samo_seasons +
         // season_results cascade from their parents, but delete explicitly to be safe).
+        //
+        // ⚠️ ORDER IS LOAD-BEARING, and migration 0180 changed what it must be.
+        // `activities.season_id` now references samo_seasons with NO ACTION, so
+        // deleting samo_seasons while any activity still points at it raises a
+        // foreign key violation — and it did so HALFWAY, after scans,
+        // certificates and season_results were already gone, leaving the data
+        // half-wiped. `activities` therefore has to be deleted BEFORE
+        // samo_seasons, not after it.
+        //
+        // Reproduced against production inside a rolled-back transaction before
+        // this line was changed; the fix was proved the same way.
         const stuck = [];
-        for (const t of ['scans', 'certificates', 'season_results', 'samo_seasons', 'samo_years', 'seasons', 'activities']) {
+        for (const t of ['scans', 'certificates', 'season_results', 'activities', 'samo_seasons', 'samo_years', 'seasons']) {
             const { data, error } = await wipe(t);
             // A missing table/column is fine (migration not run yet); anything else is real.
             if (error && !/does not exist|schema cache/i.test(error.message || '')) {
