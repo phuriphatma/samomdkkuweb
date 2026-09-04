@@ -1,0 +1,7 @@
+/* css/main.css — index: imports the modular partials (Vite inlines @import at build). */
+
+@import "./main/_base.css";  /* file header + base/landing setup */
+@import "./main/_themes.css";  /* theme variables */
+@import "./main/_reset.css";  /* reset */
+@import "./main/_landing.css";  /* landing page + boarding pass + theme picker */
+@import "./main/_utilities.css";  /* shared utilities (admin / scan) */

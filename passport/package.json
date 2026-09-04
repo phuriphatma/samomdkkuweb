@@ -1,0 +1,20 @@
+{
+  "name": "samo-passport",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy:gas": "node tools/deploy-gas.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.60.0",
+    "vite": "^5.0.0",
+    "@google/clasp": "^3.3.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4"
+  }
+}
