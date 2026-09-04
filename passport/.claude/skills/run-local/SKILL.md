@@ -19,7 +19,7 @@ Admin login is `admin` / `1234` (a localStorage flag — there is no real admin 
 ## Login won't work locally until Supabase allow-lists the dev URL
 Google OAuth will bounce you to the **production** site (`…pages.dev/#`) unless
 `http://localhost:5173/**` is in Supabase → Authentication → URL Configuration →
-**Redirect URLs**. This is a dashboard setting, not a code change. (See MISTAKES.md.)
+**Redirect URLs**. This is a dashboard setting, not a code change. (See docs/mistakes/passport.md.)
 
 ## Verify a change
 - Always run `npm run build` after edits — it's the de-facto test (catches import/syntax errors).

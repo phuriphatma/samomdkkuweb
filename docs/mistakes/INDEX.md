@@ -339,4 +339,48 @@ Open when: writing or trusting a `tools/*.mjs` proof.
 - The browser smoke covered the smaller entry, and nobody noticed for months
 - "Unset is SAFE" — a guard that would have called a preview pointed at production a PASS
 
-_282 entries across 9 files._
+## `passport.md` — The Passport app's own write-ups *(39)*
+
+Open when: anything under `passport/` — scan, stamps, certificates, the dashboard.
+
+- Wrapping Thai correctly (no spaces → break at word boundaries, not mid-syllable)
+- Canvas postage-stamp: perforations bulge OUT instead of notching IN
+- OAuth redirects to production instead of localhost in dev
+- OAuth on a LAN IP (iPad testing) bounced to production even with the IP allow-listed
+- sendBeacon does NOT follow redirects
+- Passport pages shift up/down when changing pages (desktop)
+- Google Drive images taint the canvas (certificate/QR export fails)
+- Certificate features look broken until the table exists
+- User memories/photos "disappear"
+- Negative or non-numeric km
+- Permissive RLS / hardcoded admin
+- iPad: modal clips / page "locks up" when the keyboard opens
+- iPad: blue background shows under the book on overscroll
+- Flight Log / Leaderboard list overlaps the barcode footer
+- Info page: only the flight log scrolls (don't make the whole page scroll)
+- Admin uploads are deleted if the activity/cert isn't saved
+- Scans are immutable snapshots — don't rewrite/delete past history
+- Certificates are NOT season-scoped (reverted 2026-06-07)
+- "Delete all data" / bulk delete: filter type + RLS DELETE policy
+- Enabling RLS without ALL the policies locks a table (db/0007 → 0008 + 0009)
+- "Current" SamoYear/Season = the open row (ended_at IS NULL)
+- Vite is multi-page
+- Dashboard inline onclick handlers must live on `window` (ES-module trap)
+- Sidebar / bottom-nav buttons dead on a slow or cold load (esp. iPad)
+- HTML partials & CSS @import indexes (modular build)
+- Mobile dashboard: bottom nav hidden by iOS toolbar / top bar not at the edge
+- Dashboard CSS silently overridden by main.css globals (specificity / inheritance)
+- "Equal-height columns" / inflated gap from a row-spanning grid item
+- Per-tab edge spacing differs on mobile (centred flex body shrink-to-fits .app-body)
+- Bottom nav covered by Safari's bottom toolbar (min-height beats svh height)
+- drop-shadow on a masked element gets clipped away (stamp tiles)
+- se-* colour classes are shared by stamps AND flight-log icons
+- Passport `button` reset silently strips single-class button styles (specificity)
+- Certificate name "misaligned" on some devices but not others
+- Letting a user delete their OWN scan is allowed (mis-scan recovery)
+- QR poster is now a template image with hard-coded slot coordinates
+- A root-absolute `public/` asset path (`'/foo.png'`) 404s on the `/passport/` VM subpath
+- Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
+- A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
+
+_321 entries across 10 files._

@@ -104,13 +104,13 @@ export function loadCertImage(url) {
 // for the exact glyphs to download BEFORE drawing. Otherwise the canvas silently
 // paints a *system fallback* whose metrics differ — so the name lands off-position
 // / wrong-size on devices that happen to lack the font locally (the "works for some
-// friends, not others" misalignment). See MISTAKES.md.
+// friends, not others" misalignment). See docs/mistakes/passport.md.
 const _fontCssInjected = new Set();
 // Resolves true once the stylesheet has actually loaded (so its @font-face rules are
 // registered), false on error / a slow-link safety timeout. Crucially we DON'T resolve
 // on a short blind timeout and then draw — doing so painted a system fallback whenever
 // the CSS lost the race (Thai fonts/stylesheets are larger ⇒ slower ⇒ lost it most),
-// and the fallback's metrics shifted the name off-centre. See MISTAKES.md.
+// and the fallback's metrics shifted the name off-centre. See docs/mistakes/passport.md.
 function injectFontStylesheet(family) {
     return new Promise((resolve) => {
         if (!family) { resolve(false); return; }

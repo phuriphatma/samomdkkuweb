@@ -45,7 +45,7 @@ rather than updated. Plan and progress: samomdkkuweb `docs/PASSPORT-MONOREPO.md`
   Stamps, Flight Log, Leaderboard — each with a `.page-head` (title + subtitle). `switchTab`
   is defined in the **parse-time inline `<script>`** (not the deferred module) so the nav
   works before `dashboard.js` loads; the module exposes only the data-render dispatch
-  (`window.__dashRenderTab`). See MISTAKES.md.
+  (`window.__dashRenderTab`). See docs/mistakes/passport.md.
 - **Stamps tab** — a flat `.stamps-grid` of cards (earned = badge image; locked = greyed) with
   a stats strip + search + department filter chips; tapping a stamp opens its memory modal.
 - **Flight Log tab** — a **2×2 grid** (`css/passport/_responsive.css`): teal stat banner +
@@ -95,7 +95,7 @@ rather than updated. Plan and progress: samomdkkuweb `docs/PASSPORT-MONOREPO.md`
 - **Memory modal** — per-activity note + photos, stored in `localStorage` (per device).
   Also offers **"Remove from passport"** for an earned activity: a student who scanned the
   wrong QR can delete their **own** scan (`removeOwnScan`, scoped by `id`+`user_id`, then a
-  reload). See MISTAKES.md ("delete your own scan").
+  reload). See docs/mistakes/passport.md ("delete your own scan").
 - **Profile photo** — `localStorage`, per device.
 - **Data backup** — Export/Import all on-device user content as a JSON file.
 - **Admin** — create/edit/delete activities; department + sub-department filters;
@@ -116,7 +116,7 @@ rather than updated. Plan and progress: samomdkkuweb `docs/PASSPORT-MONOREPO.md`
   stitched by the in-repo `vite-plugin-html-includes.js` (`<include src="…">`). CSS
   `css/{main,passport,admin}.css` became `@import` indexes over `css/<name>/_*.css` partials.
   Verified byte-identical bundles (brace counts + unchanged dist hashes). Edit partials, not the
-  index/bundle — see CLAUDE.md + MISTAKES.md. (admin.html itself not yet split into partials.)
+  index/bundle — see CLAUDE.md + docs/mistakes/passport.md. (admin.html itself not yet split into partials.)
 - User: change name (`profiles.full_name`), search stamps, leaderboard, history.
 - Admin: leaderboard (total + per dept/sub-dept, + per season), season management,
   drag-drop image upload to the SAMO Drive (via GAS), certificate font + drag-to-place.

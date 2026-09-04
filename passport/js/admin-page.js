@@ -1602,7 +1602,7 @@ window.cleanAllData = async () => {
 
     // `id IS NOT NULL` matches every row and works for ANY primary-key type.
     // (The old `.neq('id', <uuid>)` threw "invalid input syntax for type integer"
-    // on scans — whose id is a bigint — aborting the whole wipe. See MISTAKES.md.)
+    // on scans — whose id is a bigint — aborting the whole wipe. See docs/mistakes/passport.md.)
     const wipe = (table) => adminDb.from(table).delete().not('id', 'is', null).select('id');
     try {
         // Dependents first (FKs to activities were dropped in 0006; samo_seasons +

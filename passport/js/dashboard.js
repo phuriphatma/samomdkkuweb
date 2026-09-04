@@ -329,7 +329,7 @@ function openMemoryModal(activity, scan) {
 // scan (id + user_id scoped); RLS already permits this. We reload afterwards so every
 // view (km, stamps, flight log, leaderboard, boarding pass) reflects it without
 // partial-cache bookkeeping. Scans stay immutable to *edits*; a user pruning their own
-// mis-scan is a deliberate exception (see MISTAKES.md).
+// mis-scan is a deliberate exception (see docs/mistakes/passport.md).
 async function removeOwnScan() {
     const scan = currentModalScan;
     const activity = currentModalActivity;

@@ -1,7 +1,22 @@
-# MISTAKES.md — pitfalls & gotchas
+# Passport — the app's own write-ups
 
-A running log of non-obvious traps in this codebase. Add to it when something bites
-you. Each entry: the symptom, the cause, and the fix.
+The 39 entries below arrived with the passport repo when it merged into this one
+on 2026-09-04. Until then they lived at `passport/MISTAKES.md`, which meant
+`grep -rin "<symptom>" docs/mistakes/` — the fastest way to find a bug this
+project has already paid for, and the one CLAUDE.md tells you to run — **could
+not see any of them.** The merge handed passport the test suite; this is the
+other half.
+
+⚠️ **This file is organised by APP, not by AREA like its nine siblings.** That
+is a compromise, not a design: the entries came as a unit and redistributing 39
+of them by hand would have risked mangling write-ups nobody can reconstruct.
+Several plainly belong elsewhere — the OAuth redirect ones in
+`supabase-client.md`, the canvas and Thai-wrapping ones in `frontend-ui.md`. If
+you are touching one of those anyway, move it and let this file shrink.
+
+Each entry: the symptom, the cause, and the fix. Add to it when something bites
+you — and lead with the symptom AS REPORTED, because that is what the next
+reader greps for.
 
 ---
 

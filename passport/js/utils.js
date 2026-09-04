@@ -22,7 +22,7 @@ export function generateUUID() {
  * normalising them all to `lh3.googleusercontent.com/d/FILE_ID`, which serves the
  * right CORS headers (needed so a badge/cert drawn onto a <canvas> can be exported).
  * A pasted `?id=` link left un-normalised loads fine as an <img> but is CORS-blocked
- * under `crossOrigin='anonymous'`, so the canvas silently drops it. See MISTAKES.md.
+ * under `crossOrigin='anonymous'`, so the canvas silently drops it. See docs/mistakes/passport.md.
  * Returns the original URL unchanged if it's not a recognised Google Drive link.
  */
 export function fixGoogleDriveUrl(url) {

@@ -4,7 +4,7 @@ Guide for working in this repo (for Claude and humans). Keep it accurate: update
 when structure, conventions, or workflows change.
 
 > Companion docs: [STATE.md](STATE.md) (what's done / pending / config) and
-> [MISTAKES.md](MISTAKES.md) (pitfalls — **read before touching auth, the passport
+> [docs/mistakes/passport.md](../docs/mistakes/passport.md) (pitfalls — **read before touching auth, the passport
 > layout, storage, or RLS**).
 
 ## What this is
@@ -60,7 +60,7 @@ npm run preview  # serve the production build locally
 
 - Requires a `.env` (copy `.env.example`) with `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY`. Vite only exposes vars prefixed `VITE_`.
-- **Local OAuth login needs the dev URL allow-listed in Supabase** — see MISTAKES.md.
+- **Local OAuth login needs the dev URL allow-listed in Supabase** — see `docs/mistakes/passport.md`.
 - Deploy: push to a branch → Cloudflare Pages builds (`npm run build`) and publishes.
   `main` is production; other branches get a preview URL.
 
@@ -128,7 +128,7 @@ change, **not a tax on every commit** (internal-only refactors/typos can skip 1�
 1. **`STATE.md`** — update if real state changed (what's working / pending, required config, latest
    migration, in-flight work, blockers). Don't append a session narrative — `git log` is the archive.
    Keep it tight (~150 lines); prune stale sections if it bloats.
-2. **`MISTAKES.md`** — if a new bug class or non-obvious trap was discovered, append it
+2. **`docs/mistakes/passport.md`** — if a new bug class or non-obvious trap was discovered, append it
    (**symptom → cause → fix → where it lives now**). This is what saves cold-start agents from
    re-walking bugs we already paid for.
 3. **`CLAUDE.md`** (this file) — if structure, conventions, the DB schema, or a workflow changed,
@@ -139,12 +139,12 @@ change, **not a tax on every commit** (internal-only refactors/typos can skip 1�
    Don't duplicate what the repo already records (code, git history, this file).
 5. **Skills** — if a repeatable multi-step workflow appeared, capture it (global skill or a `skills/`
    note) so it isn't re-derived next time.
-6. **Say what you updated** in the user-facing response (e.g. "Updated STATE.md + MISTAKES.md +
+6. **Say what you updated** in the user-facing response (e.g. "Updated STATE.md + docs/mistakes/passport.md +
    memory."). If nothing needed updating, no need to mention it.
 
 > Philosophy (inherited from samomdkkuweb, which since the 2026-09-04 merge is
 > the repo this directory lives IN, not a sibling): keep this file a **slim router**
-> — most detail is read on demand (`STATE.md`, `MISTAKES.md`, the `db/` migrations, the persistent
+> — most detail is read on demand (`STATE.md`, `docs/mistakes/passport.md`, the `db/` migrations, the persistent
 > memory). The loop keeps those honest without bloating context.
 
 ## Authority model

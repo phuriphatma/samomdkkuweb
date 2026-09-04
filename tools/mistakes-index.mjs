@@ -53,7 +53,39 @@ export const TOPICS = [
   ['integrations.md', 'Notifications, Apps Script & Google Drive', 'notify, GAS handlers, Drive URLs'],
   ['deploy-hosting.md', 'Deploy, nginx & caching', 'deploy.sh, nginx, cache headers'],
   ['tooling-proofs.md', 'Proof scripts & verification discipline', 'writing or trusting a `tools/*.mjs` proof'],
+  ['passport.md', "The Passport app's own write-ups", 'anything under `passport/` — scan, stamps, certificates, the dashboard'],
 ];
+
+// ⛔ TOPICS IS A HARDCODED LIST, AND A HARDCODED LIST ROTS SILENTLY.
+//
+// Until 2026-09-04 a .md file dropped into docs/mistakes/ was simply not
+// indexed: `mistakes:index` reported "9 files" and exited 0, so the write-ups in
+// it were invisible to both INDEX.md and the directory in .claude/rules — which
+// is to say invisible to every future session, while looking fine. That is this
+// repo's own class 7 ("its SUBJECT is a hardcoded name that rotted") applied to
+// the thing whose entire job is making bugs findable.
+//
+// So the list is now checked against the DIRECTORY, which is the authority for
+// what exists. Adding a file without a topic line is an error, not a silence.
+{
+  const onDisk = fs.readdirSync(DIR)
+    .filter((f) => f.endsWith('.md') && f !== 'INDEX.md')
+    .sort();
+  const named = new Set(TOPICS.map(([f]) => f));
+  const unlisted = onDisk.filter((f) => !named.has(f));
+  const missing = [...named].filter((f) => !onDisk.includes(f));
+  if (unlisted.length || missing.length) {
+    if (unlisted.length) {
+      console.error(`✗ docs/mistakes/ holds ${unlisted.join(', ')} with no TOPICS entry.`);
+      console.error('  Unindexed means ungreppable in INDEX.md and absent from the');
+      console.error('  directory every session loads. Add a line to TOPICS above.');
+    }
+    if (missing.length) {
+      console.error(`✗ TOPICS names ${missing.join(', ')}, which is not on disk — renamed or deleted?`);
+    }
+    process.exit(1);
+  }
+}
 
 const MAX = 120;
 
