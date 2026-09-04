@@ -621,3 +621,41 @@ in a way a reader can see. `npm run deploy:owed` counts those files and says so.
 **The general rule.** A directory that used to be repo-only can become a
 published surface, and nothing in the file you are editing announces that. Ask
 what serves a path before assuming an edit is internal.
+
+---
+
+## Never leave a GAP between two วาระ or two seasons — start the new one first
+
+`passport.stamp_scan` stamps every scan with whichever วาระ and season is
+**currently open**, resolved at scan time:
+
+```sql
+select id into v_year   from passport.samo_years   where ended_at is null …
+select id into v_season from passport.samo_seasons where ended_at is null …
+```
+
+Both columns on `passport.scans` are **nullable**, and `points_awarded` is not.
+So if the current row is ended before the next one is started:
+
+- a student's scan still **succeeds** — no error, nothing looks wrong;
+- their km is still added to `total_km` (the `on_new_scan` trigger does not read
+  the season);
+- but the scan is filed under **no วาระ and no season**, so it is missing from
+  anything that groups by them, and repairing it afterwards means guessing which
+  period a row belonged to from its timestamp.
+
+**The rule: create the new วาระ/season BEFORE ending the old one**, so there is
+never an instant with none open. Ending and starting are two statements; a gap
+of even a few minutes during a rollover announcement is enough.
+
+Measured 2026-09-04: 1,047 scans, **0** with a null season or วาระ — there has
+only ever been one of each (`MDKKU SAMO'69`, `Q2`, both open since 2026-06-17),
+so **the first rollover is the first time this can happen.** The clean history
+is not evidence that the hazard is absent; it is evidence that it has not been
+tested yet.
+
+**The general rule.** A lookup written as "the currently open row" answers NULL
+when there is none, and a nullable destination column turns that NULL into a
+silent, permanent mislabelling rather than an error. Ask what a
+"current-thing" query returns during the seconds when there is no current thing
+— see also class 2, an unresolvable reference fails OPEN.
