@@ -43,7 +43,7 @@ bundle. Miss the `/admin/*` fallback and an admin refresh serves the wrong app.
    `npm install`, add each app's `.env.local` (only the public
    `VITE_SUPABASE_ANON_KEY` + URL — never a service_role key).
 
-2. **Passport base path** — commit `base: '/passport/'` to the passport repo's
+2. **Passport base path** — already committed, in this repo at `passport/vite.config.js` (there is no separate passport repo since 2026-09-04). Historically this said to commit it to the passport repo's
    `vite.config.js` so a future `git pull` doesn't clobber it.
 
 3. **Notify service**:

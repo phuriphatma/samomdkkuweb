@@ -39,11 +39,14 @@ const env = Object.fromEntries(
 const PAT = env.SUPABASE_ACCESS_TOKEN;
 const REF = env.VITE_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)[1];
 
-// db/0011 lives in the separate passport repo. Override with PASSPORT_REPO if it
-// is not checked out as a sibling of the samoweb tree.
+// Passport is part of THIS repo since 2026-09-04 (git subtree), so db/0011 is
+// in-tree at passport/db/. This used to resolve ../../../passport/ — a sibling
+// checkout OUTSIDE the tree — which stopped existing the moment the repos
+// merged, so the tool crashed with ENOENT on a file that was right here.
+// PASSPORT_REPO is kept only for pointing at some other checkout deliberately.
 const passportRoot = process.env.PASSPORT_REPO
   ? new URL(`file://${process.env.PASSPORT_REPO.replace(/\/?$/, '/')}`)
-  : new URL('../../../passport/', import.meta.url);
+  : new URL('../passport/', import.meta.url);
 const LOCKDOWN = readFileSync(new URL('db/0011_passport_rls_lockdown.sql', passportRoot), 'utf8');
 
 let pass = 0; let fail = 0;

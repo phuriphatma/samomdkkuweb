@@ -195,3 +195,44 @@ concluding you cannot reach a signed-in page.
   about. Batch commits, then deploy once.
 - **Verify, then say so.** Claims land better with the command that proved them.
   This repo has been burned by confident prose more than by bad code.
+
+---
+
+## 10. ⚠️ `tools/pass-hardening.mjs` — runs again, and needs one look
+
+**It was CRASHING and nobody knew.** It resolved `../../../passport/` — a sibling
+checkout *outside* this tree — which stopped existing when the repos merged. Any
+run died with ENOENT on a file that was sitting in `passport/db/`. Path fixed
+2026-09-04; it executes now.
+
+**It reports 45 passed, 9 failed. Do NOT read that as "passport RLS is broken."**
+
+Every failure is a DENY check, and the read check returned **637 profiles**:
+
+```
+FAIL cannot set own total_km          -> rows=1
+FAIL cannot touch another student     -> rows=1
+FAIL admin_leaderboard refused        -> ALLOWED
+FAIL reads only own profile           -> 637
+```
+
+That is the signature of the PROBE holding the wrong identity, not of the
+database letting students through. It runs through the Management API, which
+connects as a role that **bypasses RLS** — under which every "cannot" is
+expected to be allowed. `.claude/rules/mistakes.md` class 7: *a probe answers the
+question its DIRECTION asks*, and a deny-only probe cannot tell a working guard
+from a broken connection.
+
+**Counter-evidence that passport is fine:** all **31 live proofs are green**
+against production, including the passport ones (`passport0174-total-km-symmetry`,
+`passport-link-on-signup`, `passport0180-season-gate`) and
+`authz-sweep-identity`, which DO establish a real unprivileged identity.
+
+**What is actually owed:** decide whether this tool still earns its place. Either
+give it a genuine unprivileged identity (set `request.jwt.claims` and `set local
+role authenticated`, as `passport0180-season-gate.sql` does) and add it to
+`PROOFS`, or delete it. A tool that crashes silently for weeks and then reports
+nine scary-looking failures it cannot substantiate is worse than no tool.
+
+⛔ **Do not "fix" the nine failures by changing RLS.** Establish the identity
+first and re-run; the failures will very likely evaporate.
