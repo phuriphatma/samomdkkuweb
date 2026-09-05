@@ -9,37 +9,18 @@ shipped, verified state. These are choices and errands, not loose ends.
 
 ---
 
-## 1. The one with a security edge — do this first
+## 1. Discord bot token — owner declined, do not re-raise
 
 **Reset the Discord bot token** — app `1492541609445949465`, *"Role assignment
-bot for SAMO69"*. It holds **Administrator** and was pasted into a chat
-transcript on 2026-08-28.
+bot for SAMO69"*, Administrator, pasted into a chat transcript on 2026-08-28.
 
-Nothing built in this repo uses it, so resetting it breaks nothing. Discord
-Developer Portal → that app → Bot → Reset Token.
-
-**Owner only.** Five minutes.
+⛔ **The owner was told and chose not to rotate it (2026-09-05).** That is a
+recorded decision, not an oversight. Do not raise it again. Nothing in this repo
+uses the token, so nothing here depends on the choice.
 
 ---
 
-## 2. A release is overdue — the biggest user-visible gap
-
-**108 release notes are staged and invisible.** The last release was **4.6.0 on
-2026-08-10**; today is 2026-09-04. Everything since — the shared sign-in, the QR
-season rule, the Silent-toggle fix, a month of ฝ่าย page editing, permissions and
-หนังสือโครงการ work — is written in plain Thai in `PENDING` and **not shown at
-`/updates`**.
-
-`npm run release` folds `PENDING` into a new version and clears it. **Read
-`docs/VERSIONING.md` first** — it says to, and the version number is a judgement
-call. Given single sign-on and a behaviour change to QR codes, this is probably
-not a routine patch bump.
-
-**Needs the owner to choose the number; anyone can run it after that.**
-
----
-
-## 3. Tell the ฝ่าย before Q3 starts
+## 2. Tell the ฝ่าย before Q3 starts
 
 Two things become true the moment somebody presses **Start new Season**, and
 both will otherwise arrive as surprises:
@@ -53,11 +34,13 @@ both will otherwise arrive as surprises:
 ⛔ Do not "fix" either by falling back to the current season — that restores the
 original bug wearing a helpful face. `docs/INVARIANTS.md` says so.
 
-**Owner / ฝ่าย. A conversation, not a task.**
+**Owner / ฝ่าย. A conversation, not a task.** ✅ **Owner is aware (2026-09-05)
+and will tell the ฝ่าย themselves; it is still Q2, so nothing is urgent.** Do not
+re-raise — but do NOT weaken the rule to soften the surprise.
 
 ---
 
-## 4. Owner-only errands, none urgent
+## 3. Owner-only errands, none urgent
 
 | | What |
 |---|---|
@@ -68,7 +51,7 @@ original bug wearing a helpful face. `docs/INVARIANTS.md` says so.
 
 ---
 
-## 5. People, not software
+## 4. People, not software
 
 - **Teach two ฝ่าย members the tool flow** (`docs/DEPT-TOOLS.md` §13 step 8).
   The design is built and shipped; nobody has been walked through it.
@@ -80,7 +63,7 @@ original bug wearing a helpful face. `docs/INVARIANTS.md` says so.
 
 ---
 
-## 6. Two screenshots only you can take
+## 5. Two screenshots only you can take
 
 The contribute guide is fully photographed **except** where a capture would need
 your GitHub session in a way I could not reach from a headless browser. Both
@@ -90,7 +73,7 @@ the set.
 
 ---
 
-## 7. Known-unknown, recorded so it is not rediscovered
+## 6. Known-unknown, recorded so it is not rediscovered
 
 **Which Supabase project the frozen `samomdkkupassport` Cloudflare build reaches.**
 Six chunks were searched and no URL found — that is *inconclusive*, not proof of
@@ -115,7 +98,7 @@ rejected (`docs/PASSPORT-MONOREPO.md` §3).
 
 ---
 
-## 8. Tooling that WILL bite you — learned the hard way on 2026-09-04
+## 7. Tooling that WILL bite you — learned the hard way on 2026-09-04
 
 None of this is in the tools' own help text. Each cost real time.
 
@@ -178,7 +161,7 @@ concluding you cannot reach a signed-in page.
 
 ---
 
-## 9. How this owner works — worth knowing on day one
+## 8. How this owner works — worth knowing on day one
 
 - **When they ask "why not do it", they are usually right.** "Because the build
   does it that way" was not a reason the dev server could not; pushing back

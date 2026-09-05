@@ -169,10 +169,20 @@ by hand.
 | **2.0.0** | 2026-05-26 | จากฟอร์ม สู่ระบบปฏิบัติการของสโมสร |
 | **3.0.0** | 2026-07-22 | ย้ายมาอยู่บนโครงสร้างพื้นฐานของคณะ ใช้บัญชีเดียวทั้งระบบ |
 | **4.0.0** | 2026-07-24 | สื่อสารสองทาง — นักศึกษาเห็นว่าปัญหาถูกแก้ถึงไหนแล้ว |
-| 4.5.0 | 2026-08-06 | current |
+| 4.5.0 | 2026-08-06 | — |
+| 4.6.0 | 2026-08-10 | — |
+| 4.7.0 | 2026-09-05 | current |
 
 Versions `1.0.0`–`4.4.0` were assigned **retroactively** when this scheme was
 adopted (2026-08-04), by replaying the release history against the rules above.
 Only `v4.4.0` is tagged in git; earlier versions exist in the changelog but have
 no tag, because retrofitting twenty-two tags onto historical commits would add
 noise without adding information. Tagging starts from here.
+
+⚠️ **Tag every release, or the next one replays it.** `v4.6.0` shipped untagged,
+so when `4.7.0` was cut the tool walked back to `v4.5.0` and re-listed 702
+commits — **248 TODO stubs spanning two releases**, most of them already
+published in 4.6.0. The curated `PENDING` notes were correct and the stub around
+them was not. `v4.6.0` has since been tagged retroactively at `7d6e9fe`. The
+`--tag` step in §3 is not optional polish; skipping it corrupts the NEXT
+release's derivation, which is the part nobody is looking at when they skip it.
