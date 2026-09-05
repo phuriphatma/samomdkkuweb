@@ -57,6 +57,20 @@ describe('vaultwarden nginx mount', () => {
   });
 });
 
+describe('compression is actually configured, not just switched on', () => {
+  // `gzip on` alone compresses text/html only, and nginx does not compress
+  // PROXIED responses without gzip_proxied — so the vault, which is proxied,
+  // stays raw however good the type list is. Both were missing and cost 8.26 MB
+  // on a cold load. Assert the two directives that make `gzip on` mean anything.
+  it('compresses javascript, not just html', () => {
+    expect(nginx).toMatch(/gzip_types[\s\S]{0,400}application\/javascript/);
+  });
+
+  it('compresses proxied responses — /vault/ and /notify are proxied', () => {
+    expect(nginx).toMatch(/^\s*gzip_proxied\s+\w+;/m);
+  });
+});
+
 describe('vaultwarden DOMAIN agrees with the nginx mount', () => {
   it('DOMAIN carries the same subpath the nginx location serves', () => {
     const domain = envExample.match(/^DOMAIN=(\S+)/m);
