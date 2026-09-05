@@ -137,6 +137,32 @@ the RUNNING container and changes nothing; the env FILE can be right while the
 container still runs the old value. Read state from the container, and if you
 must use the real endpoint, use an address the whitelist will reject anyway.
 
+## The domain whitelist blocks the ROLE ACCOUNTS — invite them, don't register them
+
+`SIGNUPS_DOMAINS_WHITELIST=kkumail.com` and the succession role accounts
+(`mdstuddata.beta@gmail.com`, `samomdkku.ai@gmail.com`, `docs/SUCCESSION.md`)
+are `@gmail.com`. So a role account **cannot self-register even with the signup
+window open** — it fails "Registration not allowed".
+
+That is not a bug to route around by widening the whitelist to gmail.com, which
+would let any Gmail on earth register. Read the condition in 1.37.2's
+`src/api/core/accounts.rs`:
+
+```rust
+if Invitation::take(&email, &conn).await        // <- invitations come FIRST
+    || CONFIG.is_signup_allowed(&email)          // <- needs the flag AND the domain
+    || pending_emergency_access.is_some()
+```
+
+An **invitation bypasses both gates**, by design. So: invite role accounts from
+`/vault/admin`, never open the whitelist for them. That path needs SMTP, which
+is why mail is the step that unblocks everything else.
+
+Verified from the source, not a forum post: a widely-repeated claim that
+"if SIGNUPS_DOMAINS_WHITELIST is set, SIGNUPS_ALLOWED is ignored" is FALSE here —
+`is_signup_allowed()` requires both, so a whitelist does not silently reopen
+registration to every kkumail at the university.
+
 ## First account
 
 `SIGNUPS_ALLOWED=false`, so the first account is made by opening signups for
