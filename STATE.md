@@ -40,11 +40,11 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `9f990df` (2026-09-05)** — **v4.7.0 is live**, verified from
+- ✅ **DEPLOYED = `0214e13` (2026-09-05)** — **v4.7.0 is live**, verified from
   the served build manifest (`version: 4.7.0`), roots 12 s apart so docs
   published rather than skipping. 108 notes invisible since 2026-08-10 now show
   at `/updates`. That run was healthy (29 s) and is therefore evidence of
-  NOTHING about the intermittent docs fault below. Previous: `61b48bb`.
+  NOTHING about the intermittent docs fault below. Previous: `9f990df`.
   The passport MERGE stays live — `/passport/` serves the real app and
   `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
   ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
