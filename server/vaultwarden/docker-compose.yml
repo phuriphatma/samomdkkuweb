@@ -17,9 +17,15 @@ services:
     image: vaultwarden/server:1.37.2-alpine
     container_name: vaultwarden
     restart: unless-stopped
-    # env_file, NOT an inline `environment:` block. ADMIN_TOKEN is an argon2
-    # hash and argon2 hashes contain `$`, which Compose would interpolate away
-    # inside this YAML. Values read from env_file are passed through literally.
+    # ⚠️ COMPOSE v2 INTERPOLATES `$` IN env_file VALUES TOO. An earlier version
+    # of this comment claimed env_file values pass through literally — that was
+    # true of Compose v1 and is FALSE here (measured on 2.40.3). The argon2
+    # ADMIN_TOKEN went in as 118 chars starting `$argon2id$` and reached the
+    # container as 72 chars starting `=19=19456,` with every `$` eaten, so
+    # Vaultwarden logged "You are using a plain text ADMIN_TOKEN" and refused
+    # the real password. EVERY literal `$` in vaultwarden.env must be written
+    # `$$`. After any change to that file, verify against the RUNNING container:
+    #   docker exec vaultwarden printenv ADMIN_TOKEN | head -c 10   # -> $argon2id$
     env_file:
       - ./vaultwarden.env
     volumes:

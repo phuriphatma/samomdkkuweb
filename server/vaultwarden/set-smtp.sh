@@ -19,7 +19,16 @@ echo "  myaccount.google.com -> Security -> App passwords"
 echo "  16 letters; spaces are fine, they get stripped."
 read -rsp "  app password: " APP_PW; echo
 APP_PW=${APP_PW// /}
-[ ${#APP_PW} -eq 16 ] || { echo "!! expected 16 characters after removing spaces, got ${#APP_PW}" >&2; exit 1; }
+# Google app passwords are 16 characters today. WARN on anything else, do not
+# REFUSE: a hard length check is a guess about someone else's product, and the
+# cost of being wrong is blocking the operator from a value that would have
+# worked. Empty is the only genuinely unusable case.
+[ -n "$APP_PW" ] || { echo "!! nothing entered" >&2; exit 1; }
+if [ ${#APP_PW} -ne 16 ]; then
+  echo "   note: ${#APP_PW} characters (Google app passwords are usually 16)."
+  read -rp "   use it anyway? [y/N] " ok
+  case "$ok" in y|Y) ;; *) echo "   aborted, nothing changed"; exit 1;; esac
+fi
 
 # Both secrets go over stdin, in order, so neither appears in a process list.
 printf '%s\n%s\n' "$SUDO_PW" "$APP_PW" | ssh samo-vm 'bash -s' <<'REMOTE'

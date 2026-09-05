@@ -119,6 +119,18 @@ sudo systemctl start vaultwarden-backup.service   # run one now
 sudo ls -la /var/backups/vaultwarden/             # an archive must exist
 ```
 
+## ⚠️ Double every `$` in vaultwarden.env
+
+Compose v2 interpolates `env_file` values. An unescaped argon2 `ADMIN_TOKEN`
+reaches the container mangled, and Vaultwarden then treats it as a PLAIN TEXT
+token — the admin password stops working and the panel is guarded by a mangled
+string. It degrades rather than failing, so it looks like a wrong password.
+
+```bash
+docker exec vaultwarden printenv ADMIN_TOKEN | head -c 10   # must print $argon2id$
+docker logs vaultwarden 2>&1 | grep -c "plain text"          # must print 0
+```
+
 ## Config errors are fatal and the message is precise
 
 Vaultwarden validates its whole config on load and exits 12 on the first

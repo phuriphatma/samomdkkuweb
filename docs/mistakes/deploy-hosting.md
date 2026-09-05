@@ -964,3 +964,49 @@ of that fact exactly like the router is, and they are the ones that fail
 CONFUSINGLY, reporting the service broken when only the instrument moved. When a
 service answers correctly to users but its own health probe disagrees, suspect
 the probe's URL before the service.
+
+---
+
+## Compose v2 ate every `$` in the argon2 admin token, and the app downgraded itself to plain text instead of failing
+
+**Symptom.** The Vaultwarden admin panel refused the correct password. The env
+file plainly contained `ADMIN_TOKEN=$argon2id$v=19$m=19456,...` and the server
+log said, of that same value, **"You are using a plain text `ADMIN_TOKEN` which
+is insecure."** File and application disagreed about what the file said.
+
+**Cause.** **Docker Compose v2 performs variable interpolation on `env_file`
+values** (measured on 2.40.3). `$argon2id` resolved to an undefined variable and
+vanished, `$v=19` became `=19`, and so on:
+
+| | length | starts | `$` count |
+|---|---|---|---|
+| the file | 118 | `$argon2id$` | 5 |
+| **the container** | **72** | **`=19=19456,`** | **0** |
+
+Vaultwarden then saw a string that did not begin with `$argon2`, concluded it
+was a plain-text token, and compared it literally — so the real password could
+never match. **It degraded instead of failing**, which is why this presented as
+"wrong password" rather than "bad config".
+
+The comment in our own `docker-compose.yml` asserted the opposite — that
+`env_file` values pass through literally. That was true of Compose v1. Writing
+the reassurance down made it *less* likely anyone would check.
+
+**Fix.** Every literal `$` in `vaultwarden.env` is written `$$`. The token was
+regenerated rather than repaired, because the mangled value had been the live
+admin credential. Verified against the RUNNING container, not the file:
+`docker exec vaultwarden printenv ADMIN_TOKEN` → 118 chars, `$argon2id$`, 5 `$`;
+zero plain-text warnings; admin login `200`.
+
+**Where it lives now.** `server/vaultwarden/docker-compose.yml` and
+`vaultwarden.env.example` (both comments corrected, with the verify command),
+`skills/vaultwarden.md`.
+
+**The general rule.** *A config value is not what the file says — it is what the
+process received.* Anything between the two (Compose interpolation, a shell, an
+init system, a templating layer) may rewrite it, and the rewrite is invisible
+from either end. Read the value back out of the RUNNING process. And note the
+shape of the failure: the application did not reject the mangled input, it
+QUIETLY ACCEPTED A WEAKER FORM of it — a security control that downgrades on
+malformed input fails silently by design, so the log line saying so is the only
+witness. Grep the logs after changing a credential, not just the behaviour.
