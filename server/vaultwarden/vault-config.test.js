@@ -40,9 +40,20 @@ describe('vaultwarden nginx mount', () => {
     expect(mapAt).toBeLessThan(serverAt);
   });
 
-  it('never caches vault responses', () => {
+  it('adds NO blanket Cache-Control — the app sets its own per route', () => {
+    // The previous version of this test asserted the OPPOSITE: that the block
+    // set `no-store`. It was written from the same idea as the code rather than
+    // from the property that mattered, so it locked in the bug. nginx's
+    // add_header APPENDS, so a blanket header does not replace Vaultwarden's
+    // correct per-route ones — it produces two Cache-Control headers, the
+    // browser takes the strictest, and the whole web vault re-downloads every
+    // load.
     const block = nginx.match(/location \/vault\/ \{[\s\S]*?\n {4}\}/)[0];
-    expect(block).toMatch(/Cache-Control\s+"no-store"/);
+    const directives = block
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('#'))
+      .join('\n');
+    expect(directives).not.toMatch(/add_header\s+Cache-Control/i);
   });
 });
 
