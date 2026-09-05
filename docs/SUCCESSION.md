@@ -30,8 +30,28 @@ Two Google accounts are **role accounts, handed to each year's student**:
 
 | Account | Holds |
 |---|---|
-| `mdstuddata.beta@gmail.com` ("studbeta") | **production Supabase** · **Google Cloud project `593995881808`** (the OAuth client behind student Google sign-in) · **Cloudflare** |
-| `samomdkku.ai@gmail.com` | **dev Supabase** (`samomdkkuaiorg`) · Apps Script + Drive |
+| `mdstuddata.beta@gmail.com` ("studbeta") | **production Supabase** · **Google Cloud project `593995881808`** (the OAuth client behind student Google sign-in) · **Cloudflare** · **Apps Script + Drive** · **the Vaultwarden mail identity** |
+| `samomdkku.ai@gmail.com` | **the Claude subscription** (owner, 2026-09-05) · and the **dev Supabase** account is under its name — org `samomdkkuaiorg` / `vrsptgvvbrijcvgpxgsr`, project `samo-dev` / `xibugtlsphcfuvstnxxh`, both reachable live with `SUPABASE_DEV_ACCESS_TOKEN` |
+
+⚠️ **Corrected 2026-09-05.** This table credited Apps Script + Drive to
+`samomdkku.ai`. It is **studbeta** — `~/.clasprc.json` authenticates as
+`mdstuddata.beta@gmail.com`, and Apps Script runs Execute-as-Me, so the
+หนังสือโครงการ `MailApp` mail goes out as studbeta. The owner caught this when a
+session repeated the wrong row back to them. A succession table that names the
+wrong account is worse than no table: a handover would transfer the account that
+does **not** hold the thing, and the loss shows up months later when nobody can
+redeploy the script or reach the PR upload folders. **Verify a row here against
+the system itself before trusting it** — the check is in the row above.
+
+⚠️ **One thing in this table is still UNCONFIRMED and must not be trusted yet.**
+The owner says `samomdkku.ai` "holds the Claude login only", while a live call
+shows the dev Supabase org `samomdkkuaiorg` exists and its PAT works. Both can be
+true — but **which GOOGLE account signs in to that Supabase account is not
+something a PAT can answer** (a Supabase login may be email+password rather than
+Google SSO, and the org NAME is not proof of the owner). Somebody must open
+supabase.com/dashboard/account and read it. Until then treat the dev-Supabase
+half of this row as a HYPOTHESIS, not a fact — that is exactly the mistake this
+correction was made to stop repeating.
 
 **This is the right shape and it should be kept.** Neither is a kkumail, so
 neither is deleted at graduation, and the project's identity does not live in a

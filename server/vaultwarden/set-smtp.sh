@@ -14,7 +14,7 @@ cd "$(dirname "$0")/../.."
 SUDO_PW=$(grep -m1 '^SAMO_VM_SUDO_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"//;s/"$//')
 [ -n "$SUDO_PW" ] || { echo "!! SAMO_VM_SUDO_PASSWORD missing from .env.local" >&2; exit 1; }
 
-echo "Gmail app password for samomdkku.ai@gmail.com"
+echo "Gmail app password for mdstuddata.beta@gmail.com (the role account that already sends SAMO mail)"
 echo "  myaccount.google.com -> Security -> App passwords"
 echo "  16 letters; spaces are fine, they get stripped."
 read -rsp "  app password: " APP_PW; echo
