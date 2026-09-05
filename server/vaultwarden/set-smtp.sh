@@ -27,7 +27,14 @@ else
   echo "Gmail app password for mdstuddata.beta@gmail.com"
   echo "  myaccount.google.com -> Security -> App passwords"
   echo "  Google GENERATES it: you only type the name. 16 letters, spaces fine."
-  read -rsp "  app password: " APP_PW; echo
+  echo
+  echo "  >> NOTHING WILL APPEAR AS YOU TYPE OR PASTE. No dots, no stars."
+  echo "     That is a hidden prompt, not a hang. Paste, then press Enter."
+  echo
+  read -rsp "  app password (invisible): " APP_PW; echo
+  # Confirm receipt immediately. A silent prompt that gives no feedback at all
+  # reads as a frozen terminal — the owner reported exactly that.
+  echo "  got ${#APP_PW} characters."
   APP_PW=${APP_PW// /}
   [ -n "$APP_PW" ] || { echo "!! nothing entered" >&2; exit 1; }
   if [ ${#APP_PW} -ne 16 ]; then
