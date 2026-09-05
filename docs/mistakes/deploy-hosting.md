@@ -918,3 +918,49 @@ be a thousand, and the failure that tells you so arrives only when you try it.*
 Budget for it before promising the cleanup is quick — and when a paging loop
 returns `null`, treat that as UNKNOWN, never as zero. A sweep that finds nothing
 must prove it looked.
+
+---
+
+## A subpath in `DOMAIN` re-prefixes the routes INSIDE the container too — the healthcheck reported unhealthy while the service was fine
+
+**Symptom.** Vaultwarden mounted at `https://samo.md.kku.ac.th/vault/` answered
+correctly through nginx, but `curl http://127.0.0.1:8788/alive` on the VM
+returned **404** and the container's own healthcheck — written against `/alive` —
+kept it in `health: starting` and then unhealthy. Everything a user could reach
+worked; the instrument said it was broken.
+
+**Cause.** `DOMAIN=https://…/vault/` does not only tell Vaultwarden how to write
+links. It re-mounts every route under that prefix, **including inside the
+container**. So the real endpoint was `127.0.0.1:8788/vault/alive`. The subpath
+is therefore stated in THREE homes — the nginx `location`, `DOMAIN`, and the
+healthcheck URL — and only two of them had been updated.
+
+The same shape produced two more failures in the same install:
+
+- **`ORG_CREATION_USERS=admin` is not a value.** That setting takes `all`,
+  `none`, or a comma-separated list of **email addresses**. Vaultwarden
+  validates its entire config on load and **exits 12**, so a wrong value is a
+  crash loop, not a warning — three restarts before `docker logs` was read.
+  The log names the offending key exactly; read it before theorising.
+- **`vaultwarden hash` reads `/dev/tty`.** Piping into it fails with
+  `Os { code: 6 }` ENXIO, and so does `docker run -i` alone — it needs a pty on
+  the HOST (`script -qec …`) *and* a tty in the CONTAINER (`-t`). The panic
+  names a device error, which reads like a broken image rather than a missing
+  terminal.
+
+**Fix.** Healthcheck moved to `/vault/alive`;
+`server/vaultwarden/vault-config.test.js` asserts the nginx `location` prefix and
+`DOMAIN`'s path agree, so the two homes it *can* see cannot drift silently. The
+`ORG_CREATION_USERS` and TTY traps are recorded in `skills/vaultwarden.md` beside
+the commands that hit them.
+
+**Where it lives now.** `server/vaultwarden/docker-compose.yml` (healthcheck with
+the reason in a comment), `vault-config.test.js`, `skills/vaultwarden.md`.
+
+**The general rule.** *A path prefix is a fact with as many homes as there are
+things that speak the path — the proxy, the app's own config, and every probe.*
+Enumerate the probes too: a healthcheck, a smoke test and a monitor are readers
+of that fact exactly like the router is, and they are the ones that fail
+CONFUSINGLY, reporting the service broken when only the instrument moved. When a
+service answers correctly to users but its own health probe disagrees, suspect
+the probe's URL before the service.
