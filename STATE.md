@@ -37,17 +37,13 @@ TRUE. That is what the grep is for.
 - ✅ **DEPLOYED = `0214e13` (2026-09-05)** — **v4.7.0 is live**, verified from
   the served build manifest (`version: 4.7.0`), roots 12 s apart so docs
   published rather than skipping. 108 notes invisible since 2026-08-10 now show
-  at `/updates`. That run was healthy (29 s) and is therefore evidence of
-  NOTHING about the intermittent docs fault below. Previous: `9f990df`.
+  at `/updates`. Previous: `9f990df`.
   The passport MERGE stays live — `/passport/` serves the real app and
   `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
   ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
   ~5 min per run and **which one alternates**, so it is not either repo's
   lockfile. Cause unknown; disk, memory, registry, CPU all measured healthy.
   **Duration alone is not the known hang** — table in `skills/deploy-vm.md`.
-  ⚠️ **Ask which surface a commit SHIPS to before grepping for it** — `b31454d`
-  had none in the browser, only `/notify`; its changelog note sits in `PENDING`,
-  which nothing imports and Rollup shakes out (`docs/mistakes/deploy-hosting.md`).
   ⛔ **THE DOCS STEP IS INTERMITTENT — AND IT EXITS 0.** The run tally lives in
   `skills/deploy-vm.md`, its ONE home — do not restate it here. `deploy.sh`
   writes every run to `~/samo-deploy-logs` on the VM plus an xtrace naming the
@@ -198,17 +194,21 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 ---
 
-## ⏳ VAULTWARDEN — WRITTEN IN THE REPO, NOTHING INSTALLED (2026-09-05)
+## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-05)
 
-Free team password vault — the only free option that shares (Bitwarden's free org
-caps at 2 users; official self-hosted needs a PAID license for orgs at all). Files
-`server/vaultwarden/*`; **install, websocket test and restore: `skills/vaultwarden.md`**.
-⚠️ **`server/nginx-samo.conf` is AHEAD of the live VM file** (byte-identical at 6254
-before). Copying it up before the container runs gives **502 at `/vault/` only** —
-`nginx -t` passes; proxy_pass to a dead port is valid config.
-**Untested, do not claim:** websocket through KKU's edge · **restore**. **`/scrutinize`
-blocker, now install step 1:** the VM has no `unattended-upgrades`. **Owner owes:**
-an SMTP relay account · where off-VM backups live.
+`https://samo.md.kku.ac.th/vault/`, healthy; all other paths still 200 publicly.
+**Install, restore, websocket test, every gotcha: `skills/vaultwarden.md`.** Admin
+password: `sudo cat /root/vaultwarden-admin-password.txt` (never printed).
+**Bigger than the vault:** the VM had NO `unattended-upgrades` and ~90 pending
+security updates (openssl, openssh, nginx, systemd, libc6) — now enabled and
+applied; site 200 throughout, no reboot.
+**OWED, both on the owner:** (1) **register the first account** — signups closed,
+open briefly per the playbook; **until then the nightly backup FAILS BY DESIGN**,
+refusing to store a 0-user vault over good archives. (2) **Gmail app password**
+for `SMTP_PASSWORD` — over Brevo, because SAMO controls no domain's DNS so only
+Google sends ALIGNED as the SAMO Gmail (`docs/EMAIL.md` §3a); without it invites
+are manual. **Unproven:** websocket Upgrade through KKU's edge (401 proves the
+path reaches the hub, not that Upgrade completes) · **restore never run**.
 
 ## NEXT SESSION — start here
 

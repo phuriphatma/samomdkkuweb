@@ -32,7 +32,10 @@ services:
     mem_limit: 320m
     memswap_limit: 512m
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/alive"]
+      # /vault/alive, NOT /alive. DOMAIN carries the subpath, so Vaultwarden
+      # mounts every route under it — inside the container too. A healthcheck on
+      # /alive gets a 404 and reports the container unhealthy while it is fine.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/vault/alive"]
       interval: 60s
       timeout: 5s
       retries: 3

@@ -84,12 +84,19 @@ sudo mv /tmp/backup.sh /opt/vaultwarden/ && sudo chmod 700 /opt/vaultwarden/back
 sudo mv /tmp/vaultwarden.env.example /opt/vaultwarden/vaultwarden.env
 sudo chmod 600 /opt/vaultwarden/vaultwarden.env
 
-# Admin token — paste the FULL $argon2id$... string into ADMIN_TOKEN=
-sudo docker run --rm -it vaultwarden/server:1.37.2-alpine /vaultwarden hash
+# Admin token. ⚠️ `vaultwarden hash` reads /dev/tty, so a PIPE fails with
+# `Os { code: 6 }` ENXIO. It needs a pty on the host AND a tty in the
+# container — `script` gives the first, `docker -it` the second:
+#   printf '%s\n%s\n' "$PW" "$PW" | script -qec \
+#     "docker run --rm -it vaultwarden/server:1.37.2-alpine /vaultwarden hash --preset owasp" /dev/null
+# Write the hash UNQUOTED into ADMIN_TOKEN= — docker's env_file takes values
+# literally, so surrounding quotes become part of the token.
 sudo nano /opt/vaultwarden/vaultwarden.env      # ADMIN_TOKEN + SMTP_*
 
 sudo docker compose -f /opt/vaultwarden/docker-compose.yml up -d
-curl -sf http://127.0.0.1:8788/alive && echo "  <- container alive"
+# ⚠️ /vault/alive, NOT /alive. DOMAIN carries the subpath, so Vaultwarden mounts
+# every route under it INSIDE the container too.
+curl -sf http://127.0.0.1:8788/vault/alive && echo "  <- container alive"
 
 # nginx — repo file, copied up (see the TWO HOMES warning above)
 sudo cp /tmp/nginx-samo.conf /etc/nginx/sites-available/default
@@ -112,6 +119,14 @@ sudo systemctl start vaultwarden-backup.service   # run one now
 sudo ls -la /var/backups/vaultwarden/             # an archive must exist
 ```
 
+## Config errors are fatal and the message is precise
+
+Vaultwarden validates its whole config on load and exits 12 on the first
+problem, so a bad value is a crash loop, not a warning. `docker logs vaultwarden`
+names it exactly. Paid for during install: `ORG_CREATION_USERS=admin` is not a
+value — that setting takes `all`, `none`, or a comma-separated list of EMAIL
+ADDRESSES, and `admin` gave "contains invalid email addresses" for 3 restarts.
+
 ## First account
 
 `SIGNUPS_ALLOWED=false`, so the first account is made by opening signups for
@@ -122,6 +137,15 @@ exactly as long as it takes:
    an incognito window at `/vault/#/register` must refuse.
 3. `/vault/admin` → Organizations → create **SAMO MDKKU**
 4. Collections `IT-Core`, `Comms`, `Handover`; invite people by kkumail; assign
+
+## The backup FAILS until someone registers — by design
+
+`backup.sh` refuses to store a vault with zero users, because a valid-but-empty
+database passes `PRAGMA integrity_check` and would happily rotate away 14 good
+archives. On a fresh install that means the nightly timer fails every night
+until the first account exists. That is a true statement, not a bug — but do
+register promptly, and re-run `sudo /opt/vaultwarden/backup.sh` afterwards to
+watch it pass.
 
 ## Test the websocket (UNVERIFIED until you do)
 
@@ -134,7 +158,11 @@ curl -s -i -o - -H "Connection: Upgrade" -H "Upgrade: websocket" \
   -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
   https://samo.md.kku.ac.th/vault/notifications/hub | head -1
 # 101 Switching Protocols = live sync works
-# 200 / 400 / 426 = the edge strips Upgrade -> clients POLL instead.
+# 401 = the request REACHED Vaultwarden's hub and was refused for lack of a
+#       token. That is what an unauthenticated probe gets, and it proves the
+#       path and proxy work — it does NOT prove the Upgrade completes. Measured
+#       2026-09-05: 401. A definitive answer needs a signed-in client.
+# 404 / 502 = the proxy is wrong. 426 / 400 = the edge stripped Upgrade.
 ```
 
 **Polling is not a failure.** The vault works either way; you lose instant
@@ -161,6 +189,18 @@ every session** — that is why the script collects all of it.
 2. Rotate what they could read while a member — not everything SAMO owns, just
    their collections. This short list is the entire reason for per-person
    accounts.
+
+## Where the admin password is
+
+Generated on the VM during install and never printed to a transcript:
+
+```bash
+sudo cat /root/vaultwarden-admin-password.txt     # 32 chars, mode 600, root
+```
+
+That is the password for `/vault/admin`. The env file holds only its argon2id
+hash. Put a copy in the vault itself once the vault exists — and in the
+break-glass envelope, since the vault cannot hold its own recovery.
 
 ## Break-glass — NOT optional
 
