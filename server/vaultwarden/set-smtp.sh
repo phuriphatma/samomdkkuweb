@@ -4,15 +4,11 @@
 #   ./server/vaultwarden/set-smtp.sh            write it
 #   ./server/vaultwarden/set-smtp.sh --test     prove the plumbing, change nothing
 #
-# The app password is typed into a hidden prompt, travels over ssh on stdin, and
-# lands in a root-only file on the VM. It is never echoed, never in your shell
-# history, and never passed as a command-line argument (`ps` shows those to every
-# user on the box).
-#
 # ⚠️ THE PLUMBING TRAP, paid for twice: you cannot feed a remote script with a
-# heredoc AND pipe secrets to the same ssh — they are both stdin, the heredoc
-# wins, and the reads come back EMPTY (it surfaces as "sudo: Authentication
-# failed"). So the script goes over as a FILE and stdin carries only secrets.
+# heredoc AND pipe secrets to the same ssh — both are stdin, the heredoc wins,
+# the reads come back EMPTY, and it surfaces as "sudo: Authentication failed".
+# So the remote half is a real FILE (_set-smtp-remote.sh, syntax-checkable on
+# its own) that is copied over, and stdin carries only the three secrets.
 set -Eeuo pipefail
 cd "$(dirname "$0")/../.."
 TEST=${1:-}
@@ -32,59 +28,30 @@ else
   echo "     That is a hidden prompt, not a hang. Paste, then press Enter."
   echo
   read -rsp "  app password (invisible): " APP_PW; echo
-  # Confirm receipt immediately. A silent prompt that gives no feedback at all
-  # reads as a frozen terminal — the owner reported exactly that.
-  echo "  got ${#APP_PW} characters."
   APP_PW=${APP_PW// /}
   [ -n "$APP_PW" ] || { echo "!! nothing entered" >&2; exit 1; }
+  echo "  got ${#APP_PW} characters."
   if [ ${#APP_PW} -ne 16 ]; then
-    echo "   note: ${#APP_PW} characters (Google app passwords are usually 16)."
+    echo "   note: Google app passwords are usually 16."
     read -rp "   use it anyway? [y/N] " ok
     case "$ok" in y|Y) ;; *) echo "   aborted, nothing changed"; exit 1;; esac
   fi
 fi
 
-REMOTE=$(mktemp); trap 'rm -f "$REMOTE"' EXIT
-cat > "$REMOTE" <<'INNER'
-IFS= read -r SUDO_PW
-IFS= read -r APP_PW
-IFS= read -r MODE
-[ -n "$SUDO_PW" ] || { echo "!! sudo password arrived empty — stdin plumbing is broken" >&2; exit 1; }
-[ -n "$APP_PW" ]  || { echo "!! app password arrived empty" >&2; exit 1; }
-s() { printf '%s\n' "$SUDO_PW" | sudo -S -p '' "$@"; }
-
-if [ "$MODE" = "test" ]; then
-  s true 2>/dev/null \
-    && echo "  OK: sudo accepted, app password arrived (${#APP_PW} chars). Nothing written." \
-    || { echo "!! sudo rejected the password from .env.local" >&2; exit 1; }
-  exit 0
-fi
-
-s env APP_PW="$APP_PW" python3 -c '
-import os
-p = "/opt/vaultwarden/vaultwarden.env"
-# Compose v2 interpolates env_file values, so a literal $ must be doubled.
-esc = os.environ["APP_PW"].replace("$", "$$")
-lines = open(p).read().split("\n")
-open(p, "w").write("\n".join(
-    ("SMTP_PASSWORD=" + esc) if l.startswith("SMTP_PASSWORD=") else l for l in lines))
-'
-s docker compose -f /opt/vaultwarden/docker-compose.yml up -d --force-recreate >/dev/null 2>&1
-sleep 25
-# Verify what the RUNNING container has, never the file.
-s docker exec vaultwarden sh -c '\''test -n "$SMTP_PASSWORD" && echo "  running container HAS an SMTP password (${#SMTP_PASSWORD} chars)" || echo "  !! running container has NO SMTP password"; echo "  SMTP_USERNAME=$SMTP_USERNAME"'\''
-INNER
-
-# Two ssh calls: the script goes over as a FILE, then stdin carries only secrets.
-REMOTE_PATH=/tmp/vw-smtp-$$.sh
-scp -q "$REMOTE" "samo-vm:$REMOTE_PATH"
+RP=/tmp/vw-smtp-$$.sh
+scp -q server/vaultwarden/_set-smtp-remote.sh "samo-vm:$RP"
 MODE=$([ "$TEST" = "--test" ] && echo test || echo write)
+
+# No `|| true` here. The success message below must be unreachable when the
+# remote half fails — the previous version printed "Send a test mail" after the
+# script had died on a syntax error, which is the worst kind of green.
 printf '%s\n%s\n%s\n' "$SUDO_PW" "$APP_PW" "$MODE" \
-  | ssh samo-vm "bash $REMOTE_PATH; rm -f $REMOTE_PATH"
+  | ssh samo-vm "bash $RP; rc=\$?; rm -f $RP; exit \$rc"
 
 [ "$TEST" = "--test" ] && exit 0
+
 echo
-echo "Send a test mail to prove delivery:"
+echo "Now prove delivery — configuration is not delivery:"
 echo "  1. https://samo.md.kku.ac.th/vault/admin"
 echo "  2. password:  ssh samo-vm 'sudo cat /root/vaultwarden-admin-password.txt'"
-echo "  3. Settings -> SMTP -> Send test email"
+echo "  3. Settings -> SMTP -> Send test email  -> check the studbeta inbox"
