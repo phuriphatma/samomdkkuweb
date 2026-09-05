@@ -1,0 +1,42 @@
+# Vaultwarden — SAMO's shared password vault.
+#
+# Served at https://samo.md.kku.ac.th/vault/ . KKU issues no subdomain (the
+# same constraint that put the docs at /docs), so a SUBPATH is the only address
+# available. That is fine here: the widely-cited "Android app fails on a
+# subpath" report (vaultwarden#3096) turned out to be an INCOMPLETE TLS CHAIN,
+# not the subpath — and KKU's edge serves a complete DigiCert chain
+# (`openssl s_client` → Verify return code: 0), so the cause does not apply.
+#
+# Install + operate: skills/vaultwarden.md
+#
+# ⚠️ The container binds to 127.0.0.1 ONLY. Nginx is the sole way in. Never
+# publish this port on 0.0.0.0 — the VM sits behind KKU's proxy, not a firewall
+# you control.
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.2-alpine
+    container_name: vaultwarden
+    restart: unless-stopped
+    # env_file, NOT an inline `environment:` block. ADMIN_TOKEN is an argon2
+    # hash and argon2 hashes contain `$`, which Compose would interpolate away
+    # inside this YAML. Values read from env_file are passed through literally.
+    env_file:
+      - ./vaultwarden.env
+    volumes:
+      - /opt/vaultwarden/data:/data
+    ports:
+      - "127.0.0.1:8788:80"
+    # 2 GB box that also serves the student portal and runs two `npm ci`s
+    # during a deploy. Vaultwarden idles ~50-128 MB; the cap is here so a
+    # runaway can never be what makes the SITE fall over.
+    mem_limit: 320m
+    memswap_limit: 512m
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/alive"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

@@ -1,0 +1,11 @@
+[Unit]
+Description=Vaultwarden nightly backup (verified)
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vaultwarden/backup.sh
+# The script exits non-zero on a failed integrity check or an unreadable
+# archive, so a bad backup shows as a FAILED unit rather than a silent success.
+# Check with: systemctl status vaultwarden-backup.service

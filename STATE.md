@@ -15,14 +15,8 @@ because it held three lifetimes at once. It now holds one: **status**.
 
 ## WHAT CHANGED MOST RECENTLY (2026-09-01)
 
-00. ✅ **Settled, written up, do not re-derive:** the `master` หนังสือ guard
-    (0176) · passport km on signup (0175), both in `docs/mistakes/` (0176's rule
-    is class 5 in `.claude/rules/mistakes.md`) · previews exist, point at
-    `samo-dev`, safe to submit forms on · repo identity has ONE home
-    (`package.json` `repository.url`, guarded by `npm test`; recovery map is
-    `docs/SUCCESSION.md` + `npm run succession:audit`).
-
-Everything older was drained on 2026-09-01 — reasoning in
+Everything older was drained on 2026-09-01 (and the 09-01 "settled" list on
+09-05, after confirming each pointer resolves) — reasoning in
 `docs/state-archive/2026-08-30-status-prune.md`, durable items in
 `docs/INVARIANTS.md`.
 
@@ -159,20 +153,15 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
    have PRINTED QR posters pointing at it; replace it with redirects (§3 there).
 ### B. OWNER ONLY — these need accounts/credentials nobody else has
 
-1. ✅ **DONE 2026-08-31 — Google sign-in works on previews.** A dev-only OAuth
-   client is in `.env.local` as `GOOGLE_DEV_*` and enabled on samo-dev;
-   `external.google` reads true. Re-check or re-apply with
-   **`npm run dev:google`** (`-- --check` reports without writing). ⛔ Never
-   reuse production's client — dev keys are shared with the team.
-2. **The dev Apps Script deployment under its own Google account** — the last
+1. **The dev Apps Script deployment under its own Google account** — the last
    item of dev-system phase 2, plus a `DEV` folder in Drive (parent id in
    `docs/state/phuriphatma.md`).
-3. **The GitHub project board** — phase 0's last piece; `gh` here lacks the
+2. **The GitHub project board** — phase 0's last piece; `gh` here lacks the
    `project` scope.
-4. **Reset the Discord bot token** *"Role assignment bot for SAMO69"* (app
+3. **Reset the Discord bot token** *"Role assignment bot for SAMO69"* (app
    `1492541609445949465`) — it has Administrator and was pasted into a chat
    transcript on 2026-08-28. Nothing built here needs it.
-5. **Confirm the dev-channel test landed** — all 12 ฝ่าย notifications must be
+4. **Confirm the dev-channel test landed** — all 12 ฝ่าย notifications must be
    in `#developer-server-notify` and none in a real `#vs-*`. Delivery is
    confirmed (16×204); the DESTINATION needs human eyes.
 
@@ -180,14 +169,13 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   the DATABASE for runtime state; this file must not carry it.
 - ⏸ **The boot bar's first-failure branch — OFFERED, owner decides.**
 - ✅ **DEV SYSTEM — phases 1, 3, 4, 5 and 6 are DONE.** Only phase 2's last
-  item remains and it is OWNER-GATED (§B2). Plan + per-phase status:
+  item remains and it is OWNER-GATED (§B1). Plan + per-phase status:
   `docs/TEAM-WORKFLOW.md` §8; procedure and every trap
   `skills/build-the-dev-database.md`. **`samo-dev`'s ref is in
   `SUPABASE_DEV_URL`** (separate account, D7); creds are the `SUPABASE_DEV_*`
   block in `.env.local`, shareable with the team, **URL never published — dev
   holds REAL student data**. Rebuild `CONFIRM=1 npm run dev:refresh`; check
-  `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on
-  dev** (owner: §B1).
+  `npm run dev:check`; proofs `npm run proofs:dev`. **Google sign-in is OFF on dev.**
 - **The docs site is `docs/` RENDERED.** Nothing secret goes in `docs/`.
 - **ฝ่าย tools — WORKFLOW, REGISTRY AND FRAME ARE ALL LIVE.** Read
   `docs/DEPT-TOOLS.md` (§0a = owner decisions, do not re-litigate). Also live:
@@ -209,6 +197,18 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
   — read from `pg_get_functiondef`, 2026-09-01. 0178 added the ฝ่าย covers too.
 
 ---
+
+## ⏳ VAULTWARDEN — WRITTEN IN THE REPO, NOTHING INSTALLED (2026-09-05)
+
+Free team password vault — the only free option that shares (Bitwarden's free org
+caps at 2 users; official self-hosted needs a PAID license for orgs at all). Files
+`server/vaultwarden/*`; **install, websocket test and restore: `skills/vaultwarden.md`**.
+⚠️ **`server/nginx-samo.conf` is AHEAD of the live VM file** (byte-identical at 6254
+before). Copying it up before the container runs gives **502 at `/vault/` only** —
+`nginx -t` passes; proxy_pass to a dead port is valid config.
+**Untested, do not claim:** websocket through KKU's edge · **restore**. **`/scrutinize`
+blocker, now install step 1:** the VM has no `unattended-upgrades`. **Owner owes:**
+an SMTP relay account · where off-VM backups live.
 
 ## NEXT SESSION — start here
 
