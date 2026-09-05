@@ -119,6 +119,23 @@ sudo systemctl start vaultwarden-backup.service   # run one now
 sudo ls -la /var/backups/vaultwarden/             # an archive must exist
 ```
 
+## ⚠️ A bash syntax error does NOT mean nothing ran
+
+Bash reads a script INCREMENTALLY, not whole-file-then-execute. When
+`set-smtp.sh` died with `unexpected EOF while looking for matching '`, the
+statements before that line had already run: the password was written and the
+container recreated. Only the verification output was lost.
+
+So after any script that dies mid-way, **read the end state before concluding
+anything about it** — and read the instrument correctly. `grep -c
+"^SMTP_PASSWORD=$"` returning `0` means "no EMPTY line found", i.e. a value IS
+set; it was briefly misread here as confirming the opposite. Print the LENGTH,
+which has one meaning:
+
+```bash
+docker exec vaultwarden sh -c 'echo ${#SMTP_PASSWORD}'   # 0 = unset, 16 = set
+```
+
 ## ⚠️ Double every `$` in vaultwarden.env
 
 Compose v2 interpolates `env_file` values. An unescaped argon2 `ADMIN_TOKEN`
