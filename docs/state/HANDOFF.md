@@ -129,6 +129,75 @@ rejected (`docs/PASSPORT-MONOREPO.md` §3).
 
 ---
 
+## 7. Vaultwarden — LIVE, and what it still owes (2026-09-06)
+
+**Status: VERIFIED — how:** curl from the public internet against
+`samo.md.kku.ac.th`: `/vault/` and `/vault/alive` 200 and the served content is
+Vaultwarden (not the SPA fallback); admin login POST 200; admin test-email POST
+200 with zero SMTP errors in `docker logs`; `backup.sh` run by hand exits OK with
+`1 user(s)` then `2`; a full well-formed registration POST refused 400 while
+`/vault/alive` still answers 200 as the allow-control; `sqlite3` on the live DB
+shows both accounts `status 2` with a 346-byte org key. Operations, install
+and every trap: **`skills/vaultwarden.md`** — read that before touching it.
+
+**Who is in it:** `phuriphat.ma@kkumail.com` and `mdstuddata.beta@gmail.com`,
+both **Owners** of org `samomdkku`, both confirmed. The role account is the
+succession anchor: a personal kkumail dies at graduation, the role account is
+handed over (`docs/SUCCESSION.md`).
+
+**OWED, owner-only:**
+
+1. **The sealed break-glass envelope.** Print the studbeta Gmail password, its
+   2FA backup codes, and the vault admin password
+   (`sudo cat /root/vaultwarden-admin-password.txt`), seal it, give it to the
+   อาจารย์ที่ปรึกษา. ⚠️ **The vault holds the credentials to the VM it runs
+   on** — if the box is down, what you need to fix it is inside the thing that
+   is down. This envelope is the only way out of that, and nobody but the owner
+   can make it.
+2. **Delete the `newtest` org** left over from experimenting.
+3. **Rotate the Gmail app password** — 8 of its 16 characters were exposed in a
+   session transcript on 2026-09-05. Mail works; this is hygiene, not breakage.
+4. **Decide who actually needs the vault.** 50 people was floated. Most SAMO
+   members need a handful of shared logins, not a vault holding `SUPABASE_DB_URL`
+   and the VM sudo password. Start with ฝ่าย leads; every extra holder is another
+   laptop, another phone, another graduation.
+
+**NOT DONE, and nobody is blocked on it — the survival work:**
+
+- **Discord alert when the backup fails.** *This is the important one.*
+  Everything else about this system fails loudly; backups fail silently, and the
+  only witness today is a systemd unit nobody reads. The VM's notify service
+  already has `DISCORD_CLAUDE_WEBHOOK` configured, so the plumbing exists.
+  ⚠️ It needs its OWN action (`notifyVaultAlert`) — reusing `notifyClaudeAlert`
+  would send an embed whose fixed วิธีแก้ says "run `claude login`", which is the
+  two-authors-of-one-instruction bug in `.claude/rules/mistakes.md` class 7.
+- **Monthly container image pull.** The tag is pinned on purpose, so updates are
+  deliberate — but nothing currently reminds anyone.
+- **A vault section in `docs/SUCCESSION.md`'s yearly handover list.** The
+  decision to record: hand over the ROLE, not the master password. Two Owners at
+  all times, the role account's master password rotated at each handover and
+  living only in the envelope. Also worth enabling **Emergency Access**, which
+  Vaultwarden gives free and which is the real answer to "the holder vanished".
+- **A Thai member-facing page in `docs/`.** The ⚙-gear self-hosted-URL step is
+  the one everybody misses; without it the app talks to bitwarden.com and it
+  looks like their password is wrong.
+
+**Status: UNVERIFIED, do not claim either way:**
+
+- **Websocket `Upgrade` through KKU's edge.** The probe returns 401, which
+  proves the request reaches Vaultwarden's hub but NOT that the upgrade
+  completes. Needs a signed-in client. Polling fallback works; do not sink a day
+  into it.
+- **Restore.** `backup.sh` verifies its own output (integrity_check on the copy,
+  a non-empty user count, a full archive walk) and `pull-backup.sh` now pulls a
+  real archive off the box — but **a restore has never been run**. A backup you
+  have never restored is a hypothesis.
+- **The browser extension and phone app.** Only the web vault has been exercised.
+  Set up the extension yourself before inviting anyone, so a subpath problem
+  surfaces to you and not to nine ฝ่าย members at once.
+
+---
+
 ## Where to look for anything else
 
 **Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.

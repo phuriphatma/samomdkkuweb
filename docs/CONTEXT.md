@@ -1332,6 +1332,49 @@ Build config on both:
 - Build command: `npm run build`
 - Output dir: `dist`
 
+### Vaultwarden — the team password vault at `/vault/` (added 2026-09-05)
+
+`https://samo.md.kku.ac.th/vault/` — a self-hosted, Bitwarden-compatible server
+in a Docker container on the same VM, reverse-proxied by the site's own nginx.
+**Operations, install and every trap: `skills/vaultwarden.md`.** This section is
+the architecture only.
+
+| Piece | Where |
+|---|---|
+| Container | `vaultwarden/server:1.37.2-alpine`, bound to **127.0.0.1:8788 only** — nginx is the sole way in |
+| Data | `/opt/vaultwarden/data` (sqlite + `rsa_key.pem` + `attachments/` + `sends/`), root-only |
+| Config | `/opt/vaultwarden/vaultwarden.env`, 600 — template `server/vaultwarden/vaultwarden.env.example` |
+| Backups | nightly `OnCalendar` timer → `/var/backups/vaultwarden`, 14 kept; off-VM copy is `pull-backup.sh`, run by a human |
+| Mail | Gmail app password on **`mdstuddata.beta@gmail.com`**, the role account that already sends SAMO mail |
+
+**Why a PATH and not a subdomain.** KKU issues no subdomain — the same wall that
+put the docs at `/docs` — and the VM cannot obtain its own public certificate,
+because KKU's reverse proxy terminates `*.md.kku.ac.th` and forwards to
+`https://10.101.111.181`, where nginx answers with a self-signed cert under
+`server_name _`. A path on the main host is the only address available.
+
+**The three settings that are load-bearing, all counter-intuitive:**
+
+- `DOMAIN` **must carry the subpath**, and it re-prefixes routes INSIDE the
+  container too — the health endpoint is `/vault/alive`, not `/alive`.
+- The nginx `location /vault/` has a trailing slash; its `proxy_pass` must have
+  **no URI part**, or the prefix is stripped and every API call 404s while the
+  web vault still loads.
+- **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET.** A non-empty value overrides
+  `SIGNUPS_ALLOWED=false` and opens public registration to that whole domain.
+  See `docs/mistakes/authz-grants.md`.
+
+**Two host-wide changes came with it, and they help everything:**
+`unattended-upgrades` is now installed and enabled (the box had never
+auto-patched and was carrying ~90 pending security updates), and nginx now
+actually compresses — `gzip on` alone covers only `text/html`, so a full
+`gzip_types` + `gzip_proxied` + brotli were added. A cold `/vault/` load went
+**8.26 MB → 2.26 MB**, and the main site's own bundle **293 KB → 112 KB**.
+
+⚠️ **The vault holds the credentials to the box it runs on.** If the VM is down,
+what you need to fix it is inside the thing that is down. The sealed break-glass
+envelope is the mechanism, and it is the owner's to maintain.
+
 ### Apps Script projects (2)
 
 - `prform` — owns the `PR` Drive folder + the SAMO Shop Drive

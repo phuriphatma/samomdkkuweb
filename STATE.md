@@ -194,21 +194,18 @@ built, verified and REMOVED the same day; reasoning in the archive named in 02.
 
 ---
 
-## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-05)
+## ✅ VAULTWARDEN — LIVE at `/vault/` (2026-09-06)
 
-`https://samo.md.kku.ac.th/vault/`, healthy; all other paths still 200 publicly.
-**Install, restore, websocket test, every gotcha: `skills/vaultwarden.md`.** Admin
-password: `sudo cat /root/vaultwarden-admin-password.txt` (never printed).
-**Bigger than the vault:** the VM had NO `unattended-upgrades` and ~90 pending
-security updates (openssl, openssh, nginx, systemd, libc6) — now enabled and
-applied; site 200 throughout, no reboot.
-**OWED, both on the owner:** (1) **register the first account** — signups closed,
-open briefly per the playbook; **until then the nightly backup FAILS BY DESIGN**,
-refusing to store a 0-user vault over good archives. (2) **Gmail app password**
-for `SMTP_PASSWORD` — over Brevo, because SAMO controls no domain's DNS so only
-Google sends ALIGNED as the SAMO Gmail (`docs/EMAIL.md` §3a); without it invites
-are manual. **Unproven:** websocket Upgrade through KKU's edge (401 proves the
-path reaches the hub, not that Upgrade completes) · **restore never run**.
+Free self-hosted team password vault. Two Owners of org `samomdkku`: the owner's kkumail and the
+`mdstuddata.beta@gmail.com` ROLE account (succession anchor). **Operations `skills/vaultwarden.md` ·
+architecture `docs/CONTEXT.md` · what it owes HANDOFF §7.** Do not re-derive any of it here.
+⛔ **`SIGNUPS_DOMAINS_WHITELIST` must stay UNSET** — a non-empty value overrides `SIGNUPS_ALLOWED=false`
+and opened public registration to every kkumail at KKU for ~6 h today (`docs/mistakes/authz-grants.md`).
+**Two host-wide wins came with it:** `unattended-upgrades` enabled (the box had NEVER auto-patched —
+~90 pending security updates, applied) and nginx really compresses now (`gzip on` alone covers only
+text/html): cold `/vault/` 8.26 MB → 2.26 MB, main bundle 293 KB → 112 KB.
+**Owner owes:** break-glass envelope · delete `newtest` org · rotate the Gmail app password.
+**Unverified:** websocket Upgrade through KKU's edge · **restore has never been run**.
 
 ## NEXT SESSION — start here
 
