@@ -191,40 +191,47 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 ## Invitations reach any domain — that is why the whitelist is unset
 
-`SIGNUPS_DOMAINS_WHITELIST=kkumail.com` and the succession role accounts
-(`mdstuddata.beta@gmail.com`, `samomdkku.ai@gmail.com`, `docs/SUCCESSION.md`)
-are `@gmail.com`. So a role account **cannot self-register even with the signup
-window open** — it fails "Registration not allowed".
-
-That is not a bug to route around by widening the whitelist to gmail.com, which
-would let any Gmail on earth register. Read the condition in 1.37.2's
+The succession role accounts (`mdstuddata.beta@gmail.com`, `docs/SUCCESSION.md`)
+are `@gmail.com`, and with the whitelist UNSET that is fine both ways: nobody can
+self-register at all, and an invitation reaches any domain. From 1.37.2's
 `src/api/core/accounts.rs`:
 
 ```rust
 if Invitation::take(&email, &conn).await        // <- invitations come FIRST
-    || CONFIG.is_signup_allowed(&email)          // <- needs the flag AND the domain
+    || CONFIG.is_signup_allowed(&email)          // <- the gate, see above
     || pending_emergency_access.is_some()
 ```
 
-An **invitation bypasses both gates**, by design. So: invite role accounts from
-`/vault/admin`, never open the whitelist for them. That path needs SMTP, which
-is why mail is the step that unblocks everything else.
+An invitation is checked **before** the signup gate, so `invite.sh` and
+`/vault/admin` work for `@gmail.com`, `@kku.ac.th` and anything else. Proven:
+both were invited and registered while self-registration was refused 400.
 
-Verified from the source, not a forum post: a widely-repeated claim that
-"if SIGNUPS_DOMAINS_WHITELIST is set, SIGNUPS_ALLOWED is ignored" is FALSE here —
-`is_signup_allowed()` requires both, so a whitelist does not silently reopen
-registration to every kkumail at the university.
+⚠️ **An earlier version of this section said the opposite** — that the whitelist
+BLOCKED role accounts, and that the claim "a set whitelist makes SIGNUPS_ALLOWED
+ignored" was FALSE. Both were wrong, the second dangerously so; see
+`docs/mistakes/authz-grants.md`. The correction is kept visible rather than
+quietly deleted, because the wrong version was reasoned from a source summary
+and sounded exactly as confident as this one.
 
-## First account
+## First account, and adding anyone whose mail is broken
 
-`SIGNUPS_ALLOWED=false`, so the first account is made by opening signups for
-exactly as long as it takes:
+**Prefer an invitation.** `./server/vaultwarden/invite.sh <email>` needs no
+window, works for any domain, and is the normal path. Everything below is only
+for a cold start or a mail outage.
 
-1. `SIGNUPS_ALLOWED=true` → `docker compose up -d` → register your kkumail
-2. `SIGNUPS_ALLOWED=false` → `docker compose up -d` again. **Confirm it took**:
-   an incognito window at `/vault/#/register` must refuse.
-3. `/vault/admin` → Organizations → create **SAMO MDKKU**
-4. Collections `IT-Core`, `Comms`, `Handover`; invite people by kkumail; assign
+⚠️ **Do NOT hand-toggle `SIGNUPS_ALLOWED`.** With the whitelist unset, flipping
+that flag to `true` opens registration to the ENTIRE INTERNET, not to one domain.
+The sanctioned path is the window script, which opens by setting the whitelist to
+one domain and closes by clearing it — so the widest it can ever be is that
+domain, and it closes itself on exit, Ctrl-C or kill alike:
+
+```bash
+sudo /opt/vaultwarden/signup-window.sh 15 kkumail.com
+```
+
+It verifies the close by attempting a full registration and requiring a 400.
+Then: `/vault/` → **New organization** → `SAMO MDKKU` → Collections `IT-Core`,
+`Comms`, `Handover` → Members → Invite → Confirm.
 
 ## The backup FAILS until someone registers — by design
 
@@ -255,6 +262,23 @@ curl -s -i -o - -H "Connection: Upgrade" -H "Upgrade: websocket" \
 
 **Polling is not a failure.** The vault works either way; you lose instant
 cross-device sync and "log in with device". Do not spend a day on this.
+
+## `/var/backups/vaultwarden/adhoc/` — snapshots NOTHING rotates
+
+`backup.sh` keeps 14 nightly archives and prunes the rest. **`adhoc/` is outside
+that.** It holds one-off `sqlite3 .backup` snapshots taken by hand before
+destructive operations (two exist, from deleting test accounts on 2026-09-05).
+They are real vault data, encrypted at rest, mode 600 — and nothing will ever
+delete them.
+
+Prune them yourself once you are sure the change they guarded is settled:
+
+```bash
+sudo ls -la /var/backups/vaultwarden/adhoc/
+sudo rm /var/backups/vaultwarden/adhoc/<the one you no longer need>
+```
+
+Always take one before editing the database by hand; always remove it after.
 
 ## Restore
 

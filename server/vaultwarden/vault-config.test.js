@@ -57,6 +57,28 @@ describe('vaultwarden nginx mount', () => {
   });
 });
 
+describe('the playbook does not contradict the config', () => {
+  // skills/vaultwarden.md is the FIRST thing a cold session is told to read, and
+  // it carried both "the whitelist OPENS registration" and, 45 lines later, the
+  // disproven "that claim is FALSE" — the class-6 drift bug, inside one file.
+  // These assert the two claims that were wrong, not the whole prose.
+  const skill = readFileSync(join(here, '../../skills/vaultwarden.md'), 'utf8');
+
+  it('does not still call the whitelist-overrides-flag claim false', () => {
+    expect(skill).not.toMatch(/SIGNUPS_ALLOWED is ignored"? is FALSE/i);
+  });
+
+  it('never tells anyone to hand-set SIGNUPS_ALLOWED=true', () => {
+    // With the whitelist unset that opens registration to the whole internet.
+    // signup-window.sh is the only sanctioned path, and it scopes to one domain.
+    const instructions = skill
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('#'))
+      .join('\n');
+    expect(instructions).not.toMatch(/SIGNUPS_ALLOWED\s*=\s*true/);
+  });
+});
+
 describe('compression is actually configured, not just switched on', () => {
   // `gzip on` alone compresses text/html only, and nginx does not compress
   // PROXIED responses without gzip_proxied — so the vault, which is proxied,

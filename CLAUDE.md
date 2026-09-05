@@ -57,6 +57,7 @@ npm run preview      # serve dist locally on :4173
 | New Supabase schema | New numbered file in `supabase/migrations/` |
 | Backend GAS edit | `appscript/*.gs` (then redeploy — see skills/deploy-gas.md) |
 | Any schema change | New numbered migration + a both-directional proof — **see `skills/ship-a-migration.md`** (ADD then deploy; DROP only AFTER the new bundle is SERVED) |
+| nginx, Docker, or the `/vault/` vault | `skills/vaultwarden.md` |
 
 ## UI/UX guidelines
 
@@ -68,7 +69,7 @@ npm run preview      # serve dist locally on :4173
   - Announcements/Creator → slate (`.an-tab` overrides to neutral)
   - Admin → green primary
 - **Departments**: 10 unique color identities (see `src/css/base.css` `--dept-*`)
-- **Fonts**: Noto Sans Thai (body, English + Thai), Prompt (brand-fixed pill + secondary fallback). Loaded via Google Fonts. System fallback chain (`system-ui`, `-apple-system`, `Segoe UI`) kept in CSS for when Google Fonts is blocked.
+- **Fonts**: Noto Sans Thai (body), Prompt (brand pill + secondary), via Google Fonts. The system fallback chain lives in `src/css/base.css`.
 - **Density**: tight spacing on mobile, generous on desktop. Use Bootstrap utility classes.
 - **No emojis in UI text** unless the user explicitly asks.
 
