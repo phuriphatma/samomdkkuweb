@@ -1776,3 +1776,77 @@ runner report it.* Run the suite and find your proof's name in the output —
 And when a proof is green by hand and red under the runner on the same database,
 stop looking at the SQL: the difference is never the subject, it is the
 instrument.
+
+---
+
+## `pass-hardening` reported 9 failures and the database was innocent every time
+
+**Symptom.** `tools/pass-hardening.mjs` printed **45 passed, 9 failed** against
+production. The failures read like a live passport breach — a student could
+update their own `total_km`, edit another student's row, delete someone else's
+scans, call `admin_leaderboard()`, and read the whole roster:
+
+```
+FAIL cannot set own total_km          -> rows=1
+FAIL cannot touch another student     -> rows=1
+FAIL admin_leaderboard refused        -> ALLOWED
+FAIL reads only own profile           -> 637
+```
+
+**The first diagnosis was wrong, and it was written into the handoff.** It said
+the failures were an artefact: the Management API connects as the Postgres
+superuser, which bypasses RLS, so every "cannot" is *expected* to be allowed.
+Plausible, never tested, and it wrote off nine failures for weeks.
+
+Two measurements killed it. A control through the same API showed impersonation
+works perfectly — `set_config('role','authenticated')` plus JWT claims moves
+`current_user` to `authenticated`, drops `rolbypassrls` to false, resolves
+`auth.uid()`, and cuts a `passport.profiles` read from **637 rows to 1**. And
+the script's own output already disproved it: the **anon block passed 15/15**,
+including `reads 0 profiles`. A global RLS bypass cannot spare anon and hit only
+the student.
+
+**Cause.** The probe's "student" was an **admin**. The selection reads:
+
+```sql
+-- students: real kkumail auth accounts that are not admins ...
+select u.id into v_student from auth.users u
+ where lower(u.email) like '%@kkumail.com'
+   and u.id is distinct from v_admin_full and u.id is distinct from v_admin_scoped
+ order by u.created_at limit 1;
+```
+
+The comment says *not admins*; the SQL excludes only the two admins it had
+already picked for the admin tests, then takes the **oldest** kkumail account —
+which is a founder. It selected an account whose `permissions` column is
+**empty** while `managed_permissions` holds `master`, so `passport.is_admin()`
+returned true and the "student" satisfied `profiles_read_self_or_admin` and
+`profiles_update_admin`. All six student failures, plus an admin one and a
+cascading `total_km` delta, fall out of that single wrong subject.
+
+**Fix.** Ask the gate, never a column. The loop impersonates each candidate and
+keeps the first two for which `passport.is_admin()` is false, raising if it
+cannot find two. Result: **54 passed, 0 failed** on the same database, same
+minute. The ninth failure was separate and also stale — it asserted the shared
+`passportadmin@samomdkku.app` account *exists*, but the 17 shared-password
+admins were deleted on purpose on 2026-08-17/18, so a finished security cleanup
+scored as a broken proof. Inverted: absence passes, and a re-provisioned
+shared-password admin now fails loudly.
+
+It then joined `npm run proofs`, which took two more fixes it had been dodging
+for its whole life: it parsed `.env.local` itself (so it ignored `--dev`
+targeting — `proof-targeting.test.js` fails the build on exactly this) and it
+never announced its target, so the runner scored it **UNKNOWN**. Both now come
+from `env-lib.mjs` like every other proof.
+
+**Where it lives now.** `tools/pass-hardening.mjs` (the `is_admin()` loop and the
+inverted shared-account check), listed in `PROOFS` in `tools/run-proofs.mjs`.
+
+**The general rule.** *A deny-check is only as good as the identity it denies.*
+Before believing a DENY failure, ask what the probe's subject actually holds —
+derived from the gate's own predicate, not from the column you expect. Here
+`permissions` was empty and `managed_permissions` held `master`; a subject check
+reading `permissions` alone would have agreed the account was an ordinary
+student. And **an explanation that dismisses a failure needs the same proof as
+one that reports it** — "it's just an artefact" was accepted for weeks while the
+script's own anon block sat three lines above, contradicting it.

@@ -30,14 +30,13 @@
 // is bypassed entirely — so every policy and guard here looks like a no-op unless
 // you impersonate with set_config('role') + set_config('request.jwt.claims').
 import { readFileSync } from 'node:fs';
-
-const env = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
-    .split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-    .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, '')]; })
-);
-const PAT = env.SUPABASE_ACCESS_TOKEN;
-const REF = env.VITE_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)[1];
+// Credentials, target resolution and the "which project answered" line all come
+// from env-lib — the same path every other proof uses. This script used to parse
+// .env.local itself, which is why it could not join `npm run proofs`: it ignored
+// --dev targeting and never announced where it went, so the runner scored it
+// UNKNOWN. `proof-targeting.test.js` fails the build on a proof that re-rolls
+// this, and it is right to.
+import { loadEnv, announceTarget, runSql } from './env-lib.mjs';
 
 // Passport is part of THIS repo since 2026-09-04 (git subtree), so db/0011 is
 // in-tree at passport/db/. This used to resolve ../../../passport/ — a sibling
@@ -55,13 +54,14 @@ const check = (name, cond, extra = '') => {
   else { fail++; console.log('  FAIL', name, '->', String(extra).slice(0, 200)); }
 };
 
+let TARGET = null;
 async function mgmt(sql) {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${PAT}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  });
-  return { status: r.status, body: await r.json().catch(() => null) };
+  try {
+    return { status: 200, body: JSON.parse(await runSql(sql, TARGET)) };
+  } catch (e) {
+    const m = String(e.message).match(/^HTTP (\d+): ([\s\S]*)$/);
+    return m ? { status: Number(m[1]), body: m[2] } : { status: 599, body: String(e.message) };
+  }
 }
 
 // Each probe records one row in `out`. `try_` wraps a statement so a raised
@@ -103,6 +103,7 @@ end $$;
 do $$
 declare
   v_student uuid; v_student2 uuid; v_nonkku uuid; v_moved uuid;
+  v_cand uuid; v_is_admin boolean;
   v_admin_full uuid; v_admin_scoped uuid;
   v_dept_a int; v_dept_b int;
   v_act_a uuid := gen_random_uuid(); v_act_b uuid := gen_random_uuid();
@@ -124,17 +125,43 @@ begin
   select id into v_dept_b from passport.departments
    where id is distinct from v_dept_a order by id limit 1;
 
-  -- students: real kkumail auth accounts that are not admins and not migrated away
-  select u.id into v_student from auth.users u
-   where lower(u.email) like '%@kkumail.com'
-     and u.id is distinct from v_admin_full and u.id is distinct from v_admin_scoped
-     and not exists (select 1 from passport.account_migrations m
-                      where lower(m.from_email) = lower(u.email))
-   order by u.created_at limit 1;
-  select u.id into v_student2 from auth.users u
-   where lower(u.email) like '%@kkumail.com' and u.id is distinct from v_student
-     and u.id is distinct from v_admin_full and u.id is distinct from v_admin_scoped
-   order by u.created_at limit 1;
+  -- students: real kkumail auth accounts that are NOT admins and not migrated away.
+  --
+  -- WARNING: "not an admin" is asked of the GATE, never guessed from a column.
+  -- This used to exclude only the two admins chosen above and then take the
+  -- OLDEST kkumail account -- which is a founder. It picked a real account whose
+  -- permissions column is EMPTY while managed_permissions holds master, so
+  -- passport.is_admin() was TRUE and the "student" sailed through every admin
+  -- policy: 637 profiles read, other students' rows updated, admin_leaderboard
+  -- allowed. Six DENY checks failed and the database was innocent every time.
+  -- (.claude/rules/mistakes.md class 7 -- check the PROBE SUBJECT, and note
+  -- is_admin() reads the UNION of permissions and managed_permissions, 0081.)
+  v_student := null; v_student2 := null;
+  for v_cand in
+    select u.id from auth.users u
+     where lower(u.email) like '%@kkumail.com'
+       and u.id is distinct from v_admin_full and u.id is distinct from v_admin_scoped
+       and not exists (select 1 from passport.account_migrations m
+                        where lower(m.from_email) = lower(u.email))
+     order by u.created_at
+  loop
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_cand, 'role','authenticated')::text, true);
+    perform set_config('role','authenticated', true);
+    v_is_admin := passport.is_admin();
+    perform set_config('role','postgres', true);
+    if not v_is_admin then
+      if v_student is null then v_student := v_cand;
+      else v_student2 := v_cand; end if;
+    end if;
+    exit when v_student2 is not null;
+  end loop;
+  perform set_config('request.jwt.claims', null, true);
+
+  if v_student is null or v_student2 is null then
+    raise exception 'pass-hardening: could not find two non-admin @kkumail.com students (student=%, student2=%)',
+      v_student, v_student2;
+  end if;
 
   select id into v_nonkku from auth.users
    where lower(email) not like '%@kkumail.com'
@@ -406,6 +433,9 @@ select
 
 (async () => {
   console.log('passport hardening proof — 0011 applied inside a rolled-back transaction\n');
+  // run-proofs.mjs refuses to score a proof that will not say which database it
+  // queried — a green run against the wrong project has told you nothing.
+  TARGET = announceTarget(loadEnv());
   const r = await mgmt(SQL);
   if (r.status >= 300 || !Array.isArray(r.body)) {
     console.error('SQL failed:', r.status, JSON.stringify(r.body).slice(0, 900));
@@ -481,10 +511,18 @@ select
   check('unfiltered call still scoped', Number(m.as_lb_unfiltered) === Number(m.as_lb_dept_a),
     `unfiltered=${m.as_lb_unfiltered} own=${m.as_lb_dept_a}`);
 
-  console.log('\nthe admin/1234 door, now on a shared Supabase account:');
+  console.log('\nthe admin/1234 door (passportadmin@samomdkku.app):');
   if ((m.shared_is_admin || '').startsWith('SKIP')) {
-    check('shared legacy-admin account exists', false, m.shared_is_admin);
+    // The account is GONE ON PURPOSE: the 17 shared password admins were deleted
+    // 2026-08-17/18 after their data was reassigned to real people
+    // (.claude/rules/security.md). Absence is the DESIRED state, so scoring it
+    // as a failure made a completed security cleanup read as a broken proof for
+    // weeks. Inverted: absence passes, and a re-provisioned shared-password
+    // admin now FAILS loudly, which is the regression actually worth catching.
+    check('shared legacy-admin account stays deleted', true, 'absent (purged 2026-08-18)');
   } else {
+    check('shared legacy-admin account stays deleted', false,
+      'RE-PROVISIONED - a shared-password admin is back; see .claude/rules/security.md');
     check('is_admin', m.shared_is_admin === 'true', m.shared_is_admin);
     check('all departments', m.shared_all_depts === 'true', m.shared_all_depts);
     check('leaderboard works (no NOT_AUTHORIZED)', Number(m.shared_lb) > 0, m.shared_lb);
