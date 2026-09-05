@@ -1,60 +1,85 @@
 #!/usr/bin/env bash
-# Open Vaultwarden registration for a FIXED number of minutes, then close it
-# again — whatever happens.
+# Open Vaultwarden registration to ONE DOMAIN for a fixed number of minutes,
+# then close it again — whatever happens.
 #
-# WHY THIS EXISTS: the vault has no SMTP yet, so the only way to make an account
-# is to let people register. Doing that by hand is two commands with a human in
-# between, and the failure mode is forgetting the second one — leaving open
-# registration on a public URL. This makes the close automatic, including on
-# Ctrl-C, so the window cannot outlive your attention.
+#   sudo /opt/vaultwarden/signup-window.sh [minutes] [domain]
+#   sudo /opt/vaultwarden/signup-window.sh 15 kkumail.com        (defaults)
 #
-#   sudo /opt/vaultwarden/signup-window.sh [minutes]     (default 15)
+# ⚠️ IT WORKS BY SETTING THE WHITELIST, NOT BY TOUCHING SIGNUPS_ALLOWED, and
+# that is not a style choice — it is what the config actually does:
 #
-# SIGNUPS_DOMAINS_WHITELIST=kkumail.com still applies throughout, so even during
-# the window only a @kkumail.com address can register.
+#   is_signup_allowed(email) =
+#       whitelist EMPTY     -> signups_allowed        (false = closed to all)
+#       whitelist NON-EMPTY -> is_email_domain_allowed(email)   <- flag IGNORED
+#
+# So a non-empty whitelist is the OPEN switch, scoped to one domain, and an
+# empty whitelist with SIGNUPS_ALLOWED=false is the only fully closed state.
+# The first version of this script toggled SIGNUPS_ALLOWED and told the operator
+# "the kkumail whitelist still applies" — after the whitelist had been removed,
+# that would have opened registration to the ENTIRE INTERNET while printing a
+# reassurance. See docs/mistakes/authz-grants.md.
+#
+# Prefer an invitation to a window: `invite.sh` needs no window at all and works
+# for any domain. This exists for the case where mail is broken.
 set -Eeuo pipefail
 MINUTES=${1:-15}
+DOMAIN=${2:-kkumail.com}
 ENV_FILE=/opt/vaultwarden/vaultwarden.env
 COMPOSE="docker compose -f /opt/vaultwarden/docker-compose.yml"
 
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
+case "$DOMAIN" in *.*) ;; *) echo "!! '$DOMAIN' is not a domain" >&2; exit 1;; esac
 
-set_signups() {
-  sed -i "s|^SIGNUPS_ALLOWED=.*|SIGNUPS_ALLOWED=$1|" "$ENV_FILE"
+set_whitelist() {   # empty argument = closed
+  python3 - "$ENV_FILE" "$1" <<'PY'
+import sys
+path, val = sys.argv[1], sys.argv[2]
+out, seen = [], False
+for l in open(path).read().split("\n"):
+    if l.startswith("SIGNUPS_DOMAINS_WHITELIST=") or l.startswith("# SIGNUPS_DOMAINS_WHITELIST="):
+        if not seen:
+            out.append(("SIGNUPS_DOMAINS_WHITELIST=" + val) if val else "# SIGNUPS_DOMAINS_WHITELIST=")
+            seen = True
+    else:
+        out.append(l)
+if not seen:
+    out.append(("SIGNUPS_DOMAINS_WHITELIST=" + val) if val else "# SIGNUPS_DOMAINS_WHITELIST=")
+open(path, "w").write("\n".join(out))
+PY
   $COMPOSE up -d --force-recreate >/dev/null 2>&1
 }
 
 close() {
-  echo
-  echo "==> closing registration"
-  set_signups false
-  sleep 5
-  # VERIFY the close, do not assume it. This is the whole point of the script:
-  # an unverified close is the same risk as forgetting to close at all.
+  echo; echo "==> closing registration"
+  set_whitelist ""
+  sleep 20
+  # Verify by ATTEMPTING THE FORBIDDEN ACTION in full. A malformed probe gets
+  # 422 from the parser without reaching the gate and proves nothing.
   code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
     http://127.0.0.1:8788/vault/identity/accounts/register \
     -H 'Content-Type: application/json' \
-    -d '{"email":"closed-probe@example.com","masterPasswordHash":"x","key":"x","kdf":0,"kdfIterations":600000}')
+    -d '{"email":"window-close-probe@'"$DOMAIN"'","masterPasswordHash":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","key":"2.AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","kdf":0,"kdfIterations":600000,"keys":{"publicKey":"AAAA","encryptedPrivateKey":"2.AAAA|AAAA|AAAA"}}')
   if [ "$code" = "400" ]; then
-    echo "    CLOSED — a stranger's registration is refused (400)."
+    echo "    CLOSED — an uninvited registration is refused (400)."
   else
-    echo "    !! REGISTRATION MAY STILL BE OPEN (probe returned $code)."
-    echo "    !! Fix by hand NOW:  sudo sed -i 's|^SIGNUPS_ALLOWED=.*|SIGNUPS_ALLOWED=false|' $ENV_FILE && sudo $COMPOSE up -d"
+    echo "    !! STILL OPEN (probe returned $code). If it is 200 an account was just created."
+    echo "    !! Close by hand NOW:"
+    echo "       sudo sed -i 's|^SIGNUPS_DOMAINS_WHITELIST=.*|# SIGNUPS_DOMAINS_WHITELIST=|' $ENV_FILE"
+    echo "       sudo $COMPOSE up -d --force-recreate"
     exit 1
   fi
 }
-# Close on normal exit, Ctrl-C, and kill alike.
 trap close EXIT INT TERM
 
-echo "==> opening registration for $MINUTES minute(s)"
-set_signups true
-sleep 6
+echo "==> opening registration to *@$DOMAIN for $MINUTES minute(s)"
+set_whitelist "$DOMAIN"
+sleep 20
 echo
-echo "    Go to:  https://samo.md.kku.ac.th/vault/#/register"
-echo "    Use your @kkumail.com address and pick a master password."
-echo "    ⚠️  NOBODY CAN RESET A MASTER PASSWORD FOR YOU. Write it down first."
+echo "    https://samo.md.kku.ac.th/vault/#/register"
+echo "    ONLY @$DOMAIN addresses can register during this window."
+echo "    ⚠️  NOBODY CAN RESET A MASTER PASSWORD. Write it down first."
 echo
 for i in $(seq "$MINUTES" -1 1); do
-  printf "\r    closing in %2d min — press Ctrl-C to close now  " "$i"
+  printf "\r    closing in %2d min — Ctrl-C to close now  " "$i"
   sleep 60
 done
