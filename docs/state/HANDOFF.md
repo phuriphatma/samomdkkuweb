@@ -1,15 +1,48 @@
 # Everything still owed — the cross-session handoff
 
-Written 2026-09-04. **This is the one place that lists what is NOT done.**
-`STATE.md` says what is true right now; this says what is left, why it is left,
-and who can do it. When an item is finished, delete it from here.
+Written 2026-09-04, restructured 2026-09-05. **This is the one place that lists
+what is NOT done.** `STATE.md` says what is true right now; this says what is
+left, why, and who can do it. When an item is finished, delete it from here.
 
 ⛔ **Nothing below is blocking anything else.** The codebase is in a clean,
 shipped, verified state. These are choices and errands, not loose ends.
 
 ---
 
+## 0. How to read this file
+
+**Every section carries a `Status:` line, and it changes what you should DO.**
+`handoff-guard` in `src/js/state-handoff.test.js` fails the build if one is
+missing, so you can trust that the marker is present — not that it is right.
+
+| Status | What it means | What you do |
+|---|---|---|
+| **VERIFIED** *date — how* | somebody ran something, and the line says what | trust it; re-run the named check if you are about to depend on it |
+| **HYPOTHESIS** | a theory nobody has tested | ⚠️ **test it before acting on it.** It may be wrong |
+| **DECIDED** *date* | the owner chose this | do not re-litigate; do not re-raise |
+| **OWED** | work not started | pick it up |
+
+⛔ **Why this exists.** §10 of the previous version of this file explained away
+nine failing security checks as "a probe artefact — the API bypasses RLS". It
+was stated as fact, was never tested, and was **wrong**: impersonation works
+fine, and the real cause was that the probe's "student" was an admin. It sat
+here for weeks steering every reader away from a five-minute measurement.
+
+The lesson is not "write more carefully". It is that **an explanation and a
+finding looked identical on the page**, so the reader had no way to tell which
+one they were holding. If a claim has no `— how`, it is a HYPOTHESIS. Label it
+and the next person will test it instead of believing it.
+
+⛔ **The deployed sha does NOT belong in this file.** Its one home is the
+✅ DEPLOYED line in `STATE.md`; `npm run deploy:owed` reads it. A second copy
+here is the exact multi-home failure that put a two-deploys-stale sha in front
+of readers with a diffstat attached. The guard fails the build on one.
+
+---
+
 ## 1. Discord bot token — owner declined, do not re-raise
+
+**Status: DECIDED 2026-09-05** — owner was told and chose not to rotate.
 
 **Reset the Discord bot token** — app `1492541609445949465`, *"Role assignment
 bot for SAMO69"*, Administrator, pasted into a chat transcript on 2026-08-28.
@@ -21,6 +54,8 @@ uses the token, so nothing here depends on the choice.
 ---
 
 ## 2. Tell the ฝ่าย before Q3 starts
+
+**Status: DECIDED 2026-09-05** — owner is aware and will tell the ฝ่าย; still Q2.
 
 Two things become true the moment somebody presses **Start new Season**, and
 both will otherwise arrive as surprises:
@@ -42,6 +77,8 @@ re-raise — but do NOT weaken the rule to soften the surprise.
 
 ## 3. Owner-only errands, none urgent
 
+**Status: OWED** — four small items, none urgent, all owner-only.
+
 | | What |
 |---|---|
 | Dev Apps Script | under its own Google account + a `DEV` Drive folder — last piece of dev-system phase 2 |
@@ -52,6 +89,8 @@ re-raise — but do NOT weaken the rule to soften the surprise.
 ---
 
 ## 4. People, not software
+
+**Status: OWED** — nobody has been walked through the ฝ่าย tool flow yet.
 
 - **Teach two ฝ่าย members the tool flow** (`docs/DEPT-TOOLS.md` §13 step 8).
   The design is built and shipped; nobody has been walked through it.
@@ -65,6 +104,8 @@ re-raise — but do NOT weaken the rule to soften the surprise.
 
 ## 5. Two screenshots only you can take
 
+**Status: OWED** — optional polish; needs the owner's GitHub session.
+
 The contribute guide is fully photographed **except** where a capture would need
 your GitHub session in a way I could not reach from a headless browser. Both
 signed-in shots now exist (banner, checks box), so this is optional polish:
@@ -74,6 +115,8 @@ the set.
 ---
 
 ## 6. Known-unknown, recorded so it is not rediscovered
+
+**Status: HYPOTHESIS** — six chunks searched, no URL found. That is INCONCLUSIVE, not proof of absence. ⚠️ Settle it with a browser network tab before acting.
 
 **Which Supabase project the frozen `samomdkkupassport` Cloudflare build reaches.**
 Six chunks were searched and no URL found — that is *inconclusive*, not proof of
@@ -88,6 +131,8 @@ rejected (`docs/PASSPORT-MONOREPO.md` §3).
 
 ## Where to look for anything else
 
+**Status: VERIFIED 2026-09-05** — how: every path below is checked by the guard in `src/js/state-handoff.test.js`.
+
 | | |
 |---|---|
 | what is true now | `STATE.md` |
@@ -99,6 +144,8 @@ rejected (`docs/PASSPORT-MONOREPO.md` §3).
 ---
 
 ## 7. Tooling that WILL bite you — learned the hard way on 2026-09-04
+
+**Status: VERIFIED 2026-09-04** — how: every item cost real time in-session and is reproduced from that run.
 
 None of this is in the tools' own help text. Each cost real time.
 
@@ -162,6 +209,8 @@ concluding you cannot reach a signed-in page.
 ---
 
 ## 8. How this owner works — worth knowing on day one
+
+**Status: VERIFIED 2026-09-05** — how: observed across this and prior sessions; each bullet cites the moment it came from.
 
 - **When they ask "why not do it", they are usually right.** "Because the build
   does it that way" was not a reason the dev server could not; pushing back

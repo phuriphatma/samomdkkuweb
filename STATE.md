@@ -40,17 +40,17 @@ TRUE. That is what the grep is for.
 
 - Prod = KKU VM `samo.md.kku.ac.th`. Deploy = commit → push `main` →
   `skills/deploy-vm.md`. **Needs VPN. Pushing does NOT deploy.**
-- ✅ **DEPLOYED = `61b48bb` (2026-09-04)** — **the passport MERGE is live.** One
-  repo, one `npm ci`, one build: all three roots landed within **13 s** (the
-  second install is gone). Verified live: `/passport/` serves the real app, the
-  scan path reaches "Stamping Passport...", `/passport` still 301s, and
-  `/var/www/samo-web/passport` does NOT exist — the publish `--exclude` holds up the nginx rule that depends on its absence. Previous: `7609fa2`, `7370bfd`.
-  ⚠️ **All ran 4×–13× baseline and NONE was the docs
-  fault** — `npm ci` is the whole anomaly, `docs:build` was 10–11 s every time.
-  Exactly ONE of the two `npm ci` calls stalls ~5 min per run and **which one
-  alternates**, so it is not either repo's lockfile. Cause unknown; disk,
-  memory, registry, CPU all measured healthy. **Duration alone is not the known
-  hang** — table in `skills/deploy-vm.md`.
+- ✅ **DEPLOYED = `9f990df` (2026-09-05)** — **v4.7.0 is live**, verified from
+  the served build manifest (`version: 4.7.0`), roots 12 s apart so docs
+  published rather than skipping. 108 notes invisible since 2026-08-10 now show
+  at `/updates`. That run was healthy (29 s) and is therefore evidence of
+  NOTHING about the intermittent docs fault below. Previous: `61b48bb`.
+  The passport MERGE stays live — `/passport/` serves the real app and
+  `/var/www/samo-web/passport` does NOT exist, which the nginx rule needs.
+  ⚠️ **`npm ci` is the whole duration anomaly** — exactly ONE of the two stalls
+  ~5 min per run and **which one alternates**, so it is not either repo's
+  lockfile. Cause unknown; disk, memory, registry, CPU all measured healthy.
+  **Duration alone is not the known hang** — table in `skills/deploy-vm.md`.
   ⚠️ **Ask which surface a commit SHIPS to before grepping for it** — `b31454d`
   had none in the browser, only `/notify`; its changelog note sits in `PENDING`,
   which nothing imports and Rollup shakes out (`docs/mistakes/deploy-hosting.md`).
@@ -83,12 +83,12 @@ TRUE. That is what the grep is for.
 
 - ⚠️ **Verify from the SERVED artifact**, and grep the RIGHT one — both traps
   live once, in `docs/INVARIANTS.md` and `docs/mistakes/deploy-hosting.md`.
-- **Migrations through 0180. ALL 32 LIVE PROOFS GREEN**, whole suite re-run
-  against production at end of session 2026-09-02. 0179 was applied to samo-dev
-  AND production that day, 10/10 both directions on each. ⚠️ Re-run rather than
-  believing this line — the proof count is guarded against `run-proofs.mjs`, but
-  nothing guards whether they still PASS. The TEST count is deliberately not
-  written here.
+- **Migrations through 0180. 30 of 32 LIVE PROOFS GREEN** (2026-09-05).
+  ⚠️ Red: `claude0154-quota-guard`, `claude0155-free-now` — **neither a code
+  fault**. Both must BOOK a slot; the live 5-hour window is already claimed so
+  `claude_booking_guard` refuses — the "SCENARIO needs live geometry that RAN
+  OUT" trap (`.claude/rules/mistakes.md` class 7). ⛔ Do NOT relax the scenario;
+  make the proof CREATE the geometry. The COUNT is guarded, PASSING is not.
 
 ---
 

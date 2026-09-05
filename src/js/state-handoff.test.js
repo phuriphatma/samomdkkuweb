@@ -183,7 +183,18 @@ describe('STATE.md is a handoff, not a memory', () => {
     );
     registered.delete('db-query.mjs');
 
-    const claimed = [...STATE.matchAll(/(?:ALL |all )(\d+)(?: LIVE)? [Pp][Rr][Oo][Oo][Ff][Ss]/g)].map((m) => Number(m[1]));
+    // Two accepted shapes, and the second one matters: "ALL n" was the only
+    // form this accepted until 2026-09-05, which meant the guard structurally
+    // FORBADE recording a red proof — the honest sentence "30 of 32 green" made
+    // the count vanish and the test fail. A handoff guard that only permits
+    // good news trains people to write good news. What is checked is the TOTAL;
+    // how many are passing is a claim no offline test can settle.
+    const claimed = [
+      ...[...STATE.matchAll(/(?:ALL |all )(\d+)(?: LIVE)? [Pp][Rr][Oo][Oo][Ff][Ss]/g)]
+        .map((m) => Number(m[1])),
+      ...[...STATE.matchAll(/\d+\s+of\s+(\d+)(?: LIVE)? [Pp][Rr][Oo][Oo][Ff][Ss]/g)]
+        .map((m) => Number(m[1])),
+    ];
     expect(claimed.length, 'STATE.md no longer states a proof count').toBeGreaterThan(0);
     for (const c of claimed) {
       expect(c, `STATE.md claims ${c} proofs; run-proofs.mjs registers ${registered.size}`)
@@ -275,5 +286,103 @@ describe('STATE.md is a handoff, not a memory', () => {
     const counts = new Set([...STATE.matchAll(/\*\*(\d{3,5}) tests/g)].map((m) => m[1]));
     expect([...counts], 'STATE.md states more than one test count — correct BOTH homes')
       .toHaveLength(counts.size > 0 ? 1 : 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HANDOFF.md — the file that had NO guard, which is where the worst claim lived.
+//
+// Every check above this line is on STATE.md. docs/state/HANDOFF.md had none,
+// and on 2026-09-05 that is exactly where the most expensive wrong sentence in
+// the repo was found: §10 explained away nine failing security checks as "a
+// probe artefact — the Management API bypasses RLS". Stated as fact, never
+// tested, and wrong. Impersonation works fine; the probe's "student" was an
+// admin. It sat there for weeks steering readers away from a five-minute
+// measurement, and the script's OWN anon block (15/15 passing) contradicted it
+// three lines above.
+//
+// The failure was not carelessness. An explanation and a finding LOOKED
+// IDENTICAL on the page, so a reader could not tell which they were holding.
+// These tests make the difference structural: every section declares whether it
+// is VERIFIED (and how), a HYPOTHESIS, a DECISION, or work still OWED.
+const HANDOFF_PATH = join(ROOT, 'docs/state/HANDOFF.md');
+const HANDOFF = readFileSync(HANDOFF_PATH, 'utf8');
+
+/** Each `## ` section as { heading, body }. */
+function sections(md) {
+  const out = [];
+  const parts = md.split(/\n(?=## )/);
+  for (const p of parts) {
+    if (!p.startsWith('## ')) continue;
+    const eol = p.indexOf('\n');
+    out.push({ heading: p.slice(3, eol === -1 ? undefined : eol).trim(), body: p });
+  }
+  return out;
+}
+
+const STATUS_RE = /^\*\*Status:\s*(VERIFIED|HYPOTHESIS|DECIDED|OWED)\b([^*]*)\*\*(.*)$/m;
+
+describe('HANDOFF.md says how much to trust each section', () => {
+  it('reads the file and finds sections (a sweep that finds nothing must prove it looked)', () => {
+    expect(HANDOFF.length).toBeGreaterThan(500);
+    // The control. Without it, a rename of `## ` to anything else would empty
+    // every sweep below and they would all pass on zero sections.
+    expect(sections(HANDOFF).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('every section declares a Status', () => {
+    const missing = sections(HANDOFF)
+      .filter((s) => !/^0\./.test(s.heading))
+      .filter((s) => !STATUS_RE.test(s.body))
+      .map((s) => s.heading);
+    expect(missing, [
+      'Every ## section in HANDOFF.md needs a Status line:',
+      '  **Status: VERIFIED <date>** — how: <what you ran>',
+      '  **Status: HYPOTHESIS**        (a theory nobody has tested)',
+      '  **Status: DECIDED <date>**    (the owner chose; do not re-litigate)',
+      '  **Status: OWED**              (work not started)',
+      '',
+      'This exists because an explanation once read exactly like a finding.',
+    ].join('\n')).toEqual([]);
+  });
+
+  it('a VERIFIED section says HOW it was verified', () => {
+    // The whole point. "VERIFIED" with no method is the shape that failed —
+    // a confident sentence with nothing behind it. `how:` must name something
+    // a reader can re-run or re-observe.
+    const bad = [];
+    for (const s of sections(HANDOFF)) {
+      const m = s.body.match(STATUS_RE);
+      if (!m || m[1] !== 'VERIFIED') continue;
+      const tail = `${m[2]} ${m[3]}`;
+      if (!/how:\s*\S/i.test(tail)) bad.push(s.heading);
+    }
+    expect(bad, 'A VERIFIED section must carry "— how: <what was run/observed>".')
+      .toEqual([]);
+  });
+
+  it('does not restate the deployed sha — STATE.md is its one home', () => {
+    // mistakes.md class 6: a decaying fact with two homes gets corrected in one.
+    // The deployed sha already did this once, and the stale copy was inside the
+    // very command that was supposed to check it.
+    // A git sha is hex, but so is a pure-decimal id — the Discord APP ID in §1
+    // is 19 digits and matched, which would have made this guard cry wolf on a
+    // correct file. Require at least one a-f, which every real sha has and a
+    // decimal id never does.
+    const shas = [...HANDOFF.matchAll(/`([0-9a-f]{7,40})`/g)]
+      .map((m) => m[1])
+      .filter((h) => /[a-f]/.test(h));
+    expect(shas, [
+      'HANDOFF.md names a commit sha. The deployed sha has ONE home:',
+      'the ✅ DEPLOYED line in STATE.md, which `npm run deploy:owed` reads.',
+      'If you need to point at a commit, name the tag or say "see STATE.md".',
+    ].join('\n')).toEqual([]);
+  });
+
+  it('names no file that is not there', () => {
+    const missing = namedPaths(HANDOFF)
+      .filter((p) => !(p in ABSENT_ON_PURPOSE))
+      .filter((p) => !existsSync(join(ROOT, p)));
+    expect(missing, 'HANDOFF.md points at files that do not exist.').toEqual([]);
   });
 });

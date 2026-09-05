@@ -83,12 +83,14 @@ session narrative, or anything that GROWS WITH THE WORK in `.claude/rules/` —
 it is charged to every future session.** The per-entry symptom index lives in
 `docs/mistakes/INDEX.md`; do not move it back (it reached 18.5k of 30k there).
 
-**READ FIRST, EVERY SESSION — `STATE.md`, then `docs/INVARIANTS.md`.**
-Since the 2026-08-27 split there are four homes and mixing them is what made the
-handoff unreadable: **`STATE.md`** = what is true right now (~200 lines, guarded)
-· **`docs/INVARIANTS.md`** = rules that outlive a session · **`docs/state/<handle>.md`**
-= one person's in-flight notes, never rewritten by anyone else ·
-**`docs/state-archive/`** = why it was done that way.
+**READ FIRST — `STATE.md`, `docs/INVARIANTS.md`, `docs/state/HANDOFF.md`.**
+HANDOFF is the ONLY list of what is NOT done; every section carries a
+`Status:` (VERIFIED *how* / HYPOTHESIS / DECIDED / OWED) saying how far to
+trust it — a HYPOTHESIS is a theory to TEST, not a fact. Guarded.
+FIVE homes; mixing them is what made the handoff unreadable. **`STATE.md`** =
+true right now (~200 lines, guarded) · **`docs/INVARIANTS.md`** = rules that
+outlive a session · **HANDOFF** = what is NOT done · **`docs/state/<handle>.md`**
+= one person's notes, never rewritten by others · **`docs/state-archive/`** = why.
 
 `STATE.md` carries what is in flight, what is deployed, and what is owed —
 the things that change what you do FIRST. Everything else below is genuinely
@@ -107,21 +109,22 @@ now fails the build if it grows back past ~200.
   write-ups, not their titles. **Read the matching file BEFORE touching
   `src/js/auth.js`, `src/js/db.js`, any RLS policy / `current_user_*` helper /
   SECURITY DEFINER function, `server/deploy.sh`, or `appscript/*.gs`.**
-- `README.md` — public/human-facing onboarding (commands, env, layout). Not for agents to read; check it only when verifying README accuracy.
-- `CONTRIBUTING.md` — human collaborator guide (branch model, touch zones, dos/don'ts). Reflects the same rules; cross-check when editing project policy.
+- `README.md` — human onboarding. Not for agents; open only to verify it.
+- `CONTRIBUTING.md` — human collaborator guide; same rules. Cross-check when
+  editing project policy.
 - `docs/TEAM-WORKFLOW.md` — the multi-developer plan (dev env, previews, credentials, review flow). **DESIGN ONLY, nothing built**; its §0 holds owner decisions that must not be re-litigated
 - `docs/DEPT-TOOLS.md` — how a ฝ่าย ships a tool without IT writing it (content / sandboxed embed / native). **DESIGN ONLY, nothing built**; §10 self-scrutiny, §13 build order
 - `docs/CONTEXT.md` — architecture map, RLS policies, schema, deploy plumbing, developer workflows
 - `docs/EMAIL.md` — who sends mail and the quota ceilings. The VM CAN send via
   a relay (587 out works); it cannot BE or RECEIVE mail (25 blocked out, no
   inbound port, `p=reject`). READ BEFORE touching mail.
-- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL**, the Sheets→Supabase migration
-  (finished long ago; kept for why the schema is shaped as it is). Not a status.
+- `docs/SUPABASE-MIGRATION.md` — **HISTORICAL** Sheets→Supabase; why the schema
+  is shaped as it is. Not a status.
 - `docs/MERGE-CHECKLIST.md` — when merging refactor → main
 - `docs/VERSIONING.md` — release numbering + workflow. READ BEFORE bumping a
   version or adding a release note; `npm run release` does the mechanical half.
-- `docs/AUTH-MODEL.md` — **HISTORICAL**, the pre-Supabase user-model proposal.
-  Largely shipped and gone past; its "current state" section is the GAS era.
+- `docs/AUTH-MODEL.md` — **HISTORICAL** pre-Supabase user model; shipped and
+  gone past. Its "current state" section is the GAS era.
 - `docs/KKU-SSO.md` — KKU SSO assessment: a login improvement, NOT a data source
   (no roster endpoint, no สายรหัส, no สาขา). Manual: `docs/KKU-SSO-MANUAL.md`
 - `docs/PROJECT-ARCHITECTURE.md` — multi-project engine proposal — DEFERRED, kept as future reference
