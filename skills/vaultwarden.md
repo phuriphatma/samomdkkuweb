@@ -127,6 +127,16 @@ names it exactly. Paid for during install: `ORG_CREATION_USERS=admin` is not a
 value — that setting takes `all`, `none`, or a comma-separated list of EMAIL
 ADDRESSES, and `admin` gave "contains invalid email addresses" for 3 restarts.
 
+## ⚠️ Never probe a gate with the ACTION it gates
+
+Checking "is registration closed?" by POSTing a registration **creates an
+account when the answer is no** — paid for on 2026-09-05, when a probe fired
+against a container that had not finished reloading and made a real user that
+then had to be deleted. `docker exec vaultwarden printenv SIGNUPS_ALLOWED` asks
+the RUNNING container and changes nothing; the env FILE can be right while the
+container still runs the old value. Read state from the container, and if you
+must use the real endpoint, use an address the whitelist will reject anyway.
+
 ## First account
 
 `SIGNUPS_ALLOWED=false`, so the first account is made by opening signups for
