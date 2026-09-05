@@ -916,3 +916,67 @@ by a guard test on the same commit, not by a person.
 **The general rule.** *A scope dimension is eleven edits, not one.* Adding one
 "just like the last" and stopping at the tables is what produced 0089, 0090,
 0091, 0093 and 0102 — five reports of one omission. Work this table.
+
+---
+
+## A "whitelist" that OPENED registration: `SIGNUPS_DOMAINS_WHITELIST` overrides `SIGNUPS_ALLOWED=false`
+
+**Symptom.** The Vaultwarden config said, plainly and in this order:
+
+```
+SIGNUPS_ALLOWED=false
+SIGNUPS_DOMAINS_WHITELIST=kkumail.com
+```
+
+Read as English that is "registration is closed, and doubly so — only kkumail".
+The truth was the opposite: **any of KKU's ~40,000 `@kkumail.com` accounts could
+register**, uninvited, from the open internet. Proven by doing it: a well-formed
+POST to `/vault/identity/accounts/register` returned `200` and created an
+account nobody had invited.
+
+**Cause.** `src/config.rs`:
+
+```rust
+pub fn is_signup_allowed(&self, email: &str) -> bool {
+    if self.signups_domains_whitelist().is_empty() {
+        self.signups_allowed()
+    } else {
+        // The whitelist setting overrides the signups_allowed setting.
+        self.is_email_domain_allowed(email)
+    }
+}
+```
+
+A **non-empty** whitelist means `signups_allowed` is **never read**. The second
+line did not narrow the first; it replaced it. The setting added "as belt and
+braces" was the entire hole, and the flag that looked like the gate was dead
+code.
+
+**It survived a deliberate check.** Earlier the same day a forum post saying
+exactly this was tested — and DISMISSED, because a fetched summary of
+`accounts.rs` asserted "the domain whitelist does not override a false
+SIGNUPS_ALLOWED setting". That summary was wrong. The probe used to confirm the
+dismissal was a malformed body, which returns `422` from the request parser
+before any signup logic runs — so it could not have distinguished open from
+closed, and it was read as reassurance.
+
+**Fix.** `SIGNUPS_DOMAINS_WHITELIST` unset. **Empty whitelist +
+`SIGNUPS_ALLOWED=false` is the only closed configuration.** It also improves
+invitations: `is_email_domain_allowed()` returns true for every domain when the
+whitelist is empty, which is what lets `@gmail.com` role accounts and
+`@kku.ac.th` staff be invited at all. Guarded by `vault-config.test.js`, which
+counts only ACTIVE assignments so the explanatory comment cannot satisfy it;
+reintroducing the line turns it red.
+
+**Where it lives now.** `server/vaultwarden/vaultwarden.env.example` (with the
+function quoted inline), `vault-config.test.js`, `skills/vaultwarden.md`.
+
+**The general rule.** *A setting named for what it RESTRICTS may be implemented
+as what it PERMITS — and adding it can switch off the control beside it.* Two
+security settings in sequence do not compose by intersection just because they
+read that way in a file; find the function that reads BOTH and see which one
+wins. And when a claim about a gate is dismissed, the dismissal needs a probe
+that could actually have detected the hole: a request rejected by the PARSER
+(422) never reached the gate, so it is evidence of nothing. Confirm a gate is
+shut by performing the exact action it is supposed to forbid, in full, and
+watching it fail — then delete what you created.

@@ -88,6 +88,19 @@ describe('vaultwarden access model', () => {
     expect(envExample).toMatch(/^SIGNUPS_ALLOWED=false$/m);
   });
 
+  it('sets NO domain whitelist — a non-empty one overrides SIGNUPS_ALLOWED', () => {
+    // This is the assertion that would have caught a live hole: with a
+    // non-empty SIGNUPS_DOMAINS_WHITELIST, is_signup_allowed() never consults
+    // signups_allowed, so "restricting to kkumail.com" opened registration to
+    // every kkumail account at the university. Only an ACTIVE assignment counts
+    // — the explanation above it is commented out and must not satisfy this.
+    const active = envExample
+      .split('\n')
+      .filter((l) => /^[A-Z_]+=/.test(l))
+      .filter((l) => l.startsWith('SIGNUPS_DOMAINS_WHITELIST='));
+    expect(active.map((l) => l.slice(l.indexOf('=') + 1)).filter(Boolean)).toEqual([]);
+  });
+
   it('ships no real admin token or SMTP password', () => {
     // Assert on real ASSIGNMENTS, never the raw text. The file's comments
     // legitimately contain the string `$argon2id$` (they tell you what to

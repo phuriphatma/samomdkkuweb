@@ -69,7 +69,7 @@ Open when: any policy, `current_user_*` helper, or definer RPC.
 - "someone could just book 16.40-20.00 kick me out"
 - A column guard keyed on "is a professor" locked out everyone who is ALSO a professor
 
-## `authz-grants.md` — The permission / seat / scope channel *(18)*
+## `authz-grants.md` — The permission / seat / scope channel *(19)*
 
 Open when: adding an access channel, a scope, or a seat.
 
@@ -91,6 +91,7 @@ Open when: adding an access channel, a scope, or a seat.
 - The same bug in three more readers — swept for on purpose, 2026-08-30
 - A scope line under `master` understates it
 - A SIXTH scope dimension — what "thread it through every gate" actually cost, itemised
+- A "whitelist" that OPENED registration: `SIGNUPS_DOMAINS_WHITELIST` overrides `SIGNUPS_ALLOWED=false`
 
 ## `postgres-schema.md` — Migrations, DDL, triggers & constraints *(25)*
 
@@ -388,4 +389,4 @@ Open when: anything under `passport/` — scan, stamps, certificates, the dashbo
 - Poster stamp / cert bg intermittently missing = lh3 rate-limiting (HTTP 429), NOT a bad link
 - A permission granted in ANOTHER repo's admin console is decorative until this app calls the RPC that reads it
 
-_326 entries across 10 files._
+_327 entries across 10 files._

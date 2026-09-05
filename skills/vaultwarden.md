@@ -166,7 +166,30 @@ the RUNNING container and changes nothing; the env FILE can be right while the
 container still runs the old value. Read state from the container, and if you
 must use the real endpoint, use an address the whitelist will reject anyway.
 
-## The domain whitelist blocks the ROLE ACCOUNTS — invite them, don't register them
+## ⛔ NEVER set SIGNUPS_DOMAINS_WHITELIST — it OPENS registration
+
+`is_signup_allowed()` consults `signups_allowed` ONLY when the whitelist is
+empty. A non-empty whitelist replaces the flag instead of narrowing it, so
+`SIGNUPS_ALLOWED=false` + `SIGNUPS_DOMAINS_WHITELIST=kkumail.com` let every
+kkumail account at KKU register uninvited. Measured 2026-09-06: `200`, account
+created, from the open internet.
+
+Empty whitelist + `SIGNUPS_ALLOWED=false` is the only closed configuration — and
+it is also what lets you invite `@gmail.com` and `@kku.ac.th`.
+
+**Check it the only way that means anything — try the forbidden action:**
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://samo.md.kku.ac.th/vault/identity/accounts/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"probe@kkumail.com","masterPasswordHash":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","key":"2.AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","kdf":0,"kdfIterations":600000,"keys":{"publicKey":"AAAA","encryptedPrivateKey":"2.AAAA|AAAA|AAAA"}}'
+# 400 = closed.  200 = OPEN, and you have just made an account — delete it.
+# A malformed body returns 422 from the PARSER without reaching the gate, so it
+# can never tell you the gate is shut.
+```
+
+## Invitations reach any domain — that is why the whitelist is unset
 
 `SIGNUPS_DOMAINS_WHITELIST=kkumail.com` and the succession role accounts
 (`mdstuddata.beta@gmail.com`, `samomdkku.ai@gmail.com`, `docs/SUCCESSION.md`)
